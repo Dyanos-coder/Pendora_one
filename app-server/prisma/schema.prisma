@@ -1,0 +1,77 @@
+// Pandora One — Backend
+// Une instance app-server + une base MySQL par entreprise (pas de multi-tenant partagé) :
+// cette base entière appartient à une seule entreprise, donc pas de tenantId à porter sur
+// chaque table.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Table à une seule ligne : les informations de l'entreprise qui possède cette instance.
+model Company {
+  id           String   @id @default(uuid())
+  name         String
+  sector       String?
+  logo         Bytes?   @db.LongBlob
+  logoMimeType String?
+  createdAt    DateTime @default(now())
+
+  @@map("company")
+}
+
+enum Role {
+  DIRIGEANT
+  EMPLOYE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  @@map("user")
+}
+
+// Journal append-only (§3.8) : pas de méthode update/delete exposée par les services.
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  before     String?  @db.Text
+  after      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("auditlog")
+}
+
+enum InvoiceStatus {
+  PAYE
+  EN_ATTENTE
+  EN_RETARD
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  reference     String
+  description   String
+  partyName     String
+  amount        Int
+  status        InvoiceStatus
+  issuedAt      DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  photo         Bytes?        @db.LongBlob
+  photoMimeType String?
+
+  @@map("invoice")
+}
