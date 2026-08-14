@@ -1,0 +1,123 @@
+import type { Session } from '../../shared/auth-types'
+import type {
+  CreateInvoiceInput,
+  FinanceSummary,
+  Invoice,
+  InvoiceListResult,
+  MediaResult
+} from '../../shared/finance-types'
+import type { LogoUploadInput } from '../../shared/company-types'
+
+// URL du backend distant (app-server). En dev, pointe sur le serveur lancé en local
+// (npm run dev dans app-server) ; en prod, sur l'URL réelle une fois déployé (Render/VPS).
+const API_URL = process.env['PANDORA_API_URL'] ?? 'http://localhost:3000'
+
+// Forme brute renvoyée par /auth/login (avec le jeton) — usage interne à ce module et à
+// auth.service.ts uniquement. Le renderer ne voit jamais le jeton (voir session.store.ts).
+export type RemoteLoginResponse =
+  | { ok: true; session: Session; token: string }
+  | { ok: false; error: string }
+
+export async function remoteLogin(email: string, password: string): Promise<RemoteLoginResponse> {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+    return (await response.json()) as RemoteLoginResponse
+  } catch {
+    return { ok: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' }
+  }
+}
+
+interface ApiError {
+  ok: false
+  error: string
+}
+
+async function authorizedFetch<T>(
+  path: string,
+  token: string,
+  init?: RequestInit
+): Promise<{ ok: true; data: T } | ApiError> {
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        ...init?.headers,
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const body = await response.json()
+    if (!response.ok) {
+      return { ok: false, error: body.error ?? 'Erreur serveur.' }
+    }
+    return { ok: true, data: body as T }
+  } catch {
+    return { ok: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' }
+  }
+}
+
+/** Pour les réponses binaires (image/PDF) — pas de JSON à décoder, on lit le Content-Type. */
+async function authorizedBinaryFetch(
+  path: string,
+  token: string
+): Promise<{ ok: true; data: MediaResult } | ApiError> {
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      return { ok: false, error: body.error ?? 'Erreur serveur.' }
+    }
+    const mimeType = response.headers.get('Content-Type')?.split(';')[0] ?? 'application/octet-stream'
+    const data = await response.arrayBuffer()
+    return { ok: true, data: { mimeType, data } }
+  } catch {
+    return { ok: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' }
+  }
+}
+
+export function listInvoices(token: string, page = 1) {
+  return authorizedFetch<InvoiceListResult>(`/finance/transactions?page=${page}`, token)
+}
+
+export function createInvoice(token: string, input: CreateInvoiceInput) {
+  const form = new FormData()
+  form.append('reference', input.reference)
+  form.append('description', input.description)
+  form.append('partyName', input.partyName)
+  form.append('amount', String(input.amount))
+  form.append('status', input.status)
+  if (input.photo) {
+    form.append('photo', new Blob([input.photo.data], { type: input.photo.mimeType }), 'photo')
+  }
+
+  return authorizedFetch<{ invoice: Invoice }>('/finance/transactions', token, {
+    method: 'POST',
+    body: form
+  })
+}
+
+export function getInvoiceMedia(token: string, id: string) {
+  return authorizedBinaryFetch(`/finance/transactions/${id}/media`, token)
+}
+
+export function getFinanceSummary(token: string) {
+  return authorizedFetch<FinanceSummary>('/finance/summary', token)
+}
+
+export function getCompanyLogo(token: string) {
+  return authorizedBinaryFetch('/company/logo', token)
+}
+
+export function uploadCompanyLogo(token: string, input: LogoUploadInput) {
+  const form = new FormData()
+  form.append('logo', new Blob([input.data], { type: input.mimeType }), 'logo')
+  return authorizedFetch<{ ok: true }>('/company/logo', token, {
+    method: 'POST',
+    body: form
+  })
+}

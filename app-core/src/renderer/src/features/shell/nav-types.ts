@@ -1,0 +1,10 @@
+export type PageId =
+  | 'dashboard'
+  | 'control-tower'
+  | 'alerts'
+  | 'finance'
+  | 'sales'
+  | 'stocks'
+  | 'hr'
+  | 'settings'
+  | 'memory'

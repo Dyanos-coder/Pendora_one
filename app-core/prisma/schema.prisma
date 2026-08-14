@@ -1,0 +1,30 @@
+// Pandora One — Core
+// Schéma de données local (SQLite via libSQL). Voir Architecture-App-PC-Multitenant.md §4.1/§4.4.
+//
+// Le backend distant (app-server + MySQL) est la source de vérité pour l'identité (une
+// instance = une entreprise, voir modèle Company côté serveur) — la base locale ne garde donc
+// plus de Tenant/User/Membership, uniquement le journal d'audit local.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Journal append-only (§3.8) : le service audit.service.ts n'expose volontairement
+// aucune méthode update/delete sur ce modèle. userId référence un utilisateur qui vit côté
+// serveur distant, pas de contrainte de clé étrangère locale.
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  before     String?
+  after      String?
+  createdAt  DateTime @default(now())
+}

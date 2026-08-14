@@ -1,15 +1,24 @@
-import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useAuth } from './features/auth/useAuth'
+import { LoginScreen } from './features/auth/LoginScreen'
+import { AppShell } from './features/shell/AppShell'
 
 function App(): JSX.Element {
-  const [count, setCount] = useState(0)
+  const { session, loading, error, login, logout } = useAuth()
 
-  return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' }}>
-      <h1>Pandora One — Core</h1>
-      <p>Socle commun de l'application (Electron + React + TypeScript).</p>
-      <button onClick={() => setCount((c) => c + 1)}>Compteur : {count}</button>
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <LoginScreen onLogin={login} error={error} />
+  }
+
+  return <AppShell session={session} onLogout={logout} />
 }
 
 export default App

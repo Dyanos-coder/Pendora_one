@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+/* Design tokens Pandora One — palette "Charbon & Émeraude" (validée sur la maquette Stitch,
+   voir Prompt-Stitch-Maquette-Core.md). Police système uniquement (pas de police distante) :
+   cohérent avec l'esprit offline-first de tout le produit. */
+@theme {
+  --color-brand-950: #0b0f14;
+  --color-brand-900: #111827;
+  --color-brand-800: #1f2937;
+  --color-brand-700: #374151;
+
+  --color-accent-600: #059669;
+  --color-accent-500: #10b981;
+  --color-accent-400: #34d399;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
