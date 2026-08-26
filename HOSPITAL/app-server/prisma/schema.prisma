@@ -1,0 +1,59 @@
+// Pandora Health — Backend
+// Dupliqué depuis app-server (Pandora One Core) : une instance app-server + une base MySQL
+// par établissement (pas de multi-tenant partagé), donc pas de tenantId à porter sur chaque
+// table. Le socle auth/company/audit est repris tel quel ; les modèles génériques du Core
+// (Invoice, Sale, StockItem, Memory*) ont été retirés — le module Patients/Soins n'a pas
+// encore de schéma propre, il arrivera avec la spécification du premier écran qui en a besoin.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Table à une seule ligne : les informations de l'établissement qui possède cette instance.
+model Company {
+  id           String   @id @default(uuid())
+  name         String
+  sector       String?
+  logo         Bytes?   @db.LongBlob
+  logoMimeType String?
+  createdAt    DateTime @default(now())
+
+  @@map("company")
+}
+
+enum Role {
+  DIRIGEANT
+  EMPLOYE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@map("user")
+}
+
+// Journal append-only (§3.8) : pas de méthode update/delete exposée par les services.
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  before     String?  @db.Text
+  after      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("auditlog")
+}
