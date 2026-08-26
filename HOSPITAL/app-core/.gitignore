@@ -1,0 +1,24 @@
+node_modules
+dist
+out
+.DS_Store
+*.log*
+.eslintcache
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+release
+
+/src/generated/prisma
+
+# SQLite dev database (never committed — real data lives in Electron userData at runtime)
+*.db
+*.db-journal
+prisma/dev.db*
+
+# Security: encrypted key / session cache (should only ever exist under userData in prod,
+# but excluded here too in case a manual test generates them locally)
+db.key.enc
+session.cache.enc
+
