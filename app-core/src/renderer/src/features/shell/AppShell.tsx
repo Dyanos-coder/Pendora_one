@@ -79,7 +79,7 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
       case 'finance':
         return <FinancePage />
       case 'hr':
-        return <UsersPage />
+        return <UsersPage session={session} />
       case 'memory':
         return <MemoryPage />
       case 'stocks':

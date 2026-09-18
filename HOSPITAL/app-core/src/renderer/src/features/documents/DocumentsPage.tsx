@@ -1,0 +1,300 @@
+import { useEffect, useMemo, useState } from 'react'
+import { FileText, CheckCircle2, Hourglass, TriangleAlert, Search, Eye, MoreHorizontal, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Card } from '@renderer/components/Card'
+import { PageHeader } from '@renderer/components/PageHeader'
+import { Button } from '@renderer/components/Button'
+import { StatusBadge } from '@renderer/components/StatusBadge'
+import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
+import type { ApiProtocolDocument, ApiProtocolDocumentStatus } from '@shared/documents-types'
+import { documentStatusTone, CATEGORY_CHART_COLOR } from './status'
+import type { DocumentStatus, ProtocolDocument } from './types'
+import { ProtocolDocumentFormModal } from './ProtocolDocumentFormModal'
+
+const STATUS_LABEL: Record<ApiProtocolDocumentStatus, DocumentStatus> = {
+  PUBLIE: 'Publié',
+  EN_VALIDATION: 'En validation',
+  A_REVISER: 'À réviser'
+}
+
+function toDocument(d: ApiProtocolDocument): ProtocolDocument {
+  return {
+    id: d.id,
+    title: d.title,
+    category: d.category,
+    version: d.version,
+    status: STATUS_LABEL[d.status],
+    updatedOn: new Date(d.revisedAt).toLocaleDateString('fr-FR'),
+    owner: d.owner
+  }
+}
+
+export function DocumentsPage(): JSX.Element {
+  const [documents, setDocuments] = useState<(ProtocolDocument & { revisedAtMs: number })[]>([])
+  const [rawDocuments, setRawDocuments] = useState<ApiProtocolDocument[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingDocument, setEditingDocument] = useState<ApiProtocolDocument | null>(null)
+  const [deletingDocument, setDeletingDocument] = useState<ProtocolDocument | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.documents.list().then((result) => {
+      if (cancelled) return
+      if (result.ok) {
+        setRawDocuments(result.data.documents)
+        setDocuments(
+          result.data.documents.map((d) => ({ ...toDocument(d), revisedAtMs: new Date(d.revisedAt).getTime() }))
+        )
+      } else {
+        setError(result.error)
+      }
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const rows = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return documents
+    return documents.filter((d) => `${d.title} ${d.category} ${d.owner}`.toLowerCase().includes(term))
+  }, [search, documents])
+
+  const published = useMemo(() => documents.filter((d) => d.status === 'Publié').length, [documents])
+  const pending = useMemo(() => documents.filter((d) => d.status === 'En validation').length, [documents])
+  const toReview = useMemo(() => documents.filter((d) => d.status === 'À réviser').length, [documents])
+
+  const categoryBreakdown = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const d of documents) counts.set(d.category, (counts.get(d.category) ?? 0) + 1)
+    return Array.from(counts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [documents])
+  const total = categoryBreakdown.reduce((s, c) => s + c.count, 0)
+  const donutBackground = useMemo(() => {
+    let cursor = 0
+    const stops = categoryBreakdown.map(({ label, count }) => {
+      const percent = total === 0 ? 0 : (count / total) * 100
+      const start = cursor
+      cursor += percent
+      return `${CATEGORY_CHART_COLOR[label] ?? '#9ca3af'} ${start}% ${cursor}%`
+    })
+    return `conic-gradient(${stops.join(', ')})`
+  }, [categoryBreakdown, total])
+
+  const recentlyUpdated = useMemo(
+    () => [...documents].sort((a, b) => b.revisedAtMs - a.revisedAtMs).slice(0, 4),
+    [documents]
+  )
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        breadcrumb={['Accueil', 'Documents & Protocoles']}
+        title="Documents & Protocoles"
+        subtitle="Bibliothèque des protocoles, procédures et documents institutionnels."
+        actions={
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            Nouveau document
+          </Button>
+        }
+      />
+
+      {showCreateModal && (
+        <ProtocolDocumentFormModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(document) => {
+            setRawDocuments((prev) => [...prev, document])
+            setDocuments((prev) => [...prev, { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() }])
+            setShowCreateModal(false)
+          }}
+        />
+      )}
+
+      {editingDocument && (
+        <ProtocolDocumentFormModal
+          editing={editingDocument}
+          onClose={() => setEditingDocument(null)}
+          onCreated={(document) => {
+            setRawDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)))
+            setDocuments((prev) =>
+              prev.map((d) => (d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d))
+            )
+            setEditingDocument(null)
+          }}
+        />
+      )}
+
+      {deletingDocument && (
+        <ConfirmDialog
+          title="Supprimer le document"
+          message={`Voulez-vous vraiment supprimer le document « ${deletingDocument.title} » ?`}
+          onCancel={() => setDeletingDocument(null)}
+          onConfirm={() => window.api.documents.delete(deletingDocument.id)}
+          onConfirmed={() => {
+            setRawDocuments((prev) => prev.filter((d) => d.id !== deletingDocument.id))
+            setDocuments((prev) => prev.filter((d) => d.id !== deletingDocument.id))
+            setDeletingDocument(null)
+          }}
+        />
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement des documents…
+        </div>
+      ) : error ? (
+        <p className="py-12 text-center text-sm text-red-500">{error}</p>
+      ) : (
+        <>
+          {/* KPI row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-t-4 border-t-violet-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
+                <FileText className="h-5 w-5 text-violet-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Documents actifs</p>
+              <p className="text-xl font-bold text-gray-900">{documents.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-emerald-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Publiés</p>
+              <p className="text-xl font-bold text-gray-900">{published}</p>
+            </Card>
+            <Card className="border-t-4 border-t-blue-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                <Hourglass className="h-5 w-5 text-blue-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">En validation</p>
+              <p className="text-xl font-bold text-gray-900">{pending}</p>
+            </Card>
+            <Card className="border-t-4 border-t-amber-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+                <TriangleAlert className="h-5 w-5 text-amber-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">À réviser</p>
+              <p className="text-xl font-bold text-gray-900">{toReview}</p>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Card className="p-0 lg:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+                <h3 className="text-sm font-semibold text-gray-900">Documents</h3>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher un document..."
+                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                      <th className="px-6 py-2.5 font-medium">Document</th>
+                      <th className="px-6 py-2.5 font-medium">Catégorie</th>
+                      <th className="px-6 py-2.5 font-medium">Version</th>
+                      <th className="px-6 py-2.5 font-medium">Statut</th>
+                      <th className="px-6 py-2.5 font-medium">Mis à jour</th>
+                      <th className="px-6 py-2.5 font-medium" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((d) => (
+                      <tr key={d.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <td className="px-6 py-3">
+                          <p className="font-medium text-gray-900">{d.title}</p>
+                          <p className="text-xs text-gray-400">{d.owner}</p>
+                        </td>
+                        <td className="px-6 py-3 text-gray-600">{d.category}</td>
+                        <td className="px-6 py-3 text-gray-600">{d.version}</td>
+                        <td className="px-6 py-3">
+                          <StatusBadge label={d.status} tone={documentStatusTone(d.status)} />
+                        </td>
+                        <td className="px-6 py-3 text-gray-600">{d.updatedOn}</td>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-1">
+                            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingDocument(rawDocuments.find((r) => r.id === d.id) ?? null)}
+                              title="Modifier le document"
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingDocument(d)}
+                              title="Supprimer le document"
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <div className="space-y-6">
+              <Card>
+                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
+                {categoryBreakdown.length === 0 ? (
+                  <p className="text-xs text-gray-400">Aucune donnée.</p>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: donutBackground }}>
+                      <div className="h-11 w-11 rounded-full bg-white" />
+                    </div>
+                    <div className="space-y-1 text-[11px]">
+                      {categoryBreakdown.map(({ label, count }) => (
+                        <div key={label} className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: CATEGORY_CHART_COLOR[label] ?? '#9ca3af' }} />
+                          <span className="text-gray-600">{label}</span>
+                          <span className="font-medium text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-0">
+                <div className="border-b border-gray-100 px-5 py-3.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Récemment modifiés</h3>
+                </div>
+                <div className="space-y-3 p-5">
+                  {recentlyUpdated.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate text-gray-700">{r.title}</span>
+                      <span className="shrink-0 text-gray-400">{r.updatedOn}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

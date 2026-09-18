@@ -1,5 +1,5 @@
-// Modèle "Urgence" pour cette itération front-end (v1, données locales — voir la note
-// équivalente dans features/patients/types.ts).
+// Vue affichable d'une visite aux urgences, dérivée de la réponse réelle de l'API (voir
+// @shared/emergency-types).
 
 export type Severity = 'Critique' | 'Élevé' | 'Moyen' | 'Faible'
 export type EmergencyStatus = 'En cours' | 'En observation' | 'En attente de triage' | 'Sorti' | 'Transféré' | 'Annulé'
@@ -9,14 +9,18 @@ export interface EmergencyRecord {
   patientId: string | null
   patientCode: string
   patientName: string
-  arrivalTime: string
-  age: number
+  arrivalTime: Date
+  dischargeTime: Date | null
+  age: number | null
   gender: 'M' | 'F'
   motive: string
   detail: string
   severity: Severity
   zone: string
   doctor: string
+  doctorId: string | null
   status: EmergencyStatus
+  outcome: string | null
   duration: string
+  waitMinutes: number
 }

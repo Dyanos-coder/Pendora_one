@@ -5,7 +5,7 @@
 // Pas de notion de tenant/membership : une instance de l'app (app-server + sa base MySQL) sert
 // une seule entreprise, donc un seul rôle par utilisateur et une seule entreprise par session.
 
-export type Role = 'DIRIGEANT' | 'EMPLOYE'
+export type Role = 'DIRIGEANT' | 'MEDECIN' | 'INFIRMIER' | 'TECHNICIEN' | 'PHARMACIEN' | 'ADMINISTRATIF'
 
 export interface CompanyInfo {
   name: string

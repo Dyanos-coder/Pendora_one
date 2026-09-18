@@ -10,6 +10,20 @@ import type {
   MediaResult
 } from '../shared/finance-types'
 import type { LogoUploadInput } from '../shared/company-types'
+import type {
+  AskMemoryResponse,
+  Conversation,
+  ConversationMessage,
+  MemoryApiResult
+} from '../shared/memory-types'
+import type { CreateSaleInput, Sale, SaleListResult, SalesApiResult, SalesSummary } from '../shared/sales-types'
+import type {
+  CreateStockItemInput,
+  StockItem,
+  StocksApiResult,
+  StocksSummary
+} from '../shared/stocks-types'
+import type { ActivityListResult, ManagedUser, UsersApiResult } from '../shared/users-types'
 
 const api = {
   auth: {
@@ -30,6 +44,38 @@ const api = {
     getLogo: (): Promise<FinanceApiResult<MediaResult>> => ipcRenderer.invoke('company:getLogo'),
     uploadLogo: (input: LogoUploadInput): Promise<FinanceApiResult<{ ok: true }>> =>
       ipcRenderer.invoke('company:uploadLogo', input)
+  },
+  memory: {
+    listConversations: (): Promise<MemoryApiResult<{ conversations: Conversation[] }>> =>
+      ipcRenderer.invoke('memory:listConversations'),
+    createConversation: (title?: string): Promise<MemoryApiResult<{ conversation: Conversation }>> =>
+      ipcRenderer.invoke('memory:createConversation', title),
+    renameConversation: (id: string, title: string): Promise<MemoryApiResult<{ conversation: Conversation }>> =>
+      ipcRenderer.invoke('memory:renameConversation', id, title),
+    getMessages: (id: string): Promise<MemoryApiResult<{ messages: ConversationMessage[] }>> =>
+      ipcRenderer.invoke('memory:getMessages', id),
+    ask: (id: string, question: string): Promise<MemoryApiResult<AskMemoryResponse>> =>
+      ipcRenderer.invoke('memory:ask', id, question)
+  },
+  sales: {
+    list: (page?: number): Promise<SalesApiResult<SaleListResult>> => ipcRenderer.invoke('sales:list', page),
+    create: (input: CreateSaleInput): Promise<SalesApiResult<{ sale: Sale }>> =>
+      ipcRenderer.invoke('sales:create', input),
+    summary: (): Promise<SalesApiResult<SalesSummary>> => ipcRenderer.invoke('sales:summary')
+  },
+  stocks: {
+    list: (search?: string): Promise<StocksApiResult<{ items: StockItem[] }>> =>
+      ipcRenderer.invoke('stocks:list', search),
+    create: (input: CreateStockItemInput): Promise<StocksApiResult<{ item: StockItem }>> =>
+      ipcRenderer.invoke('stocks:create', input),
+    summary: (): Promise<StocksApiResult<StocksSummary>> => ipcRenderer.invoke('stocks:summary')
+  },
+  users: {
+    list: (): Promise<UsersApiResult<{ users: ManagedUser[] }>> => ipcRenderer.invoke('users:list'),
+    setActive: (id: string, isActive: boolean): Promise<UsersApiResult<{ user: ManagedUser }>> =>
+      ipcRenderer.invoke('users:setActive', id, isActive),
+    activity: (id: string, page?: number): Promise<UsersApiResult<ActivityListResult>> =>
+      ipcRenderer.invoke('users:activity', id, page)
   }
 }
 

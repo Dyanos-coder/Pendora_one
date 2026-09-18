@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import { login } from '../services/auth.service'
-import { restoreSessionFromCache, clearCurrentSession } from '../services/session.store'
+import { login, logout } from '../services/auth.service'
+import { restoreSessionFromCache } from '../services/session.store'
 import type { LoginResult, Session } from '../../shared/auth-types'
 
 export function registerAuthIpcHandlers(): void {
@@ -9,8 +9,8 @@ export function registerAuthIpcHandlers(): void {
     return login(email, password)
   })
 
-  ipcMain.handle('auth:logout', (): void => {
-    clearCurrentSession()
+  ipcMain.handle('auth:logout', async (): Promise<void> => {
+    await logout()
   })
 
   ipcMain.handle('auth:getSession', (): Session | null => {

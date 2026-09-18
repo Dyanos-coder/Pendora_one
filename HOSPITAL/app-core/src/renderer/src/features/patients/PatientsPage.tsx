@@ -1,30 +1,56 @@
-import { useMemo, useState } from 'react'
-import { Search, UserPlus, Users, UserCheck, UserPlus2, TriangleAlert } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Search, UserPlus, Users, UserCheck, UserPlus2, Loader2, Trash2 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { StatusBadge } from '@renderer/components/StatusBadge'
 import { Button } from '@renderer/components/Button'
-import { MOCK_PATIENTS } from './mock-data'
+import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import { PatientAvatar } from './PatientAvatar'
-import { statusInfo } from './status'
+import { PatientFormModal } from './PatientFormModal'
+import type { PatientSummary } from '@shared/patient-types'
 
 interface PatientsPageProps {
   onOpenPatient: (id: string) => void
 }
 
+function statusInfo(patient: Pick<PatientSummary, 'status'>): { label: string; tone: 'success' | 'neutral' } {
+  return patient.status === 'ACTIVE' ? { label: 'Actif', tone: 'success' } : { label: 'Inactif', tone: 'neutral' }
+}
+
 export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element {
   const [search, setSearch] = useState('')
+  const [patients, setPatients] = useState<PatientSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [deletingPatient, setDeletingPatient] = useState<PatientSummary | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.patients.list().then((result) => {
+      if (cancelled) return
+      if (result.ok) {
+        setPatients(result.data.patients)
+      } else {
+        setError(result.error)
+      }
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return MOCK_PATIENTS
-    return MOCK_PATIENTS.filter((patient) =>
-      `${patient.firstName} ${patient.lastName} ${patient.code} ${patient.service}`.toLowerCase().includes(term)
+    if (!term) return patients
+    return patients.filter((patient) =>
+      `${patient.firstName} ${patient.lastName} ${patient.code} ${patient.service ?? ''}`.toLowerCase().includes(term)
     )
-  }, [search])
+  }, [search, patients])
 
-  const activeCount = MOCK_PATIENTS.filter((p) => p.status === 'active').length
-  const inactiveCount = MOCK_PATIENTS.length - activeCount
+  const activeCount = patients.filter((p) => p.status === 'ACTIVE').length
+  const inactiveCount = patients.length - activeCount
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -33,12 +59,35 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
         title="Patients"
         subtitle="Recherchez, consultez et gérez les dossiers de tous les patients de l'établissement."
         actions={
-          <Button>
+          <Button onClick={() => setShowCreateModal(true)}>
             <UserPlus className="h-4 w-4" />
             Nouveau patient
           </Button>
         }
       />
+
+      {showCreateModal && (
+        <PatientFormModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(patient) => {
+            setPatients((prev) => [patient, ...prev])
+            setShowCreateModal(false)
+          }}
+        />
+      )}
+
+      {deletingPatient && (
+        <ConfirmDialog
+          title="Supprimer le patient"
+          message={`Voulez-vous vraiment supprimer le dossier de ${deletingPatient.firstName} ${deletingPatient.lastName} ? Cette action est réversible uniquement par un administrateur.`}
+          onCancel={() => setDeletingPatient(null)}
+          onConfirm={() => window.api.patients.delete(deletingPatient.id)}
+          onConfirmed={() => {
+            setPatients((prev) => prev.filter((p) => p.id !== deletingPatient.id))
+            setDeletingPatient(null)
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card className="border-t-4 border-t-violet-400 p-4">
@@ -46,7 +95,7 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
             <Users className="h-5 w-5 text-violet-600" />
           </div>
           <p className="mt-3 text-xs font-medium uppercase tracking-wide text-gray-500">Total patients</p>
-          <p className="text-2xl font-bold text-gray-900">{MOCK_PATIENTS.length}</p>
+          <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
         </Card>
         <Card className="border-t-4 border-t-emerald-400 p-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
@@ -78,7 +127,14 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Chargement des patients…
+          </div>
+        ) : error ? (
+          <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
+        ) : filtered.length === 0 ? (
           <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun patient ne correspond à cette recherche.</p>
         ) : (
           <table className="w-full text-left text-sm">
@@ -90,6 +146,7 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
                 <th className="px-6 py-2.5 font-medium">Assurance</th>
                 <th className="px-6 py-2.5 font-medium">Dernière visite</th>
                 <th className="px-6 py-2.5 font-medium">Statut</th>
+                <th className="px-6 py-2.5 font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -115,11 +172,23 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
                     <td className="px-6 py-3.5 text-gray-600">
                       {patient.age} ans · {patient.gender === 'M' ? 'Homme' : 'Femme'}
                     </td>
-                    <td className="px-6 py-3.5 text-gray-600">{patient.service}</td>
-                    <td className="px-6 py-3.5 text-gray-600">{patient.insuranceProvider}</td>
-                    <td className="px-6 py-3.5 text-gray-600">{patient.lastVisit}</td>
+                    <td className="px-6 py-3.5 text-gray-600">{patient.service ?? '—'}</td>
+                    <td className="px-6 py-3.5 text-gray-600">{patient.insuranceProvider ?? '—'}</td>
+                    <td className="px-6 py-3.5 text-gray-600">{patient.lastVisit ?? '—'}</td>
                     <td className="px-6 py-3.5">
                       <StatusBadge {...status} />
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeletingPatient(patient)
+                        }}
+                        title="Supprimer le patient"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 )
@@ -128,12 +197,6 @@ export function PatientsPage({ onOpenPatient }: PatientsPageProps): JSX.Element 
           </table>
         )}
       </Card>
-
-      <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
-        <TriangleAlert className="h-3.5 w-3.5" />
-        Données de démonstration — la liste complète (filtres avancés, pagination, panneau
-        latéral détaillé) sera étoffée avec la spécification du module Patients.
-      </div>
     </div>
   )
 }

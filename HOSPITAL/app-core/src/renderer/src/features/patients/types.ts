@@ -8,54 +8,13 @@
 export type PatientStatus = 'active' | 'inactive'
 export type AdmissionType = 'Ambulatoire' | 'Hospitalisé' | 'Urgence'
 
-export interface VitalSign {
-  label: string
-  value: string
-  date: string
-}
-
-export interface Consultation {
-  date: string
-  time: string
-  service: string
-  doctor: string
-  motive: string
-  status: 'Terminée' | 'Planifiée' | 'Annulée'
-}
-
-export interface Prescription {
-  name: string
-  dosage: string
-  remainingDays: number
-  active: boolean
-}
-
-export interface ExamResult {
-  label: string
-  date: string
-  value: string
-  status: 'Normal' | 'Anormal' | 'Critique'
-}
-
+// Consultations, RDV à venir, vitaux, ordonnances, résultats et chronologie viennent désormais
+// du dossier patient agrégé (`window.api.patients.dossier`, voir shared/patient-types.ts
+// `ApiPatientDossier`) — seul `documents` reste mocké ici, en attente de l'item 11 (upload réel).
 export interface PatientDocument {
   name: string
   date: string
   size: string
-}
-
-export interface TimelineEvent {
-  date: string
-  type: 'consultation' | 'exam' | 'emergency' | 'vaccination' | 'admission'
-  label: string
-  service: string
-}
-
-export interface UpcomingAppointment {
-  date: string
-  time: string
-  service: string
-  doctor: string
-  status: 'Confirmé' | 'En attente'
 }
 
 export interface Patient {
@@ -83,11 +42,5 @@ export interface Patient {
   familyHistory: string[]
   lifestyle: string[]
   recordCompleteness: number
-  consultations: Consultation[]
-  upcomingAppointments: UpcomingAppointment[]
-  vitals: VitalSign[]
-  prescriptions: Prescription[]
-  results: ExamResult[]
   documents: PatientDocument[]
-  timeline: TimelineEvent[]
 }

@@ -16,6 +16,10 @@ export async function login(email: string, password: string): Promise<LoginResul
     return { ok: false, error: 'Identifiants invalides.' }
   }
 
+  if (!user.isActive) {
+    return { ok: false, error: 'Ce compte a été suspendu.' }
+  }
+
   const company = await prisma.company.findFirst()
   if (!company) {
     return { ok: false, error: "Aucune entreprise n'est configurée sur ce serveur." }

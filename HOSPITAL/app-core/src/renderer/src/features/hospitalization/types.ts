@@ -1,5 +1,5 @@
-// Modèle "Hospitalisation" pour cette itération front-end (v1, données locales — voir la note
-// équivalente dans features/patients/types.ts).
+// Vue affichable d'une hospitalisation, dérivée de la réponse réelle de l'API (voir
+// @shared/hospitalization-types).
 
 export type HospitalizationStatus = 'Hospitalisé' | 'En attente' | 'Sorti'
 
@@ -8,12 +8,13 @@ export interface HospitalizationRecord {
   patientId: string | null
   patientCode: string
   patientName: string
-  admissionDate: string
-  admissionTime: string
+  admissionDate: Date
   service: string
-  room: string
-  bed: string
+  room: string | null
+  bed: string | null
+  bedId: string | null
   doctor: string
+  doctorId: string | null
   motive: string
   status: HospitalizationStatus
   stayDuration: string

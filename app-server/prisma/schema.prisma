@@ -36,6 +36,7 @@ model User {
   passwordHash String
   name         String
   role         Role
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   @@map("user")
@@ -74,4 +75,67 @@ model Invoice {
   photoMimeType String?
 
   @@map("invoice")
+}
+
+// Historique des conversations avec l'assistant "Mémoire d'entreprise" (§ IA).
+model MemoryConversation {
+  id        String          @id @default(uuid())
+  title     String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  messages  MemoryMessage[]
+
+  @@map("memory_conversation")
+}
+
+enum MemoryMessageRole {
+  USER
+  ASSISTANT
+}
+
+model MemoryMessage {
+  id             String             @id @default(uuid())
+  conversationId String
+  conversation   MemoryConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MemoryMessageRole
+  text           String             @db.Text
+  createdAt      DateTime           @default(now())
+
+  @@index([conversationId])
+  @@map("memory_message")
+}
+
+enum SaleStatus {
+  PAYE
+  EN_ATTENTE
+}
+
+model Sale {
+  id          String     @id @default(uuid())
+  clientName  String
+  stockItemId String
+  stockItem   StockItem  @relation(fields: [stockItemId], references: [id])
+  quantity    Int
+  items       String
+  amount      Int
+  status      SaleStatus
+  issuedAt    DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+
+  @@index([stockItemId])
+  @@map("sale")
+}
+
+model StockItem {
+  id        String   @id @default(uuid())
+  name      String
+  sku       String   @unique
+  category  String
+  quantity  Int
+  threshold Int
+  unitPrice Int
+  createdAt DateTime @default(now())
+  sales     Sale[]
+
+  @@map("stock_item")
 }

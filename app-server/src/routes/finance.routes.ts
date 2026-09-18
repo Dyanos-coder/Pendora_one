@@ -4,6 +4,7 @@ import { upload } from '../upload'
 import { createInvoice, getFinanceSummary, getInvoiceWithPhoto, listInvoices } from '../services/finance.service'
 import { getCompany } from '../services/company.service'
 import { streamInvoicePdf } from '../pdf/invoice-pdf'
+import { logAudit } from '../services/audit.service'
 
 export const financeRouter = Router()
 
@@ -38,6 +39,7 @@ financeRouter.post('/transactions', upload.single('photo'), async (req, res) => 
     status,
     photo: req.file ? { data: req.file.buffer, mimeType: req.file.mimetype } : undefined
   })
+  await logAudit(req.auth!.userId, 'finance.invoice.create', 'Invoice', invoice.id)
   res.status(201).json({ ok: true, invoice })
 })
 

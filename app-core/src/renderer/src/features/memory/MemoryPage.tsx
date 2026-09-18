@@ -1,88 +1,257 @@
-import { useState } from 'react'
-import { Sparkles, Search, History, BarChart3, Paperclip, Send } from 'lucide-react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { Sparkles, Send, Loader2, Plus, Pencil, TrendingUp, TriangleAlert, Wallet } from 'lucide-react'
 import { PageHeader } from '@renderer/components/PageHeader'
+import type { Conversation, ConversationMessage } from '@shared/memory-types'
 
 const SUGGESTIONS = [
-  { icon: Search, label: 'Derniers contrats signés ?' },
-  { icon: History, label: 'Historique recrutement Q3' },
-  { icon: BarChart3, label: 'Evolution des ventes 2022' }
+  { icon: TrendingUp, label: 'Quel est notre chiffre d’affaires actuel ?' },
+  { icon: TriangleAlert, label: 'Quelles factures sont en retard de paiement ?' },
+  { icon: Wallet, label: 'Résume ma situation financière en 3 points.' }
 ]
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+}
+
 export function MemoryPage(): JSX.Element {
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ConversationMessage[]>([])
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [asking, setAsking] = useState(false)
   const [draft, setDraft] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+
+  async function loadConversations(selectFirst = false): Promise<void> {
+    const result = await window.api.memory.listConversations()
+    if (!result.ok) return
+    setConversations(result.data.conversations)
+    if (selectFirst && result.data.conversations.length > 0) {
+      selectConversation(result.data.conversations[0].id)
+    }
+  }
+
+  async function selectConversation(id: string): Promise<void> {
+    setActiveId(id)
+    setLoadingMessages(true)
+    const result = await window.api.memory.getMessages(id)
+    setMessages(result.ok ? result.data.messages : [])
+    setLoadingMessages(false)
+  }
+
+  useEffect(() => {
+    loadConversations(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleNewConversation(): Promise<void> {
+    const result = await window.api.memory.createConversation()
+    if (!result.ok) return
+    setConversations((prev) => [result.data.conversation, ...prev])
+    setActiveId(result.data.conversation.id)
+    setMessages([])
+  }
+
+  async function ask(question: string): Promise<void> {
+    if (!question.trim() || asking) return
+
+    let conversationId = activeId
+    if (!conversationId) {
+      const created = await window.api.memory.createConversation()
+      if (!created.ok) return
+      conversationId = created.data.conversation.id
+      setActiveId(conversationId)
+      setConversations((prev) => [created.data.conversation, ...prev])
+    }
+
+    setDraft('')
+    setAsking(true)
+    setMessages((prev) => [
+      ...prev,
+      { id: `tmp-${Date.now()}`, conversationId, role: 'USER', text: question, createdAt: new Date().toISOString() }
+    ])
+
+    const result = await window.api.memory.ask(conversationId, question)
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `tmp-${Date.now()}-a`,
+        conversationId: conversationId as string,
+        role: 'ASSISTANT',
+        text: result.ok ? result.data.answer : `Erreur : ${result.error}`,
+        createdAt: new Date().toISOString()
+      }
+    ])
+    setAsking(false)
+    loadConversations()
+  }
+
+  async function handleSubmit(event: FormEvent): Promise<void> {
+    event.preventDefault()
+    await ask(draft)
+  }
+
+  function startRename(conv: Conversation): void {
+    setEditingId(conv.id)
+    setEditingTitle(conv.title)
+  }
+
+  async function commitRename(): Promise<void> {
+    if (!editingId) return
+    const id = editingId
+    const title = editingTitle
+    setEditingId(null)
+    if (!title.trim()) return
+
+    const result = await window.api.memory.renameConversation(id, title)
+    if (result.ok) {
+      setConversations((prev) => prev.map((c) => (c.id === id ? result.data.conversation : c)))
+    }
+  }
+
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Enter') commitRename()
+    if (event.key === 'Escape') setEditingId(null)
+  }
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col">
-      <PageHeader breadcrumb={['Entreprise', 'Mémoire']} title="Mémoire d'entreprise" />
+    <div className="mx-auto flex h-full max-w-5xl gap-6">
+      <div className="flex w-56 shrink-0 flex-col">
+        <button
+          onClick={handleNewConversation}
+          className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-accent-500 px-3 py-2 text-sm font-medium text-white hover:bg-accent-600"
+        >
+          <Plus className="h-4 w-4" />
+          Nouvelle conversation
+        </button>
 
-      <div className="flex-1 space-y-4">
-        <div className="flex justify-end">
-          <div className="max-w-lg rounded-2xl rounded-tr-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-800">
-            Pourquoi avons-nous arrêté de travailler avec ce fournisseur ?
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-50 text-accent-600">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="max-w-xl rounded-2xl rounded-tl-sm border border-gray-200 bg-white p-4">
-            <p className="text-sm leading-relaxed text-gray-700">
-              Nous avons cessé la collaboration avec{' '}
-              <span className="font-semibold text-accent-600">Logistix SA</span> le 14 Octobre
-              2023. Cette décision a été prise par <span className="font-semibold">Amina Dirigeante</span>{' '}
-              suite à des retards de livraison répétés (incident #LOG-8821) et une augmentation
-              unilatérale des tarifs de 15%.
-            </p>
-            <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Sources &amp; références
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {['Contrat Logistix 2023', 'Amina Dirigeante', 'Incident #LOG-8821'].map((ref) => (
-                <span
-                  key={ref}
-                  className="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600"
-                >
-                  {ref}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 pt-2">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s.label}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3.5 py-2 text-sm text-gray-500 hover:border-accent-300 hover:text-accent-600"
+        <div className="flex-1 space-y-1 overflow-y-auto">
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className={
+                'group flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm ' +
+                (conv.id === activeId ? 'bg-accent-50 text-accent-700' : 'text-gray-600 hover:bg-gray-100')
+              }
             >
-              <s.icon className="h-4 w-4" />
-              {s.label}
-            </button>
+              {editingId === conv.id ? (
+                <input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={handleRenameKeyDown}
+                  className="w-full rounded border border-accent-300 bg-white px-1.5 py-0.5 text-sm focus:outline-none"
+                />
+              ) : (
+                <>
+                  <button onClick={() => selectConversation(conv.id)} className="min-w-0 flex-1 truncate text-left">
+                    {conv.title}
+                  </button>
+                  <span className="shrink-0 text-[10px] text-gray-400">{formatDate(conv.updatedAt)}</span>
+                  <button
+                    onClick={() => startRename(conv)}
+                    title="Renommer"
+                    className="shrink-0 opacity-0 hover:text-accent-600 group-hover:opacity-100"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="sticky bottom-0 mt-6 border-t border-gray-100 bg-gray-50 pt-4">
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-          <Paperclip className="h-4 w-4 shrink-0 text-gray-400" />
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Posez une question sur l'historique de l'entreprise..."
-            className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
-          />
-          <button
-            disabled={!draft.trim()}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+      <div className="flex flex-1 flex-col">
+        <PageHeader breadcrumb={['Entreprise', 'Mémoire']} title="Mémoire d'entreprise" />
+
+        <div className="flex-1 space-y-4 overflow-y-auto">
+          {loadingMessages ? (
+            <p className="px-4 py-8 text-center text-sm text-gray-400">Chargement…</p>
+          ) : (
+            <>
+              {messages.length === 0 && (
+                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-400">
+                  Posez une question sur vos données financières — factures, chiffre d&apos;affaires, impayés.
+                </p>
+              )}
+
+              {messages.map((message) =>
+                message.role === 'USER' ? (
+                  <div key={message.id} className="flex justify-end">
+                    <div className="max-w-lg rounded-2xl rounded-tr-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-800">
+                      {message.text}
+                    </div>
+                  </div>
+                ) : (
+                  <div key={message.id} className="flex gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-50 text-accent-600">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div className="max-w-xl whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-gray-200 bg-white p-4 text-sm leading-relaxed text-gray-700">
+                      {message.text}
+                    </div>
+                  </div>
+                )
+              )}
+            </>
+          )}
+
+          {asking && (
+            <div className="flex gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-50 text-accent-600">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-gray-200 bg-white px-4 py-3 text-sm text-gray-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Réflexion en cours…
+              </div>
+            </div>
+          )}
+
+          {messages.length === 0 && !loadingMessages && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => ask(s.label)}
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3.5 py-2 text-sm text-gray-500 hover:border-accent-300 hover:text-accent-600"
+                >
+                  <s.icon className="h-4 w-4" />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <p className="mt-2 text-center text-[11px] text-gray-400">
-          Pandora AI utilise vos documents internes sécurisés pour répondre. Les données restent au
-          sein de votre espace.
-        </p>
+
+        <div className="sticky bottom-0 mt-6 border-t border-gray-100 bg-gray-50 pt-4">
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2"
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={asking}
+              placeholder="Posez une question sur vos finances..."
+              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim() || asking}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </form>
+          <p className="mt-2 text-center text-[11px] text-gray-400">
+            Pandora AI répond à partir des données Finance réelles de votre entreprise.
+          </p>
+        </div>
       </div>
     </div>
   )

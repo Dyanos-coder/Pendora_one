@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.middleware'
 import { upload } from '../upload'
 import { getCompanyLogo, updateCompanyLogo } from '../services/company.service'
+import { logAudit } from '../services/audit.service'
 
 export const companyRouter = Router()
 
@@ -23,5 +24,6 @@ companyRouter.post('/logo', upload.single('logo'), async (req, res) => {
     return
   }
   await updateCompanyLogo(req.file.buffer, req.file.mimetype)
+  await logAudit(req.auth!.userId, 'company.logo.update', 'Company')
   res.json({ ok: true })
 })

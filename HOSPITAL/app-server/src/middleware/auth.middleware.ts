@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { verifyToken } from '../auth/jwt'
 import { getPrismaClient } from '../db/client'
 import type { AuthTokenPayload } from '../types'
+import { DOMAIN_PERMISSIONS, hasAccess, type AccessLevel, type Domain } from '../config/permissions'
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -40,7 +41,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const prisma = getPrismaClient()
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { role: true, isActive: true }
+    select: { role: true, isActive: true, sessionVersion: true }
   })
 
   if (!user) {
@@ -53,14 +54,30 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
 
-  req.auth = { userId: payload.userId, role: user.role }
+  if (user.sessionVersion !== payload.sessionVersion) {
+    res.status(401).json({ ok: false, error: 'Session expirée, veuillez vous reconnecter.' })
+    return
+  }
+
+  req.auth = { userId: payload.userId, role: user.role, sessionVersion: user.sessionVersion }
   next()
 }
 
-export function requireDirigeant(req: Request, res: Response, next: NextFunction): void {
-  if (req.auth?.role !== 'DIRIGEANT') {
-    res.status(403).json({ ok: false, error: 'Réservé au dirigeant.' })
-    return
+/**
+ * RBAC par domaine — voir HOSPITAL/Audit-Fonctionnalites-Manquantes.md §2 pour la matrice de
+ * référence. À poser après `requireAuth` (qui remplit req.auth). Utilisation typique : un
+ * `router.use(requireAccess('patients', 'read'))` en tête de fichier de routes pour bloquer les
+ * rôles sans aucun accès au domaine, puis `requireAccess('patients', 'write')` en plus sur les
+ * routes POST/PATCH qui doivent être plus restrictives que le minimum du router.
+ */
+export function requireAccess(domain: Domain, minLevel: AccessLevel) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const role = req.auth?.role
+    const granted = role ? DOMAIN_PERMISSIONS[domain][role] : 'none'
+    if (!hasAccess(granted, minLevel)) {
+      res.status(403).json({ ok: false, error: 'Accès non autorisé pour votre rôle.' })
+      return
+    }
+    next()
   }
-  next()
 }

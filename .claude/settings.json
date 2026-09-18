@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma *)",
+      "Bash(node -e \"require.resolve\\('dotenv'\\)\")",
+      "Bash(sleep 5; cat \"/c/Users/sanni/AppData/Local/Temp/claude/e--Travail-RESINEPO-multi-logiciel/3bc9fc56-6ebf-406f-82e9-dd0f83312128/tasks/bsua1wv1z.output\" 2>&1)",
+      "Read(//c/Users/sanni/AppData/Local/Temp/claude/e--Travail-RESINEPO-multi-logiciel/3bc9fc56-6ebf-406f-82e9-dd0f83312128/tasks/**)",
+      "Bash(npm run *)",
+      "Bash(curl --version)",
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\\\\n\" -F \"f=@/tmp/simple.txt\" https://httpbin.org/post)",
+      "Read(//c/xampp/mysql/bin/**)"
+    ]
+  }
+}

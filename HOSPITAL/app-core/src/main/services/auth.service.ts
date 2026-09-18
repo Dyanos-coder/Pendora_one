@@ -1,6 +1,6 @@
 import { logAudit } from './audit.service'
-import { remoteLogin } from './remote-api.client'
-import { setCurrentSession } from './session.store'
+import { remoteLogin, remoteLogout } from './remote-api.client'
+import { clearCurrentSession, getCurrentToken, setCurrentSession } from './session.store'
 import type { LoginResult } from '../../shared/auth-types'
 
 // La vérification des identifiants a lieu côté backend distant (app-server + MySQL, source de
@@ -29,4 +29,14 @@ export async function login(email: string, password: string): Promise<LoginResul
   }
 
   return { ok: true, session: result.session }
+}
+
+/** Révoque le jeton côté serveur (best-effort, voir remoteLogout) puis efface la session locale
+ * — dans cet ordre, pour que l'appel réseau dispose encore du jeton à révoquer. */
+export async function logout(): Promise<void> {
+  const token = getCurrentToken()
+  if (token) {
+    await remoteLogout(token)
+  }
+  clearCurrentSession()
 }

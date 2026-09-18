@@ -12,7 +12,6 @@ import {
   HeartPulse,
   Microscope,
   Telescope,
-  Ellipsis,
   Pill,
   Boxes,
   Droplets,
@@ -24,8 +23,6 @@ import {
   TriangleAlert,
   ClipboardCheck,
   FileText,
-  Radar,
-  LayoutGrid,
   BrainCircuit,
   BarChart3,
   Workflow,
@@ -47,6 +44,26 @@ import { AppointmentsPage } from '@renderer/features/appointments/AppointmentsPa
 import { ConsultationsPage } from '@renderer/features/consultations/ConsultationsPage'
 import { HospitalizationPage } from '@renderer/features/hospitalization/HospitalizationPage'
 import { EmergenciesPage } from '@renderer/features/emergencies/EmergenciesPage'
+import { OperatingRoomPage } from '@renderer/features/operating-room/OperatingRoomPage'
+import { LaboratoryPage } from '@renderer/features/laboratory/LaboratoryPage'
+import { ImagingPage } from '@renderer/features/imaging/ImagingPage'
+import { CardiologyPage } from '@renderer/features/cardiology/CardiologyPage'
+import { PathologyPage } from '@renderer/features/pathology/PathologyPage'
+import { EndoscopyPage } from '@renderer/features/endoscopy/EndoscopyPage'
+import { PharmacyPage } from '@renderer/features/pharmacy/PharmacyPage'
+import { StocksPage } from '@renderer/features/stocks/StocksPage'
+import { BloodBankPage } from '@renderer/features/blood-bank/BloodBankPage'
+import { FinancePage } from '@renderer/features/finance/FinancePage'
+import { ProcurementPage } from '@renderer/features/procurement/ProcurementPage'
+import { HRPage } from '@renderer/features/hr/HrPage'
+import { QualityPage } from '@renderer/features/quality/QualityPage'
+import { RiskManagementPage } from '@renderer/features/risk-management/RiskManagementPage'
+import { AuditCompliancePage } from '@renderer/features/audit-compliance/AuditCompliancePage'
+import { DocumentsPage } from '@renderer/features/documents/DocumentsPage'
+import { SettingsPage } from '@renderer/features/settings/SettingsPage'
+import { AIPredictionsPage } from '@renderer/features/ai-predictions/AIPredictionsPage'
+import { AnalyticsPage } from '@renderer/features/analytics/AnalyticsPage'
+import { AutomationStudioPage } from '@renderer/features/automation-studio/AutomationStudioPage'
 import { ComingSoonPage } from '@renderer/features/shell/ComingSoonPage'
 
 interface AppShellProps {
@@ -84,8 +101,7 @@ const NAV: NavGroup[] = [
       { id: 'imaging', label: 'Imagerie médicale', icon: ScanLine },
       { id: 'cardiology', label: 'Cardiologie', icon: HeartPulse },
       { id: 'pathology', label: 'Anatomopathologie', icon: Microscope },
-      { id: 'endoscopy', label: 'Endoscopie', icon: Telescope },
-      { id: 'other-exams', label: 'Autres services', icon: Ellipsis }
+      { id: 'endoscopy', label: 'Endoscopie', icon: Telescope }
     ]
   },
   {
@@ -117,8 +133,6 @@ const NAV: NavGroup[] = [
   {
     label: 'Intelligence & pilotage',
     items: [
-      { id: 'command-center', label: 'Centre de Commandement', icon: Radar },
-      { id: 'reports-dashboards', label: 'Tableaux de bord', icon: LayoutGrid },
       { id: 'ai-predictions', label: 'IA & Prédictions', icon: BrainCircuit },
       { id: 'analytics', label: 'Rapports & Analyse', icon: BarChart3 },
       { id: 'automation-studio', label: 'Automation Studio', icon: Workflow }
@@ -136,7 +150,11 @@ const NAV_LABELS: Record<PageId, string> = NAV.reduce(
 
 const ROLE_LABEL: Record<string, string> = {
   DIRIGEANT: 'Directeur Général',
-  EMPLOYE: 'Praticien'
+  MEDECIN: 'Médecin',
+  INFIRMIER: 'Infirmier(ère)',
+  TECHNICIEN: 'Technicien',
+  PHARMACIEN: 'Pharmacien',
+  ADMINISTRATIF: 'Administratif'
 }
 
 export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
@@ -197,6 +215,66 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
     }
     if (activePage === 'emergencies') {
       return <EmergenciesPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'operating-room') {
+      return <OperatingRoomPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'laboratory') {
+      return <LaboratoryPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'imaging') {
+      return <ImagingPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'cardiology') {
+      return <CardiologyPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'pathology') {
+      return <PathologyPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'endoscopy') {
+      return <EndoscopyPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'pharmacy') {
+      return <PharmacyPage onNavigate={navigate} />
+    }
+    if (activePage === 'stocks') {
+      return <StocksPage />
+    }
+    if (activePage === 'blood-bank') {
+      return <BloodBankPage onOpenPatient={openPatient} />
+    }
+    if (activePage === 'finance') {
+      return <FinancePage />
+    }
+    if (activePage === 'procurement') {
+      return <ProcurementPage />
+    }
+    if (activePage === 'hr') {
+      return <HRPage />
+    }
+    if (activePage === 'quality') {
+      return <QualityPage />
+    }
+    if (activePage === 'risk-management') {
+      return <RiskManagementPage />
+    }
+    if (activePage === 'audit-compliance') {
+      return <AuditCompliancePage />
+    }
+    if (activePage === 'documents') {
+      return <DocumentsPage />
+    }
+    if (activePage === 'settings') {
+      return <SettingsPage session={session} onLogout={onLogout} />
+    }
+    if (activePage === 'ai-predictions') {
+      return <AIPredictionsPage />
+    }
+    if (activePage === 'analytics') {
+      return <AnalyticsPage />
+    }
+    if (activePage === 'automation-studio') {
+      return <AutomationStudioPage />
     }
     return <ComingSoonPage title={NAV_LABELS[activePage]} />
   }

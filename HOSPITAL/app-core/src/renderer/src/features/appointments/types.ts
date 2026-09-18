@@ -1,6 +1,6 @@
-// Modèle "Rendez-vous" pour cette itération front-end (v1, données locales — voir la note
-// équivalente dans features/patients/types.ts : le contrat partagé main/preload/renderer
-// viendra une fois la spécification du module Rendez-vous validée sur cet écran).
+// Vue affichable d'un rendez-vous, dérivée de la réponse réelle de l'API (voir
+// @shared/appointment-types) — date/heure réelles plutôt qu'un dayIndex relatif à une semaine
+// figée, contrairement à l'ancienne v1 mock.
 
 export type AppointmentType = 'Consultation' | 'Suivi' | 'Examen' | 'Résultat' | 'Chirurgie' | 'Campagne' | 'Autre'
 export type AppointmentStatus = 'Confirmé' | 'En attente' | 'Annulé' | 'Terminé'
@@ -9,16 +9,17 @@ export interface Appointment {
   id: string
   patientId: string | null
   patientName: string
-  age: number
-  /** Index (0 = Lundi ... 6 = Dimanche) dans WEEK_DAYS, pour le placement dans le calendrier. */
-  dayIndex: number
-  time: string
+  patientCode: string | null
+  patientPhone: string | null
+  age: number | null
+  date: Date
   durationMin: number
   service: string
-  doctor: string
+  doctorId: string | null
+  doctorName: string
   room: string
   type: AppointmentType
   motive: string
   status: AppointmentStatus
-  reminder?: string
+  reminder?: string | null
 }

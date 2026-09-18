@@ -25,18 +25,20 @@ export interface CreateInvoiceInput {
   photo?: { data: Buffer; mimeType: string }
 }
 
-export async function listInvoices(page: number) {
+export async function listInvoices(page: number, status?: 'PAYE' | 'EN_ATTENTE' | 'EN_RETARD') {
   const prisma = getPrismaClient()
   const skip = Math.max(0, page - 1) * PAGE_SIZE
+  const where = status ? { status } : undefined
 
   const [items, total] = await Promise.all([
     prisma.invoice.findMany({
       select: LIST_SELECT,
+      where,
       orderBy: { issuedAt: 'desc' },
       skip,
       take: PAGE_SIZE
     }),
-    prisma.invoice.count()
+    prisma.invoice.count({ where })
   ])
 
   return { items, total, page, pageSize: PAGE_SIZE }

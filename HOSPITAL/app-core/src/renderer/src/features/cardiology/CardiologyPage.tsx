@@ -1,0 +1,667 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  HeartPulse,
+  Activity,
+  Hourglass,
+  CheckCircle2,
+  TriangleAlert,
+  Clock,
+  Users,
+  Search,
+  FileSpreadsheet,
+  Columns3,
+  Printer,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  CalendarPlus,
+  FileUp,
+  ClipboardList,
+  FileBarChart,
+  Loader2,
+  Trash2
+} from 'lucide-react'
+import { Card } from '@renderer/components/Card'
+import { PageHeader } from '@renderer/components/PageHeader'
+import { Button } from '@renderer/components/Button'
+import { StatusBadge } from '@renderer/components/StatusBadge'
+import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
+import type { ApiCardioExam, ApiCardioPriority, ApiCardioStatus } from '@shared/cardiology-types'
+import { cardioStatusTone, cardioPriorityTone, EXAM_TYPE_CHART_COLOR } from './status'
+import type { CardioExam, CardioStatus } from './types'
+import { isSameDay } from '@renderer/features/appointments/week'
+import { CardioExamFormModal } from './CardioExamFormModal'
+
+interface CardiologyPageProps {
+  onOpenPatient: (patientId: string) => void
+}
+
+type Tab = 'all' | 'waiting' | 'inProgress' | 'validated' | 'urgent' | 'cancelled'
+
+const STATUS_LABEL: Record<ApiCardioStatus, CardioStatus> = {
+  RESULTAT_VALIDE: 'Résultat validé',
+  EN_COURS: 'En cours',
+  EN_ATTENTE: 'En attente',
+  PROGRAMME: 'Programmé',
+  ANNULE: 'Annulé'
+}
+
+const PRIORITY_LABEL: Record<ApiCardioPriority, 'Normale' | 'Urgent'> = { NORMALE: 'Normale', URGENT: 'Urgent' }
+
+const STATUS_DONUT_COLOR: Record<CardioStatus, string> = {
+  Programmé: '#9ca3af',
+  'Résultat validé': '#10b981',
+  'En attente': '#f59e0b',
+  'En cours': '#3b82f6',
+  Annulé: '#d1d5db'
+}
+
+function toRecord(e: ApiCardioExam): CardioExam {
+  return {
+    id: e.id,
+    patientId: e.patientId,
+    patientCode: e.patientCode ?? '—',
+    patientName: e.patientName ?? 'Patient',
+    age: e.age,
+    gender: e.gender ?? 'M',
+    requestedAt: new Date(e.requestedAt),
+    resultAt: e.resultAt ? new Date(e.resultAt) : null,
+    examType: e.examType,
+    indication: e.indication ?? '—',
+    doctor: e.doctorName ?? '—',
+    doctorId: e.doctorId,
+    status: STATUS_LABEL[e.status],
+    priority: PRIORITY_LABEL[e.priority],
+    expectedDurationMin: e.expectedDurationMin,
+    room: e.room ?? '—'
+  }
+}
+
+const FILTER_FIELDS = [
+  { label: 'Période', value: "Aujourd'hui" },
+  { label: 'Service demandeur', value: 'Tous les services' },
+  { label: "Type d'examen", value: 'Tous les types' },
+  { label: 'Médecin demandeur', value: 'Tous les médecins' },
+  { label: 'Priorité', value: 'Toutes les priorités' },
+  { label: 'Statut', value: 'Tous les statuts' }
+]
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const rest = Math.round(minutes % 60)
+  return hours === 0 ? `${rest}min` : `${hours}h ${String(rest).padStart(2, '0')}min`
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+export function CardiologyPage({ onOpenPatient }: CardiologyPageProps): JSX.Element {
+  const [exams, setExams] = useState<CardioExam[]>([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingExam, setEditingExam] = useState<CardioExam | null>(null)
+  const [deletingExam, setDeletingExam] = useState<CardioExam | null>(null)
+  const [patientsFollowed, setPatientsFollowed] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>('all')
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([window.api.cardiology.list(), window.api.cardiology.patientsFollowed()]).then(([examsResult, followedResult]) => {
+      if (cancelled) return
+      if (examsResult.ok) {
+        setExams(examsResult.data.exams.map(toRecord))
+      } else {
+        setError(examsResult.error)
+      }
+      if (followedResult.ok) setPatientsFollowed(followedResult.data.count)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const today = useMemo(() => new Date(), [])
+  const todayExams = useMemo(() => exams.filter((e) => isSameDay(e.requestedAt, today)), [exams, today])
+  const scheduled = useMemo(() => todayExams.filter((e) => e.status === 'Programmé'), [todayExams])
+  const waiting = useMemo(() => todayExams.filter((e) => e.status === 'En attente'), [todayExams])
+  const inProgress = useMemo(() => todayExams.filter((e) => e.status === 'En cours'), [todayExams])
+  const validated = useMemo(() => todayExams.filter((e) => e.status === 'Résultat validé'), [todayExams])
+  const urgent = useMemo(() => todayExams.filter((e) => e.priority === 'Urgent'), [todayExams])
+  const cancelled = useMemo(() => todayExams.filter((e) => e.status === 'Annulé'), [todayExams])
+  const urgentPending = useMemo(() => urgent.filter((e) => e.status !== 'Résultat validé' && e.status !== 'Annulé'), [urgent])
+
+  const TABS: { id: Tab; label: string; count: number }[] = [
+    { id: 'all', label: 'Tous les examens', count: todayExams.length },
+    { id: 'waiting', label: 'En attente de réalisation', count: waiting.length },
+    { id: 'inProgress', label: 'En cours', count: inProgress.length },
+    { id: 'validated', label: 'Résultats validés', count: validated.length },
+    { id: 'urgent', label: 'Examens urgents', count: urgent.length },
+    { id: 'cancelled', label: 'Annulés', count: cancelled.length }
+  ]
+
+  const TAB_ROWS: Record<Tab, CardioExam[]> = { all: todayExams, waiting, inProgress, validated, urgent, cancelled }
+
+  const rows = useMemo(() => {
+    const base = TAB_ROWS[activeTab]
+    const term = search.trim().toLowerCase()
+    if (!term) return base
+    return base.filter((e) => `${e.patientName} ${e.examType} ${e.indication} ${e.doctor}`.toLowerCase().includes(term))
+  }, [activeTab, search, exams])
+
+  const examTypeBreakdown = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of todayExams) counts.set(e.examType, (counts.get(e.examType) ?? 0) + 1)
+    return Array.from(counts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [todayExams])
+  const examTypeTotal = todayExams.length
+  const maxExamType = Math.max(1, ...examTypeBreakdown.map((e) => e.count))
+
+  const examTypeDonutBackground = useMemo(() => {
+    let cursor = 0
+    const stops = examTypeBreakdown.map(({ label, count }) => {
+      const percent = examTypeTotal === 0 ? 0 : (count / examTypeTotal) * 100
+      const start = cursor
+      cursor += percent
+      return `${EXAM_TYPE_CHART_COLOR[label] ?? EXAM_TYPE_CHART_COLOR.Autres} ${start}% ${cursor}%`
+    })
+    return `conic-gradient(${stops.join(', ')})`
+  }, [examTypeBreakdown, examTypeTotal])
+
+  const statusBreakdown = useMemo(() => {
+    const counts: Record<CardioStatus, number> = { Programmé: 0, 'Résultat validé': 0, 'En attente': 0, 'En cours': 0, Annulé: 0 }
+    for (const e of todayExams) counts[e.status] += 1
+    return (Object.keys(counts) as CardioStatus[]).map((label) => ({ label, count: counts[label] }))
+  }, [todayExams])
+  const statusTotal = todayExams.length
+  const statusDonutBackground = useMemo(() => {
+    let cursor = 0
+    const stops = statusBreakdown.map(({ label, count }) => {
+      const percent = statusTotal === 0 ? 0 : (count / statusTotal) * 100
+      const start = cursor
+      cursor += percent
+      return `${STATUS_DONUT_COLOR[label]} ${start}% ${cursor}%`
+    })
+    return `conic-gradient(${stops.join(', ')})`
+  }, [statusBreakdown, statusTotal])
+
+  const recentValidated = useMemo(
+    () =>
+      [...validated]
+        .filter((e) => e.resultAt)
+        .sort((a, b) => (b.resultAt?.getTime() ?? 0) - (a.resultAt?.getTime() ?? 0))
+        .slice(0, 5),
+    [validated]
+  )
+
+  const avgTurnaroundMin = useMemo(() => {
+    const withResult = validated.filter((e) => e.resultAt)
+    if (withResult.length === 0) return null
+    const total = withResult.reduce((sum, e) => sum + (e.resultAt!.getTime() - e.requestedAt.getTime()) / 60000, 0)
+    return Math.round(total / withResult.length)
+  }, [validated])
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        breadcrumb={['Accueil', 'Cardiologie']}
+        title="Cardiologie"
+        subtitle="Centre de gestion des examens et activités de cardiologie."
+        actions={
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            Nouvelle demande
+          </Button>
+        }
+      />
+
+      {showCreateModal && (
+        <CardioExamFormModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(exam) => {
+            setExams((prev) => [...prev, toRecord(exam)])
+            setShowCreateModal(false)
+          }}
+        />
+      )}
+
+      {editingExam && (
+        <CardioExamFormModal
+          editing={editingExam}
+          onClose={() => setEditingExam(null)}
+          onCreated={(exam) => {
+            const updated = toRecord(exam)
+            setExams((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+            setEditingExam(null)
+          }}
+        />
+      )}
+
+      {deletingExam && (
+        <ConfirmDialog
+          title="Supprimer l'examen"
+          message={`Voulez-vous vraiment supprimer l'examen de ${deletingExam.patientName} ?`}
+          onCancel={() => setDeletingExam(null)}
+          onConfirm={() => window.api.cardiology.delete(deletingExam.id)}
+          onConfirmed={() => {
+            setExams((prev) => prev.filter((e) => e.id !== deletingExam.id))
+            setDeletingExam(null)
+          }}
+        />
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement de la cardiologie…
+        </div>
+      ) : error ? (
+        <p className="py-12 text-center text-sm text-red-500">{error}</p>
+      ) : (
+        <>
+          {/* KPI row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Card className="border-t-4 border-t-violet-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
+                <HeartPulse className="h-5 w-5 text-violet-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Examens programmés</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{scheduled.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-red-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+                <Activity className="h-5 w-5 text-red-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">En cours aujourd&apos;hui</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{inProgress.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-blue-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                <Hourglass className="h-5 w-5 text-blue-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">En attente de réalisation</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{waiting.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-emerald-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Résultats validés</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{validated.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-red-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+                <TriangleAlert className="h-5 w-5 text-red-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Urgents</p>
+              <p className="mt-0.5 text-xl font-bold text-red-600">{urgent.length}</p>
+            </Card>
+            <Card className="border-t-4 border-t-blue-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Délai moyen de rendu</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{avgTurnaroundMin === null ? '—' : formatDuration(avgTurnaroundMin)}</p>
+            </Card>
+            <Card className="border-t-4 border-t-violet-400 p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
+                <Users className="h-5 w-5 text-violet-600" />
+              </div>
+              <p className="mt-3 text-xs font-medium text-gray-500">Patients suivis</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{patientsFollowed ?? '—'}</p>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* Liste principale */}
+            <Card className="p-0 lg:col-span-2">
+              <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={
+                      'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
+                      (activeTab === tab.id
+                        ? 'border-accent-500 text-accent-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                    }
+                  >
+                    {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher dans la liste..."
+                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm">
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    Export Excel
+                  </Button>
+                  <Button variant="secondary" size="sm">
+                    <Columns3 className="h-3.5 w-3.5" />
+                    Colonnes
+                  </Button>
+                  <Button variant="secondary" size="sm">
+                    <Printer className="h-3.5 w-3.5" />
+                    Imprimer
+                  </Button>
+                </div>
+              </div>
+
+              {rows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun examen dans cette catégorie.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                        <th className="px-6 py-2.5 font-medium">Date / Heure</th>
+                        <th className="px-6 py-2.5 font-medium">Patient</th>
+                        <th className="px-6 py-2.5 font-medium">Âge / Sexe</th>
+                        <th className="px-6 py-2.5 font-medium">Examen</th>
+                        <th className="px-6 py-2.5 font-medium">Motif</th>
+                        <th className="px-6 py-2.5 font-medium">Médecin</th>
+                        <th className="px-6 py-2.5 font-medium">Statut</th>
+                        <th className="px-6 py-2.5 font-medium">Priorité</th>
+                        <th className="px-6 py-2.5 font-medium">Salle / Appareil</th>
+                        <th className="px-6 py-2.5 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((e) => (
+                        <tr key={e.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                          <td className="px-6 py-3 text-gray-600">
+                            <p>{formatDate(e.requestedAt)}</p>
+                            <p className="text-xs text-gray-400">{formatTime(e.requestedAt)}</p>
+                          </td>
+                          <td className="px-6 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-50 text-[11px] font-semibold text-accent-700">
+                                {initials(e.patientName)}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-gray-900">{e.patientName}</p>
+                                <p className="truncate text-xs text-gray-400">{e.patientCode}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3 text-gray-600">{e.age ? `${e.age} ans · ${e.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}</td>
+                          <td className="px-6 py-3 text-gray-900">{e.examType}</td>
+                          <td className="px-6 py-3 text-gray-600">{e.indication}</td>
+                          <td className="px-6 py-3 text-gray-600">{e.doctor}</td>
+                          <td className="px-6 py-3">
+                            <StatusBadge label={e.status} tone={cardioStatusTone(e.status)} />
+                          </td>
+                          <td className="px-6 py-3">
+                            <StatusBadge label={e.priority} tone={cardioPriorityTone(e.priority)} />
+                          </td>
+                          <td className="px-6 py-3 text-gray-600">{e.room}</td>
+                          <td className="px-6 py-3">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => e.patientId && onOpenPatient(e.patientId)}
+                                disabled={!e.patientId}
+                                title={e.patientId ? 'Voir le dossier patient' : 'Aucun dossier lié'}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setEditingExam(e)}
+                                title="Modifier la demande"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setDeletingExam(e)}
+                                title="Supprimer l'examen"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
+                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} examens</span>
+              </div>
+            </Card>
+
+            {/* Colonne latérale */}
+            <div className="space-y-6">
+              <Card>
+                <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
+                  Filtres
+                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                </h3>
+                <div className="space-y-3">
+                  {FILTER_FIELDS.map((field) => (
+                    <div key={field.label}>
+                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
+                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
+                        <option>{field.value}</option>
+                      </select>
+                    </div>
+                  ))}
+                  <Button size="sm" className="w-full">
+                    Filtrer
+                  </Button>
+                </div>
+              </Card>
+
+              <Card>
+                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par type d&apos;examen</h3>
+                {examTypeBreakdown.length === 0 ? (
+                  <p className="text-xs text-gray-400">Aucun examen aujourd&apos;hui.</p>
+                ) : (
+                  <div className="flex items-center gap-5">
+                    <div
+                      className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: examTypeDonutBackground }}
+                    >
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">
+                        {examTypeTotal}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      {examTypeBreakdown.map(({ label, count }) => (
+                        <div key={label} className="flex items-center gap-1.5 text-xs">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: EXAM_TYPE_CHART_COLOR[label] ?? EXAM_TYPE_CHART_COLOR.Autres }}
+                          />
+                          <span className="text-gray-600">{label}</span>
+                          <span className="font-medium text-gray-900">
+                            {count} ({Math.round((count / examTypeTotal) * 100)}%)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-0">
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Derniers résultats validés</h3>
+                </div>
+                <div className="space-y-3 p-5">
+                  {recentValidated.length === 0 ? (
+                    <p className="text-xs text-gray-400">Aucun résultat validé aujourd&apos;hui.</p>
+                  ) : (
+                    recentValidated.map((r) => (
+                      <div key={r.id} className="flex items-center gap-2 text-xs">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                        <span className="min-w-0 flex-1 truncate text-gray-800">{r.patientName}</span>
+                        <span className="shrink-0 text-gray-400">{r.examType}</span>
+                        <span className="shrink-0 text-gray-400">{r.resultAt ? formatTime(r.resultAt) : ''}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-0">
+                <div className="border-b border-gray-100 px-5 py-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                </div>
+                <div className="p-2">
+                  <QuickAction icon={Plus} label="Créer une nouvelle demande" />
+                  <QuickAction icon={CalendarPlus} label="Programmer un examen" />
+                  <QuickAction icon={FileUp} label="Enregistrer un résultat" />
+                  <QuickAction icon={ClipboardList} label="Consulter planning des appareils" />
+                  <QuickAction icon={Printer} label="Imprimer la liste du jour" />
+                  <QuickAction icon={FileBarChart} label="Rapport d'activité cardiologie" />
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {/* Panneaux du bas */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+            <Card>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900">Examens par modalité (aujourd&apos;hui)</h3>
+              {examTypeBreakdown.length === 0 ? (
+                <p className="text-xs text-gray-400">Aucun examen aujourd&apos;hui.</p>
+              ) : (
+                <div className="space-y-3">
+                  {examTypeBreakdown.map((e) => (
+                    <div key={e.label}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="text-gray-600">{e.label}</span>
+                        <span className="font-medium text-gray-900">{e.count}</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-violet-500" style={{ width: `${(e.count / maxExamType) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900">Statut des examens</h3>
+              {statusTotal === 0 ? (
+                <p className="text-xs text-gray-400">Aucun examen aujourd&apos;hui.</p>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div
+                    className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: statusDonutBackground }}
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">
+                      {statusTotal}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-[11px]">
+                    {statusBreakdown.map(({ label, count }) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_DONUT_COLOR[label] }} />
+                        <span className="text-gray-600">{label}</span>
+                        <span className="font-medium text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-0">
+              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+                <h3 className="text-sm font-semibold text-gray-900">Examens urgents ({urgent.length})</h3>
+              </div>
+              <div className="space-y-3 p-5">
+                {urgent.length === 0 ? (
+                  <p className="text-xs text-gray-400">Aucun examen urgent aujourd&apos;hui.</p>
+                ) : (
+                  urgent.map((u) => (
+                    <div key={u.id} className="flex items-center gap-2 text-xs">
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                      <span className="min-w-0 flex-1 truncate text-gray-800">{u.patientName}</span>
+                      <span className="shrink-0 text-gray-400">{u.examType}</span>
+                      <span className="shrink-0 text-gray-400">{formatTime(u.requestedAt)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+
+            <Card className="p-0">
+              <div className="border-b border-gray-100 px-5 py-3.5">
+                <h3 className="text-sm font-semibold text-gray-900">Alertes cardiologie</h3>
+              </div>
+              <div className="space-y-3 p-5">
+                {urgentPending.length === 0 && waiting.length === 0 ? (
+                  <p className="text-xs text-gray-400">Aucune alerte pour le moment.</p>
+                ) : (
+                  <>
+                    {urgentPending.length > 0 && (
+                      <Alert text={`${urgentPending.length} examen${urgentPending.length > 1 ? 's' : ''} urgent${urgentPending.length > 1 ? 's' : ''} à traiter`} tone="text-red-500" />
+                    )}
+                    {waiting.length > 0 && (
+                      <Alert text={`${waiting.length} examen${waiting.length > 1 ? 's' : ''} en attente de réalisation`} tone="text-amber-500" />
+                    )}
+                  </>
+                )}
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function QuickAction({ icon: Icon, label }: { icon: typeof Plus; label: string }): JSX.Element {
+  return (
+    <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900">
+      <Icon className="h-3.5 w-3.5 text-gray-400" />
+      {label}
+    </button>
+  )
+}
+
+function Alert({ text, tone }: { text: string; tone: string }): JSX.Element {
+  return (
+    <div className="flex items-start gap-2.5 text-xs">
+      <TriangleAlert className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${tone}`} />
+      <span className="text-gray-600">{text}</span>
+    </div>
+  )
+}

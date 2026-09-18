@@ -1,5 +1,5 @@
-// Modèle "Consultation" pour cette itération front-end (v1, données locales — voir la note
-// équivalente dans features/patients/types.ts).
+// Vue affichable d'une consultation, dérivée de la réponse réelle de l'API (voir
+// @shared/consultation-types).
 
 export type ConsultationStatus = 'Terminée' | 'En cours' | 'En attente' | 'Annulée'
 
@@ -10,9 +10,10 @@ export interface ConsultationRecord {
   patientName: string
   age: number
   gender: 'M' | 'F'
-  time: string
+  date: Date
   service: string
   doctor: string
+  doctorId: string | null
   motive: string
   status: ConsultationStatus
   dossier: string

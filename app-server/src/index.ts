@@ -6,6 +6,10 @@ import { authRouter } from './routes/auth.routes'
 import { healthRouter } from './routes/health.routes'
 import { financeRouter } from './routes/finance.routes'
 import { companyRouter } from './routes/company.routes'
+import { memoryRouter } from './routes/memory.routes'
+import { salesRouter } from './routes/sales.routes'
+import { stocksRouter } from './routes/stocks.routes'
+import { usersRouter } from './routes/users.routes'
 
 const app = express()
 
@@ -16,6 +20,10 @@ app.use('/health', healthRouter)
 app.use('/auth', authRouter)
 app.use('/finance', financeRouter)
 app.use('/company', companyRouter)
+app.use('/memory', memoryRouter)
+app.use('/sales', salesRouter)
+app.use('/stocks', stocksRouter)
+app.use('/users', usersRouter)
 
 // Filet de sécurité : une erreur dans une route (DB, réseau, etc.) ne doit jamais faire tomber
 // tout le serveur — on la journalise et on répond 500 au seul client concerné.

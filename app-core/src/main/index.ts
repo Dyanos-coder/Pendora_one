@@ -4,6 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerAuthIpcHandlers } from './ipc/auth.ipc'
 import { registerFinanceIpcHandlers } from './ipc/finance.ipc'
 import { registerCompanyIpcHandlers } from './ipc/company.ipc'
+import { registerMemoryIpcHandlers } from './ipc/memory.ipc'
+import { registerSalesIpcHandlers } from './ipc/sales.ipc'
+import { registerStocksIpcHandlers } from './ipc/stocks.ipc'
+import { registerUsersIpcHandlers } from './ipc/users.ipc'
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -48,6 +52,10 @@ app.whenReady().then(() => {
   registerAuthIpcHandlers()
   registerFinanceIpcHandlers()
   registerCompanyIpcHandlers()
+  registerMemoryIpcHandlers()
+  registerSalesIpcHandlers()
+  registerStocksIpcHandlers()
+  registerUsersIpcHandlers()
 
   createWindow()
 

@@ -39,7 +39,17 @@ export async function login(email: string, password: string): Promise<LoginResul
     }
   })
 
-  const token = signToken({ userId: user.id, role: user.role })
+  const token = signToken({ userId: user.id, role: user.role, sessionVersion: user.sessionVersion })
 
   return { ok: true, session, token }
+}
+
+/** Révoque tous les jetons déjà émis pour cet utilisateur (déconnexion serveur) en faisant
+ * avancer sessionVersion — le prochain requireAuth sur un ancien jeton le rejettera. */
+export async function logout(userId: string): Promise<void> {
+  const prisma = getPrismaClient()
+  await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } })
+  await prisma.auditLog.create({
+    data: { userId, action: 'auth.logout', entityType: 'User', entityId: userId }
+  })
 }

@@ -1,0 +1,13 @@
+
+-- CreateTable
+CREATE TABLE `generated_report` (
+    `id` VARCHAR(191) NOT NULL,
+    `category` ENUM('ACTIVITE_MEDICALE', 'FINANCES', 'RESSOURCES_HUMAINES', 'QUALITE_CONFORMITE', 'STOCKS_ACHATS') NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `format` VARCHAR(191) NOT NULL,
+    `generatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `content` LONGBLOB NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
