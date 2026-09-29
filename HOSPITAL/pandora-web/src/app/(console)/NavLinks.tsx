@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Building2, LayoutDashboard, Users } from 'lucide-react'
+import { Building2, Inbox, LayoutDashboard, Users } from 'lucide-react'
 
 const LINKS = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard, adminOnly: false },
   { href: '/hospitals', label: 'Hôpitaux', icon: Building2, adminOnly: false },
+  { href: '/leads', label: 'Demandes de contact', icon: Inbox, adminOnly: false },
   { href: '/accounts', label: 'Utilisateurs', icon: Users, adminOnly: true }
 ]
 

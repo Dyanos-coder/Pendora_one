@@ -68,3 +68,27 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+// Demandes de contact / démo envoyées depuis la page d'accueil publique — suivies par l'équipe
+// (admins et prospecteurs) dans la console.
+enum ContactStatus {
+  NOUVELLE
+  TRAITEE
+}
+
+model ContactRequest {
+  id            String        @id @default(uuid())
+  name          String
+  establishment String
+  phone         String
+  email         String?
+  city          String?
+  message       String?       @db.Text
+  status        ContactStatus @default(NOUVELLE)
+  handledById   String?
+  handledAt     DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@map("contact_request")
+}

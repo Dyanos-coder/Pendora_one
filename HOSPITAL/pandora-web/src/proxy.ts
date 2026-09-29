@@ -12,7 +12,8 @@ const PUBLIC_PREFIXES = ['/login', '/register', '/r/', '/paiement', '/api/public
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isPublic = PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  // `/` = page d'accueil publique (présentation, tarifs, demande de démo).
+  const isPublic = pathname === '/' || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
 
   if (!isPublic && !session) {
