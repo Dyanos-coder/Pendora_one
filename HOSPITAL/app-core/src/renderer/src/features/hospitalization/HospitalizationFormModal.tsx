@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
+import { PicklistInput } from '@renderer/components/PicklistInput'
+import { PICKLIST_KEYS } from '@shared/picklist-types'
 import type { ApiBed, ApiHospitalization, ApiHospitalizationStatus, CreateHospitalizationInput } from '@shared/hospitalization-types'
 import type { ApiEmployee } from '@shared/appointment-types'
 import type { PatientSummary } from '@shared/patient-types'
@@ -149,7 +151,12 @@ export function HospitalizationFormModal({ onClose, onCreated, editing }: Hospit
           </div>
           <div>
             <label className={labelClass}>Service</label>
-            <input value={service} onChange={(e) => setService(e.target.value)} className={inputClass} />
+            <PicklistInput
+              listKey={PICKLIST_KEYS.HOSPITALIZATION_SERVICE}
+              value={service}
+              onChange={setService}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Motif</label>

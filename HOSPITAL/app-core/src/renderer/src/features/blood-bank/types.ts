@@ -1,7 +1,7 @@
 // Modèle "Poche de sang" pour cette itération front-end (v1, données locales — voir la note
 // équivalente dans features/patients/types.ts).
 
-export type PouchStatus = 'Disponible' | 'En attente analyse' | 'Réservée' | 'Transfusée' | 'Périmée'
+export type PouchStatus = 'Disponible' | 'En attente analyse' | 'Réservée' | 'Transfusée' | 'Périmée' | 'Écartée'
 
 export interface BloodPouch {
   id: string

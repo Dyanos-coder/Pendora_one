@@ -20,9 +20,20 @@ export interface ApiLabRequest {
   gender: 'M' | 'F' | null
   technicianId: string | null
   technicianName: string | null
+  /** Médecin demandeur — facultatif, purement informatif (item 11 PETITES MODIFS). */
+  requestingDoctorId: string | null
+  requestingDoctorName: string | null
+  resultFileName: string | null
+  /** Couvert par un reçu de caisse payé (liste en ligne uniquement). */
+  paid?: boolean
+  resultMimeType: string | null
+  resultFileSize: number | null
+  updatedAt: string
 }
 
 export interface CreateLabRequestInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne. */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -34,12 +45,14 @@ export interface CreateLabRequestInput {
   priority?: ApiLabPriority
   sample?: string
   technicianId?: string
+  requestingDoctorId?: string
   status?: ApiLabStatus
 }
 
 export interface UpdateLabRequestInput {
   patientId?: string | null
   technicianId?: string | null
+  requestingDoctorId?: string | null
   requestedAt?: string
   resultAt?: string | null
   service?: string | null
@@ -47,4 +60,7 @@ export interface UpdateLabRequestInput {
   priority?: ApiLabPriority
   sample?: string | null
   status?: ApiLabStatus
+  /** Posé en interne par laboratory.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

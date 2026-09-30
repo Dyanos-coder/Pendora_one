@@ -1,17 +1,25 @@
 import { ipcMain } from 'electron'
 import {
+  addDocument,
   addPrescription,
   addVitals,
   create,
   dossier,
   get,
   list,
+  listDocuments,
   print,
   remove,
+  removeDocument,
   update,
-  updatePrescription
+  updatePrescription,
+  uploadDocumentFile,
+  uploadVitalsDocument,
+  viewDocumentFile,
+  viewVitalsDocument
 } from '../services/patients.service'
 import type {
+  CreatePatientDocumentInput,
   CreatePatientInput,
   CreatePrescriptionInput,
   CreateVitalsInput,
@@ -33,6 +41,12 @@ export function registerPatientsIpcHandlers(): void {
   ipcMain.handle('patients:dossier', (_event, id: string) => dossier(id))
 
   ipcMain.handle('patients:addVitals', (_event, id: string, input: CreateVitalsInput) => addVitals(id, input))
+  ipcMain.handle('patients:vitals:uploadFile', (_event, patientId: string, vitalsId: string) =>
+    uploadVitalsDocument(patientId, vitalsId)
+  )
+  ipcMain.handle('patients:vitals:viewFile', (_event, patientId: string, vitalsId: string) =>
+    viewVitalsDocument(patientId, vitalsId)
+  )
 
   ipcMain.handle('patients:addPrescription', (_event, id: string, input: CreatePrescriptionInput) => addPrescription(id, input))
 
@@ -42,4 +56,12 @@ export function registerPatientsIpcHandlers(): void {
   )
 
   ipcMain.handle('patients:print', (_event, id: string) => print(id))
+
+  ipcMain.handle('patients:documents:list', (_event, patientId: string) => listDocuments(patientId))
+  ipcMain.handle('patients:documents:create', (_event, input: CreatePatientDocumentInput) => addDocument(input))
+  ipcMain.handle('patients:documents:delete', (_event, patientId: string, documentId: string) => removeDocument(patientId, documentId))
+  ipcMain.handle('patients:documents:uploadFile', (_event, patientId: string, documentId: string) =>
+    uploadDocumentFile(patientId, documentId)
+  )
+  ipcMain.handle('patients:documents:view', (_event, patientId: string, documentId: string) => viewDocumentFile(patientId, documentId))
 }

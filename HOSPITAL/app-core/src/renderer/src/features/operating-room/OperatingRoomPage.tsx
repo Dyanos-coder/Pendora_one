@@ -30,8 +30,9 @@ import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiOperatingRoom, ApiOperatingRoomStatus, ApiSurgery, ApiSurgeryStatus } from '@shared/operating-room-types'
 import { surgeryStatusTone, SPECIALTY_CHART_COLOR } from './status'
 import type { SurgeryRecord, SurgeryStatus } from './types'
-import { isSameDay } from '@renderer/features/appointments/week'
+import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { SurgeryFormModal } from './SurgeryFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface OperatingRoomPageProps {
   onOpenPatient: (patientId: string) => void
@@ -81,14 +82,8 @@ function toRecord(s: ApiSurgery): SurgeryRecord {
   }
 }
 
-const FILTER_FIELDS = [
-  { label: 'Période', value: "Aujourd'hui" },
-  { label: 'Service', value: 'Tous les services' },
-  { label: 'Chirurgien', value: 'Tous les chirurgiens' },
-  { label: 'Anesthésiste', value: 'Tous les anesthésistes' },
-  { label: 'Salle', value: 'Toutes les salles' },
-  { label: 'Statut', value: 'Tous les statuts' }
-]
+const ALL_FILTER = '__all__'
+type PeriodFilter = 'all' | 'today' | 'week' | 'month'
 
 const HOURLY_SLOTS = ['06h-08h', '08h-10h', '10h-12h', '12h-14h', '14h-16h', '16h-18h', '18h-20h']
 
@@ -111,6 +106,13 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>('all')
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterSurgeon, setFilterSurgeon] = useState(ALL_FILTER)
+  const [filterAnesthetist, setFilterAnesthetist] = useState(ALL_FILTER)
+  const [filterRoom, setFilterRoom] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -129,7 +131,14 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
     }
   }, [])
 
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.operatingRoom.exportExcel()
+    setExporting(false)
+  }
+
   const today = useMemo(() => new Date(), [])
+  const realMonday = useMemo(() => mondayOf(today), [today])
   const todaySurgeries = useMemo(() => surgeries.filter((s) => isSameDay(s.scheduledAt, today)), [surgeries, today])
   const inProgress = useMemo(() => todaySurgeries.filter((s) => s.status === 'En cours'), [todaySurgeries])
   const waiting = useMemo(() => todaySurgeries.filter((s) => s.status === 'En attente'), [todaySurgeries])
@@ -145,13 +154,67 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
   ]
 
   const TAB_ROWS: Record<Tab, SurgeryRecord[]> = { all: todaySurgeries, inProgress, waiting, done, annule }
+  const tabRows = TAB_ROWS[activeTab]
 
-  const rows = useMemo(() => {
-    const base = TAB_ROWS[activeTab]
+  // La « spécialité » est le champ le plus proche pour représenter le service concerné par
+  // l'intervention (il n'existe pas de champ « service » distinct sur une intervention).
+  const specialtyOptions = useMemo(
+    () => Array.from(new Set(surgeries.map((s) => s.specialty).filter((sp) => sp && sp !== '—'))).sort(),
+    [surgeries]
+  )
+  const surgeonOptions = useMemo(
+    () => Array.from(new Set(surgeries.map((s) => s.surgeon).filter((s) => s && s !== '—'))).sort(),
+    [surgeries]
+  )
+  const anesthetistOptions = useMemo(
+    () => Array.from(new Set(surgeries.map((s) => s.anesthetist).filter((a) => a && a !== '—'))).sort(),
+    [surgeries]
+  )
+  const roomOptions = useMemo(() => Array.from(new Set(rooms.map((r) => r.name))).sort(), [rooms])
+
+  const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return base
-    return base.filter((s) => `${s.patientName} ${s.procedure} ${s.surgeon} ${s.room}`.toLowerCase().includes(term))
-  }, [activeTab, search, surgeries])
+    return tabRows.filter((s) => {
+      if (term && !`${s.patientName} ${s.procedure} ${s.surgeon} ${s.room}`.toLowerCase().includes(term)) return false
+      if (filterService !== ALL_FILTER && s.specialty !== filterService) return false
+      if (filterSurgeon !== ALL_FILTER && s.surgeon !== filterSurgeon) return false
+      if (filterAnesthetist !== ALL_FILTER && s.anesthetist !== filterAnesthetist) return false
+      if (filterRoom !== ALL_FILTER && s.room !== filterRoom) return false
+      if (filterStatus !== ALL_FILTER && s.status !== filterStatus) return false
+      if (filterPeriod === 'today' && !isSameDay(s.scheduledAt, today)) return false
+      if (filterPeriod === 'week') {
+        const idx = dayIndexInWeek(realMonday, s.scheduledAt)
+        if (idx < 0 || idx >= 7) return false
+      }
+      if (
+        filterPeriod === 'month' &&
+        (s.scheduledAt.getMonth() !== today.getMonth() || s.scheduledAt.getFullYear() !== today.getFullYear())
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [
+    tabRows,
+    search,
+    filterService,
+    filterSurgeon,
+    filterAnesthetist,
+    filterRoom,
+    filterStatus,
+    filterPeriod,
+    today,
+    realMonday
+  ])
+
+  function handleResetFilters(): void {
+    setFilterPeriod('all')
+    setFilterService(ALL_FILTER)
+    setFilterSurgeon(ALL_FILTER)
+    setFilterAnesthetist(ALL_FILTER)
+    setFilterRoom(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+  }
 
   const avgDurationMin = useMemo(() => {
     const withDuration = todaySurgeries.filter((s) => s.expectedDuration !== '—')
@@ -261,7 +324,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <SortableGroup id="operatingRoom.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Scissors className="h-5 w-5 text-violet-600" />
@@ -307,9 +370,9 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                 {avgDurationMin === null ? '—' : `${Math.floor(avgDurationMin / 60)}h ${String(avgDurationMin % 60).padStart(2, '0')}m`}
               </p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="operatingRoom.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -340,23 +403,25 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                     Export Excel
                   </Button>
                   <Button variant="secondary" size="sm">
                     <Columns3 className="h-3.5 w-3.5" />
                     Colonnes
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
                     <Printer className="h-3.5 w-3.5" />
                     Imprimer
                   </Button>
                 </div>
               </div>
 
-              {rows.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune intervention dans cette catégorie.</p>
+              {filteredRows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">
+                  {tabRows.length === 0 ? 'Aucune intervention dans cette catégorie.' : 'Aucune intervention ne correspond aux filtres.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -375,7 +440,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((s) => (
+                      {filteredRows.map((s) => (
                         <tr key={s.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-6 py-3 font-medium text-gray-900">{formatTime(s.scheduledAt)}</td>
                           <td className="px-6 py-3">
@@ -440,29 +505,110 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
               )}
 
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} interventions</span>
+                <span>
+                  Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {tabRows.length} interventions
+                </span>
               </div>
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="operatingRoom.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
-                  </Button>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <select
+                      value={filterPeriod}
+                      onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value="all">Toutes les périodes</option>
+                      <option value="today">Aujourd&apos;hui</option>
+                      <option value="week">Cette semaine</option>
+                      <option value="month">Ce mois-ci</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {specialtyOptions.map((sp) => (
+                        <option key={sp} value={sp}>
+                          {sp}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Chirurgien</label>
+                    <select
+                      value={filterSurgeon}
+                      onChange={(e) => setFilterSurgeon(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les chirurgiens</option>
+                      {surgeonOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Anesthésiste</label>
+                    <select
+                      value={filterAnesthetist}
+                      onChange={(e) => setFilterAnesthetist(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les anesthésistes</option>
+                      {anesthetistOptions.map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Salle</label>
+                    <select
+                      value={filterRoom}
+                      onChange={(e) => setFilterRoom(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les salles</option>
+                      {roomOptions.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </Card>
 
@@ -490,19 +636,19 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                   <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
-                  <QuickAction icon={Plus} label="Programmer une intervention" />
-                  <QuickAction icon={Siren} label="Ajouter une intervention urgente" />
-                  <QuickAction icon={LayoutGrid} label="Voir le planning du bloc" />
+                  <QuickAction icon={Plus} label="Programmer une intervention" onClick={() => setShowCreateModal(true)} />
+                  <QuickAction icon={Siren} label="Ajouter une intervention urgente" onClick={() => setShowCreateModal(true)} />
+                  <QuickAction icon={LayoutGrid} label="Voir le planning du bloc" onClick={() => setActiveTab('all')} />
                   <QuickAction icon={Hourglass} label={`Voir les interventions en attente (${waiting.length})`} onClick={() => setActiveTab('waiting')} />
                   <QuickAction icon={XCircle} label={`Voir les interventions annulées (${annule.length})`} onClick={() => setActiveTab('annule')} />
-                  <QuickAction icon={FileDown} label="Imprimer le programme du jour" />
+                  <QuickAction icon={FileDown} label="Imprimer le programme du jour" onClick={() => window.print()} />
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Panneaux du bas */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="operatingRoom.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">Répartition par spécialité</h3>
@@ -567,7 +713,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                 )}
               </div>
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>

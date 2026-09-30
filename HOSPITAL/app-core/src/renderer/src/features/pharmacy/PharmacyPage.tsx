@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Package,
   TriangleAlert,
@@ -35,6 +35,7 @@ import type { ApiMedication, ApiStockState } from '@shared/pharmacy-types'
 import { stockStateTone, CATEGORY_CHART_COLOR } from './status'
 import type { MedicationStock, StockState } from './types'
 import { MedicationFormModal } from './MedicationFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface PharmacyPageProps {
   onNavigate: (page: PageId) => void
@@ -54,17 +55,6 @@ const COLOR_CLASSES: Record<string, string> = {
   blue: 'bg-blue-50 text-blue-600',
   amber: 'bg-amber-50 text-amber-600'
 }
-
-const QUICK_ACTIONS = [
-  { icon: ArrowDownToLine, label: 'Entrée de stock' },
-  { icon: ArrowUpFromLine, label: 'Sortie de stock' },
-  { icon: ArrowLeftRight, label: 'Transfert' },
-  { icon: ClipboardCheck, label: 'Inventaire rapide' },
-  { icon: Undo2, label: 'Retour produit' },
-  { icon: SlidersHorizontal, label: 'Ajustement stock' },
-  { icon: Search, label: 'Recherche produit' },
-  { icon: Tags, label: 'Imprimer étiquettes' }
-]
 
 const STATE_LABEL: Record<ApiStockState, StockState> = {
   RUPTURE: 'Rupture',
@@ -96,6 +86,8 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
   const [rawMedications, setRawMedications] = useState<ApiMedication[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -164,6 +156,28 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
 
   const reorderNeeds = useMemo(() => [...ruptures, ...stockFaible], [ruptures, stockFaible])
 
+  const filteredMedications = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return medications
+    return medications.filter((m) => `${m.name} ${m.category} ${m.location}`.toLowerCase().includes(term))
+  }, [medications, search])
+
+  function handleFocusStockTable(): void {
+    searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    searchInputRef.current?.focus()
+  }
+
+  const QUICK_ACTIONS: { icon: typeof ArrowDownToLine; label: string; onClick?: () => void }[] = [
+    { icon: ArrowDownToLine, label: 'Entrée de stock', onClick: () => setShowCreateModal(true) },
+    { icon: ArrowUpFromLine, label: 'Sortie de stock' },
+    { icon: ArrowLeftRight, label: 'Transfert' },
+    { icon: ClipboardCheck, label: 'Inventaire rapide', onClick: handleFocusStockTable },
+    { icon: Undo2, label: 'Retour produit' },
+    { icon: SlidersHorizontal, label: 'Ajustement stock', onClick: handleFocusStockTable },
+    { icon: Search, label: 'Recherche produit', onClick: handleFocusStockTable },
+    { icon: Tags, label: 'Imprimer étiquettes' }
+  ]
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
@@ -223,11 +237,11 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <SortableGroup id="pharmacy.grid1" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Colonne principale */}
           <div className="space-y-6 lg:col-span-2">
             {/* KPI row */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <SortableGroup id="pharmacy.grid2" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <Card className="border-t-4 border-t-violet-400 p-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                   <Boxes className="h-5 w-5 text-violet-600" />
@@ -267,10 +281,10 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                 <p className="text-xl font-bold text-gray-900">{expiringSoon.length}</p>
                 <p className="text-xs text-gray-400">Références</p>
               </Card>
-            </div>
+            </SortableGroup>
 
             {/* Cartes de modules */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <SortableGroup id="pharmacy.grid3" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {FEATURE_CARDS.map((card) => (
                 <Card key={card.title} className="flex flex-col">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${COLOR_CLASSES[card.color]}`}>
@@ -287,29 +301,41 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                   </button>
                 </Card>
               ))}
-            </div>
+            </SortableGroup>
 
             {/* À surveiller aujourd'hui */}
             <div>
               <h3 className="mb-3 text-sm font-semibold text-gray-900">À surveiller aujourd&apos;hui</h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SortableGroup id="pharmacy.grid4" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {WATCH_STRIP.map((w) => (
                   <Card key={w.label} className={`${w.bg} p-4`}>
                     <p className={`text-2xl font-bold ${w.tone}`}>{w.count}</p>
                     <p className="mt-1 text-xs font-medium text-gray-700">{w.label}</p>
                   </Card>
                 ))}
-              </div>
+              </SortableGroup>
             </div>
 
             {/* Stocks critiques + répartition */}
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+            <SortableGroup id="pharmacy.grid5" className="grid grid-cols-1 gap-6 xl:grid-cols-5">
               <Card className="p-0 xl:col-span-3">
-                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                   <h3 className="text-sm font-semibold text-gray-900">Stocks critiques</h3>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      ref={searchInputRef}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Rechercher un médicament, une catégorie..."
+                      className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
                 {medications.length === 0 ? (
                   <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun médicament enregistré.</p>
+                ) : filteredMedications.length === 0 ? (
+                  <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun médicament ne correspond à cette recherche.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
@@ -324,7 +350,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                         </tr>
                       </thead>
                       <tbody>
-                        {medications.map((m) => (
+                        {filteredMedications.map((m) => (
                           <tr key={m.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                             <td className="px-6 py-3 font-medium text-gray-900">{m.name}</td>
                             <td className="px-6 py-3 text-gray-600">{m.category}</td>
@@ -399,7 +425,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                   </div>
                 </Card>
               </div>
-            </div>
+            </SortableGroup>
 
             {/* Actions rapides */}
             <Card className="p-0">
@@ -410,7 +436,10 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                 {QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.label}
-                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm"
+                    onClick={action.onClick}
+                    disabled={!action.onClick}
+                    title={action.onClick ? undefined : 'Fonctionnalité non disponible pour le moment'}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-50 text-accent-600">
                       <action.icon className="h-5 w-5" />
@@ -423,7 +452,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
           </div>
 
           {/* Colonne latérale */}
-          <div className="space-y-6">
+          <SortableGroup id="pharmacy.side1" className="space-y-6">
             <Card>
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">Stock par emplacement</h3>
@@ -489,8 +518,8 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Card>
-          </div>
-        </div>
+          </SortableGroup>
+        </SortableGroup>
       )}
     </div>
   )

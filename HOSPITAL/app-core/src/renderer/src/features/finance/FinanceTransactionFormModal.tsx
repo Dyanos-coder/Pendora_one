@@ -13,6 +13,7 @@ interface FinanceTransactionFormModalProps {
   onClose: () => void
   onCreated: (transaction: ApiFinanceTransaction) => void
   editing?: ApiFinanceTransaction
+  initialType?: ApiTransactionType
 }
 
 const inputClass =
@@ -25,8 +26,13 @@ const STATUS_OPTIONS: { value: ApiTransactionStatus; label: string }[] = [
   { value: 'EN_RETARD', label: 'En retard' }
 ]
 
-export function FinanceTransactionFormModal({ onClose, onCreated, editing }: FinanceTransactionFormModalProps): JSX.Element {
-  const [type, setType] = useState<ApiTransactionType>(editing?.type ?? 'RECETTE')
+export function FinanceTransactionFormModal({
+  onClose,
+  onCreated,
+  editing,
+  initialType
+}: FinanceTransactionFormModalProps): JSX.Element {
+  const [type, setType] = useState<ApiTransactionType>(editing?.type ?? initialType ?? 'RECETTE')
   const [party, setParty] = useState(editing?.party ?? '')
   const [category, setCategory] = useState(editing?.category ?? '')
   const [amount, setAmount] = useState(editing?.amount ?? 0)

@@ -22,3 +22,6 @@ prisma/dev.db*
 db.key.enc
 session.cache.enc
 
+
+# Client Prisma de la base MariaDB distante (backend embarqué) — régénéré par prisma:remote:generate
+/src/main/server/generated/prisma

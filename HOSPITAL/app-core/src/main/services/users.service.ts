@@ -1,5 +1,5 @@
 import { getCurrentToken } from './session.store'
-import { changeOwnPassword, createUser, listUsers, resetUserPassword, updateUser } from './remote-api.client'
+import { changeOwnPassword, createUser, listUnlinkedEmployees, listUsers, resetUserPassword, updateUser } from './remote-api.client'
 import type { CreateUserInput, UpdateUserInput } from '../../shared/user-types'
 
 function requireToken(): string {
@@ -16,6 +16,10 @@ export function list() {
 
 export function create(input: CreateUserInput) {
   return createUser(requireToken(), input)
+}
+
+export function listUnlinked() {
+  return listUnlinkedEmployees(requireToken())
 }
 
 export function update(id: string, input: UpdateUserInput) {

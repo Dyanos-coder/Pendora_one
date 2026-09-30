@@ -1,8 +1,9 @@
 // Types partagés entre main, preload et renderer pour le domaine Patients. Reflètent la forme
 // renvoyée par HOSPITAL/app-server (voir patients.service.ts). Les vues agrégées du dossier
 // patient (consultations, RDV à venir, vitaux, ordonnances, résultats, chronologie) sont
-// raccordées à de vraies données via `ApiPatientDossier` (item 8) — seule la sous-section
-// Documents reste mockée, en attente de l'upload de fichiers réel (item 11).
+// raccordées à de vraies données via `ApiPatientDossier` (item 8). Les documents patient
+// (upload de fichiers réel, item 11) utilisent `ApiPatientDocument`, même mécanisme BLOB que
+// `ApiEmployeeDocument` (voir hr-types.ts).
 
 import type { ApiConsultation } from './consultation-types'
 import type { ApiAppointment } from './appointment-types'
@@ -11,7 +12,9 @@ export type PatientApiResult<T> = { ok: true; data: T } | { ok: false; error: st
 
 export type Gender = 'M' | 'F'
 export type PatientStatus = 'ACTIVE' | 'INACTIVE'
-export type AdmissionType = 'AMBULATOIRE' | 'HOSPITALISE' | 'URGENCE'
+/** NON_ADMIS/AMBULATOIRE : choisis dans la fiche. HOSPITALISE/URGENCE : posés automatiquement par
+ * les pages Hospitalisation et Urgences (voir server/services/patient-admission.service.ts). */
+export type AdmissionType = 'NON_ADMIS' | 'AMBULATOIRE' | 'HOSPITALISE' | 'URGENCE'
 
 export interface PatientSummary {
   id: string
@@ -35,15 +38,19 @@ export interface PatientDetail extends PatientSummary {
   admissionType: AdmissionType
   insuranceNumber: string | null
   insuranceExpiry: string | null
-  balance: number
   emergencyContact: { name: string | null; phone: string | null }
   medicalHistory: string[]
   familyHistory: string[]
   lifestyle: string[]
   recordCompleteness: number
+  updatedAt: string
 }
 
 export interface CreatePatientInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne (voir
+   * Plan-Mode-Hors-Ligne-Synchronisation.md §4) — jamais fourni par le renderer, posé en interne
+   * par patients.service.ts (main) avant l'envoi au serveur. */
+  id?: string
   firstName: string
   lastName: string
   gender: Gender
@@ -81,6 +88,9 @@ export interface UpdatePatientInput {
   insuranceExpiry?: string | null
   emergencyContactName?: string | null
   emergencyContactPhone?: string | null
+  /** Posé en interne par patients.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }
 
 export interface ApiVitalsRow {
@@ -126,7 +136,11 @@ export interface ApiPatientDossier {
   timeline: ApiTimelineEvent[]
 }
 
+export type ApiVitalsSource = 'ANALYSE' | 'RDV' | 'CONSULTATION'
+
 export interface CreateVitalsInput {
+  /** Contexte de prise (item 2 PETITES MODIFS) — choix obligatoire. */
+  source: ApiVitalsSource
   bloodPressure?: string
   temperature?: string
   heartRate?: string
@@ -147,4 +161,23 @@ export interface UpdatePrescriptionInput {
 export interface ApiPrintDocument {
   filename: string
   contentBase64: string
+}
+
+// --- Documents patient (item 11) ------------------------------------------------------------------
+
+export interface ApiPatientDocument {
+  id: string
+  patientId: string
+  patientName: string
+  title: string
+  category: string | null
+  fileName: string | null
+  fileSize: number | null
+  uploadedAt: string
+}
+
+export interface CreatePatientDocumentInput {
+  patientId: string
+  title: string
+  category?: string
 }

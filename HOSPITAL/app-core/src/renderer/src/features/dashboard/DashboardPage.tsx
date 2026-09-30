@@ -22,6 +22,7 @@ import { Card } from '@renderer/components/Card'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import type { PageId } from '@renderer/features/shell/nav-types'
 import type { ApiDashboardSummary } from '@shared/dashboard-types'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface DashboardPageProps {
   userFirstName: string
@@ -42,7 +43,7 @@ const QUICK_ACCESS = [
   { icon: UserPlus, label: 'Nouveau patient', page: 'patients' as PageId },
   { icon: CalendarPlus, label: 'Rendez-vous', page: 'appointments' as PageId },
   { icon: FileText, label: 'Ordonnance', page: 'pharmacy' as PageId },
-  { icon: CreditCard, label: 'Paiement', page: 'finance' as PageId },
+  { icon: CreditCard, label: 'Paiement', page: 'cashier' as PageId },
   { icon: Send, label: "Demande d'examen", page: 'laboratory' as PageId }
 ]
 
@@ -150,7 +151,7 @@ export function DashboardPage({ userFirstName, onNavigate }: DashboardPageProps)
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="dashboard.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {kpis.map((kpi) => {
               const Icon = kpi.icon
               return (
@@ -163,9 +164,9 @@ export function DashboardPage({ userFirstName, onNavigate }: DashboardPageProps)
                 </Card>
               )
             })}
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="dashboard.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Centre de commandement */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -214,7 +215,7 @@ export function DashboardPage({ userFirstName, onNavigate }: DashboardPageProps)
                 })}
               </div>
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
 
@@ -248,7 +249,7 @@ export function DashboardPage({ userFirstName, onNavigate }: DashboardPageProps)
           <h2 className="text-sm font-semibold text-gray-900">Modules</h2>
           <span className="text-xs text-gray-400">Plus de modules dans la spécification complète</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-6">
+        <SortableGroup id="dashboard.grid3" className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-6">
           {MODULES.map((module) => (
             <button
               key={module.label}
@@ -259,7 +260,7 @@ export function DashboardPage({ userFirstName, onNavigate }: DashboardPageProps)
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </button>
           ))}
-        </div>
+        </SortableGroup>
       </Card>
     </div>
   )

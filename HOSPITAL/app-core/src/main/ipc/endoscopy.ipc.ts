@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { create, list, patientsFollowed, remove, update } from '../services/endoscopy.service'
+import { create, list, patientsFollowed, remove, update, uploadResultFile, viewResultFile } from '../services/endoscopy.service'
 import type { CreateEndoscopyProcedureInput, UpdateEndoscopyProcedureInput } from '../../shared/endoscopy-types'
 
 export function registerEndoscopyIpcHandlers(): void {
@@ -12,4 +12,8 @@ export function registerEndoscopyIpcHandlers(): void {
   ipcMain.handle('endoscopy:delete', (_event, id: string) => remove(id))
 
   ipcMain.handle('endoscopy:patientsFollowed', () => patientsFollowed())
+
+  ipcMain.handle('endoscopy:uploadResultFile', (_event, id: string) => uploadResultFile(id))
+
+  ipcMain.handle('endoscopy:viewResultFile', (_event, id: string) => viewResultFile(id))
 }

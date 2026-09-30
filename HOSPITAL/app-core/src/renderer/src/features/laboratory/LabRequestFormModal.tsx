@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
+import { PicklistInput } from '@renderer/components/PicklistInput'
+import { PICKLIST_KEYS } from '@shared/picklist-types'
 import type { ApiLabPriority, ApiLabRequest, ApiLabStatus, CreateLabRequestInput } from '@shared/laboratory-types'
 import type { ApiEmployee } from '@shared/appointment-types'
 import type { PatientSummary } from '@shared/patient-types'
@@ -11,6 +13,9 @@ interface LabRequestFormModalProps {
   onClose: () => void
   onCreated: (request: ApiLabRequest) => void
   editing?: LabRequest
+  /** Pré-remplit le patient (ex. bouton « Demander une analyse » depuis une consultation, item 1
+   * PETITES MODIFS) — ignoré en édition. */
+  initialPatientId?: string
 }
 
 const inputClass =
@@ -43,11 +48,12 @@ const LABEL_TO_API_STATUS: Record<string, ApiLabStatus> = {
   Annulée: 'ANNULEE'
 }
 
-export function LabRequestFormModal({ onClose, onCreated, editing }: LabRequestFormModalProps): JSX.Element {
+export function LabRequestFormModal({ onClose, onCreated, editing, initialPatientId }: LabRequestFormModalProps): JSX.Element {
   const [patients, setPatients] = useState<PatientSummary[]>([])
   const [technicians, setTechnicians] = useState<ApiEmployee[]>([])
-  const [patientId, setPatientId] = useState(editing?.patientId ?? '')
+  const [patientId, setPatientId] = useState(editing?.patientId ?? initialPatientId ?? '')
   const [technicianId, setTechnicianId] = useState(editing?.technicianId ?? '')
+  const [requestingDoctorId, setRequestingDoctorId] = useState(editing?.requestingDoctorId ?? '')
   const [analysisType, setAnalysisType] = useState(editing?.analysisType ?? '')
   const [priority, setPriority] = useState<ApiLabPriority>(
     editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMALE') : 'NORMALE'
@@ -83,6 +89,7 @@ export function LabRequestFormModal({ onClose, onCreated, editing }: LabRequestF
       ? await window.api.laboratory.update(editing.id, {
           patientId: patientId || null,
           technicianId: technicianId || null,
+          requestingDoctorId: requestingDoctorId || null,
           analysisType: analysisType.trim(),
           priority,
           service: service.trim() || null,
@@ -92,6 +99,7 @@ export function LabRequestFormModal({ onClose, onCreated, editing }: LabRequestF
       : await window.api.laboratory.create({
           patientId: patientId || undefined,
           technicianId: technicianId || undefined,
+          requestingDoctorId: requestingDoctorId || undefined,
           analysisType: analysisType.trim(),
           priority,
           service: service.trim() || undefined,
@@ -111,7 +119,12 @@ export function LabRequestFormModal({ onClose, onCreated, editing }: LabRequestF
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Type d&apos;analyse *</label>
-            <input value={analysisType} onChange={(e) => setAnalysisType(e.target.value)} className={inputClass} />
+            <PicklistInput
+              listKey={PICKLIST_KEYS.LABORATORY_ANALYSIS_TYPE}
+              value={analysisType}
+              onChange={setAnalysisType}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Patient</label>
@@ -128,6 +141,17 @@ export function LabRequestFormModal({ onClose, onCreated, editing }: LabRequestF
             <label className={labelClass}>Technicien</label>
             <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} className={inputClass}>
               <option value="">— Non assigné —</option>
+              {technicians.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.firstName}. {t.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Médecin demandeur</label>
+            <select value={requestingDoctorId} onChange={(e) => setRequestingDoctorId(e.target.value)} className={inputClass}>
+              <option value="">— Non renseigné —</option>
               {technicians.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.firstName}. {t.lastName}

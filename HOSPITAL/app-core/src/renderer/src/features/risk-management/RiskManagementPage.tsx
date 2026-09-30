@@ -9,6 +9,7 @@ import type { ApiRisk, ApiRiskLevel, ApiRiskStatus } from '@shared/risk-types'
 import { riskLevelTone, riskStatusTone, LEVEL_CELL_COLOR, levelFromScore } from './status'
 import type { Risk, RiskLevel, RiskStatus } from './types'
 import { RiskFormModal } from './RiskFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const PROBABILITY_LABELS = ['Rare', 'Possible', 'Probable', 'Fréquent']
 const IMPACT_LABELS = ['Mineur', 'Modéré', 'Majeur', 'Critique']
@@ -160,7 +161,7 @@ export function RiskManagementPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="riskManagement.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <ShieldAlert className="h-5 w-5 text-violet-600" />
@@ -189,9 +190,9 @@ export function RiskManagementPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Risques clos</p>
               <p className="text-xl font-bold text-gray-900">{closedCount}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="riskManagement.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Registre des risques</h3>
@@ -254,7 +255,7 @@ export function RiskManagementPage(): JSX.Element {
               </div>
             </Card>
 
-            <div className="space-y-6">
+            <SortableGroup id="riskManagement.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
@@ -306,8 +307,8 @@ export function RiskManagementPage(): JSX.Element {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           <Card>
             <h3 className="mb-4 text-sm font-semibold text-gray-900">Matrice des risques (probabilité × impact)</h3>

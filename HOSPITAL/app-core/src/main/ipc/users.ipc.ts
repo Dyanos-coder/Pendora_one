@@ -1,11 +1,13 @@
 import { ipcMain } from 'electron'
-import { changePassword, create, list, resetPassword, update } from '../services/users.service'
+import { changePassword, create, list, listUnlinked, resetPassword, update } from '../services/users.service'
 import type { CreateUserInput, UpdateUserInput } from '../../shared/user-types'
 
 export function registerUsersIpcHandlers(): void {
   ipcMain.handle('users:list', () => list())
 
   ipcMain.handle('users:create', (_event, input: CreateUserInput) => create(input))
+
+  ipcMain.handle('users:listUnlinkedEmployees', () => listUnlinked())
 
   ipcMain.handle('users:update', (_event, id: string, input: UpdateUserInput) => update(id, input))
 

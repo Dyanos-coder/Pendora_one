@@ -28,3 +28,687 @@ model AuditLog {
   after      String?
   createdAt  DateTime @default(now())
 }
+
+// --- Mode hors-ligne — Phase 0 (voir Plan-Mode-Hors-Ligne-Synchronisation.md) -------------------
+// Fondations transverses uniquement : aucun domaine métier n'écrit encore ici (ça, c'est la
+// Phase 1). `operation`/`status` sont des String plutôt que des enum Prisma — le connecteur
+// SQLite ne supporte pas les enums natifs, contrairement à MySQL côté app-server.
+
+// Une ligne par action utilisateur en attente d'envoi vers app-server (pattern outbox).
+// `operation` ∈ CREATE | UPDATE | DELETE. `status` ∈ PENDING | SENDING | SENT | FAILED.
+// `payload` est le corps JSON tel qu'il sera envoyé à la fonction remote-api.client.ts
+// correspondante ; `entityId` est l'id (UUID généré côté client, voir §4 du plan) de l'entité
+// locale concernée.
+model SyncOutbox {
+  id         String   @id @default(uuid())
+  entityType String
+  entityId   String
+  operation  String
+  payload    String
+  status     String   @default("PENDING")
+  retryCount Int      @default(0)
+  lastError  String?
+  // Posé à true quand l'échec vient d'un vrai conflit (409/ConflictError côté serveur) plutôt
+  // que d'une coupure réseau ou d'une erreur de validation — distingue les deux dans l'UI.
+  conflict   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Un curseur par type d'entité pour la synchro descendante (serveur → local, §6.2 du plan) :
+// jusqu'où on est déjà allé, pour ne redemander au serveur que ce qui a changé depuis.
+model SyncCursor {
+  entityType   String    @id
+  lastSyncedAt DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
+// --- Mode hors-ligne — Phase 1 : Patients (voir Plan-Mode-Hors-Ligne-Synchronisation.md) --------
+// Miroir local volontairement limité aux champs de la liste + de la création/modification
+// (`PatientSummary`/`CreatePatientInput`/`UpdatePatientInput`) — PAS aux vues agrégées du dossier
+// patient (consultations, vitaux, ordonnances, résultats, chronologie), qui restent en ligne
+// uniquement pour cette phase (elles agrègent 5+ domaines cliniques, hors périmètre réaliste
+// d'un seul chantier). `id` n'a pas de `@default(uuid())` : l'id est décidé par l'application
+// (généré côté client à la création hors-ligne, ou recopié depuis le serveur à la synchro
+// descendante) plutôt que par la base locale elle-même. `syncStatus` ∈ SYNCED | PENDING — un
+// patient PENDING porte un code provisoire (`P-LOCAL-xxxx`) tant que la création n'a pas été
+// confirmée par le serveur (voir §5 du plan, option A).
+model Patient {
+  id                    String    @id
+  code                  String    @unique
+  firstName             String
+  lastName              String
+  gender                String
+  birthDate             DateTime
+  phone                 String?
+  email                 String?
+  bloodType             String?
+  allergies             String?
+  status                String    @default("ACTIVE")
+  admissionType         String    @default("AMBULATOIRE")
+  service               String?
+  insuranceProvider     String?
+  insuranceNumber       String?
+  insuranceExpiry       DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  serverUpdatedAt       DateTime?
+  syncStatus            String    @default("SYNCED")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+}
+
+// --- Mode hors-ligne — Phase 1 : Consultations, Rendez-vous, Urgences ---------------------------
+// Même principe que Patient ci-dessus : miroir limité aux champs de liste/création/modification,
+// `id` décidé par l'application, `syncStatus` PENDING tant qu'une création/modification locale
+// n'a pas été confirmée par le serveur. `doctorName` est un champ propre au miroir local (absent
+// du schéma serveur) : un instantané du nom affiché la dernière fois qu'on l'a vu, pour continuer
+// à l'afficher hors-ligne même sans miroir local du domaine RH — jamais réenvoyé au serveur.
+// Consultations est le seul des trois avec un code lisible (`dossier`, généré par `nextCode` côté
+// serveur) : reçoit donc un code provisoire `DOS-LOCAL-xxxx` comme Patient (§5 du plan, option A).
+
+model Consultation {
+  id              String    @id
+  dossier         String    @unique
+  date            DateTime
+  service         String?
+  motive          String?
+  status          String    @default("EN_ATTENTE")
+  patientId       String?
+  patientName     String?
+  patientCode     String?
+  patientAge      Int?
+  patientGender   String?
+  doctorId        String?
+  doctorName      String?
+  documentFileName String?
+  documentMimeType String?
+  documentFileSize Int?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model Appointment {
+  id              String    @id
+  date            DateTime
+  durationMin     Int       @default(30)
+  service         String?
+  room            String?
+  type            String    @default("CONSULTATION")
+  motive          String?
+  status          String    @default("CONFIRME")
+  reminder        String?
+  patientId       String?
+  patientName     String?
+  patientAge      Int?
+  doctorId        String?
+  doctorName      String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model EmergencyVisit {
+  id              String    @id
+  arrivalTime     DateTime
+  dischargeTime   DateTime?
+  motive          String?
+  detail          String?
+  severity        String
+  zone            String?
+  status          String    @default("EN_ATTENTE_TRIAGE")
+  outcome         String?
+  patientId       String?
+  patientName     String?
+  patientCode     String?
+  patientAge      Int?
+  patientGender   String?
+  doctorId        String?
+  doctorName      String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// --- Mode hors-ligne — Phase 2 : Hospitalisation, Bloc opératoire, Laboratoire, Imagerie,
+// Cardiologie, Anatomopathologie, Endoscopie, Pharmacie, Banque de sang (voir
+// Plan-Mode-Hors-Ligne-Synchronisation.md) --------------------------------------------------------
+// Même principe que la Phase 1 : miroir limité liste/création/modification, `id` décidé par
+// l'application, `syncStatus` PENDING tant qu'une création/modification locale n'a pas été
+// confirmée par le serveur. Les champs `*Name` (`doctorName`, `surgeonName`, `anesthetistName`,
+// `technicianName`, `endoscopistName`, `roomName`, `bedRoom`/`bedLabel`) sont des instantanés
+// propres au miroir local (absents du schéma serveur, jamais réenvoyés) — `Employee`/`Bed`/
+// `OperatingRoom` n'ont pas leur propre miroir local (référentiels peu volatils, en lecture seule
+// côté serveur pour Bed/OperatingRoom). Seuls Laboratoire (`requestNumber`) et Banque de sang
+// (`pouchNumber`) ont un code lisible généré par `nextCode()` côté serveur → code provisoire
+// `LAB-LOCAL-xxxx`/`PC-LOCAL-xxxx` comme Patient/Consultation en Phase 1.
+
+model Hospitalization {
+  id              String    @id
+  patientId       String?
+  patientName     String?
+  patientCode     String?
+  bedId           String?
+  bedRoom         String?
+  bedLabel        String?
+  doctorId        String?
+  doctorName      String?
+  admissionDate   DateTime
+  dischargeDate   DateTime?
+  service         String?
+  motive          String?
+  status          String    @default("EN_ATTENTE")
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model Surgery {
+  id                  String    @id
+  patientId           String?
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       String?
+  scheduledAt         DateTime
+  procedure           String
+  procedureDetail     String?
+  specialty           String?
+  surgeonId           String?
+  surgeonName         String?
+  anesthetistId       String?
+  anesthetistName     String?
+  roomId              String?
+  roomName            String?
+  status              String    @default("EN_ATTENTE")
+  expectedDurationMin Int?
+  serverUpdatedAt     DateTime?
+  syncStatus          String    @default("SYNCED")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+}
+
+model LabRequest {
+  id              String    @id
+  requestNumber   String    @unique
+  patientId       String?
+  patientName     String?
+  patientCode     String?
+  patientAge      Int?
+  patientGender   String?
+  requestedAt     DateTime
+  resultAt        DateTime?
+  service         String?
+  analysisType    String
+  status          String    @default("EN_ATTENTE_PRELEVEMENT")
+  priority        String    @default("NORMALE")
+  sample          String?
+  technicianId    String?
+  technicianName  String?
+  requestingDoctorId   String?
+  requestingDoctorName String?
+  resultFileName       String?
+  resultMimeType       String?
+  resultFileSize       Int?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model ImagingRequest {
+  id                  String    @id
+  patientId           String?
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       String?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  examType            String
+  region              String?
+  service             String?
+  doctorId            String?
+  doctorName          String?
+  status              String    @default("EN_ATTENTE_LECTURE")
+  priority            String    @default("NORMAL")
+  expectedDurationMin Int?
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  serverUpdatedAt     DateTime?
+  syncStatus          String    @default("SYNCED")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+}
+
+model CardioExam {
+  id                  String    @id
+  patientId           String?
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       String?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  examType            String
+  indication          String?
+  doctorId            String?
+  doctorName          String?
+  status              String    @default("EN_ATTENTE")
+  priority            String    @default("NORMALE")
+  expectedDurationMin Int?
+  room                String?
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  serverUpdatedAt     DateTime?
+  syncStatus          String    @default("SYNCED")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+}
+
+model PathologyRequest {
+  id                  String    @id
+  patientId           String?
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       String?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  sampleType          String
+  location            String?
+  service             String?
+  doctorId            String?
+  doctorName          String?
+  status              String    @default("EN_ATTENTE_PRELEVEMENT")
+  priority            String    @default("NORMALE")
+  expectedDurationMin Int?
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  serverUpdatedAt     DateTime?
+  syncStatus          String    @default("SYNCED")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+}
+
+model EndoscopyProcedure {
+  id                  String    @id
+  patientId           String?
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       String?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  procedureType       String
+  indication          String?
+  service             String?
+  endoscopistId       String?
+  endoscopistName     String?
+  status              String    @default("EN_ATTENTE")
+  priority            String    @default("NORMALE")
+  expectedDurationMin Int?
+  room                String?
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  serverUpdatedAt     DateTime?
+  syncStatus          String    @default("SYNCED")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+}
+
+model Medication {
+  id              String    @id
+  name            String
+  category        String
+  location        String
+  available       Int
+  minThreshold    Int
+  nearestExpiry   DateTime?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model BloodPouch {
+  id              String    @id
+  pouchNumber     String    @unique
+  bloodGroup      String
+  component       String
+  volumeMl        Int?
+  status          String    @default("EN_ATTENTE_ANALYSE")
+  collectionDate  DateTime
+  expiryDate      DateTime
+  donorName       String
+  patientId       String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// --- Mode hors-ligne — Phase 3 : Stocks, Approvisionnement, Finance, RH (voir
+// Plan-Mode-Hors-Ligne-Synchronisation.md) --------------------------------------------------------
+// Dernière phase, périmètre volontairement limité à l'entité PRINCIPALE de chaque domaine (celle
+// des items 1-11) — PAS aux nombreux sous-onglets CRUD ajoutés aux items 12-14 (mouvements de
+// stock, commandes/réceptions, factures/paiements/budgets/comptes, présences/contrats/paie/
+// documents RH), qui restent en ligne uniquement pour l'instant. `depotName` (Stocks) est un
+// instantané local (comme `doctorName` en Phase 1/2) — `Depot` est un référentiel en lecture seule
+// côté serveur, pas de miroir dédié. `Employee` n'a pas de `deletedAt` côté serveur (suppression
+// douce via `isActive: false`, cf. item 6) — le miroir local suit la même convention plutôt que
+// d'en inventer une nouvelle.
+
+model DepotItem {
+  id              String    @id
+  name            String
+  category        String
+  depotId         String
+  depotName       String?
+  available       Int
+  minThreshold    Int
+  lastMovementAt  DateTime?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// Sous-onglets Stocks (item 16, hors périmètre de la Phase 3 initiale — voir
+// Plan-Mode-Hors-Ligne-Synchronisation.md, section ajoutée après coup). `itemName`/`fromItemName`/
+// `toDepotName` sont des instantanés (même principe que `DepotItem.depotName`), pas de relation
+// Prisma locale — recopiés depuis le miroir local `DepotItem` au moment de la création hors-ligne,
+// remplacés par la valeur serveur à la synchro.
+model StockMovement {
+  id              String    @id
+  reference       String    @unique
+  itemId          String
+  itemName        String?
+  type            String
+  quantity        Int
+  movementDate    DateTime
+  reason          String?
+  performedBy     String
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model StockTransfer {
+  id              String    @id
+  reference       String    @unique
+  fromItemId      String
+  fromItemName    String?
+  toDepotId       String
+  toDepotName     String?
+  quantity        Int
+  transferDate    DateTime
+  performedBy     String
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model InventoryCount {
+  id               String    @id
+  reference        String    @unique
+  itemId           String
+  itemName         String?
+  expectedQuantity Int
+  countedQuantity  Int
+  conductedBy      String
+  conductedAt      DateTime
+  note             String?
+  serverUpdatedAt  DateTime?
+  syncStatus       String    @default("SYNCED")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+}
+
+model StockLoss {
+  id              String    @id
+  reference       String    @unique
+  itemId          String
+  itemName        String?
+  type            String
+  quantity        Int
+  reason          String
+  occurredAt      DateTime
+  reportedBy      String
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model ProcurementRequest {
+  id              String    @id
+  reference       String    @unique
+  requestedAt     DateTime
+  article         String
+  category        String
+  quantity        Int
+  priority        String    @default("NORMALE")
+  status          String    @default("A_VALIDER")
+  requester       String
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// Sous-onglets Approvisionnement (item 13, Phase 5 — voir
+// Plan-Mode-Hors-Ligne-Synchronisation.md). `requestReference`/`supplierName`/`orderReference` sont
+// des instantanés, pas de relation Prisma locale — mêmes principes que Stocks (Phase 5).
+model PurchaseOrder {
+  id                 String    @id
+  reference          String    @unique
+  requestId          String?
+  requestReference   String?
+  supplierId         String?
+  supplierName       String?
+  article            String
+  quantity           Int
+  unitPrice          Float?
+  orderedAt          DateTime
+  expectedDeliveryAt DateTime?
+  status             String    @default("EN_PREPARATION")
+  serverUpdatedAt    DateTime?
+  syncStatus         String    @default("SYNCED")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+}
+
+model GoodsReception {
+  id              String    @id
+  orderId         String
+  orderReference  String?
+  article         String?
+  receivedAt      DateTime
+  receivedQty     Int
+  orderedQty      Int?
+  condition       String    @default("CONFORME")
+  receivedBy      String
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model FinanceTransaction {
+  id              String    @id
+  reference       String    @unique
+  occurredAt      DateTime
+  type            String
+  party           String
+  category        String
+  amount          Int
+  status          String    @default("EN_ATTENTE")
+  paymentMode     String
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// Sous-onglets Finance (item 14, Phase 5 — voir Plan-Mode-Hors-Ligne-Synchronisation.md).
+// `supplierName`/`orderReference` en instantané (comme Approvisionnement, Phase 5) — `orderId`
+// retrouvé dans le miroir local `PurchaseOrder` (Phase 5/Approvisionnement) si déjà connu.
+model SupplierInvoice {
+  id              String    @id
+  reference       String    @unique
+  supplierId      String?
+  supplierName    String?
+  orderId         String?
+  orderReference  String?
+  amount          Int
+  issuedAt        DateTime
+  dueAt           DateTime?
+  status          String    @default("EN_ATTENTE")
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model PaymentReceived {
+  id              String    @id
+  reference       String    @unique
+  payer           String
+  category        String
+  amount          Int
+  receivedAt      DateTime
+  paymentMode     String
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model ServiceExpense {
+  id              String    @id
+  reference       String    @unique
+  service         String
+  category        String
+  amount          Int
+  spentAt         DateTime
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// `consumedAmount`/`remainingAmount` recalculés à l'affichage en sommant `ServiceExpense` (même
+// principe que côté serveur), pas stockés.
+model Budget {
+  id              String    @id
+  reference       String    @unique
+  service         String
+  year            Int
+  allocatedAmount Int
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model BankAccount {
+  id              String    @id
+  reference       String    @unique
+  name            String
+  bankName        String
+  accountNumber   String
+  balance         Int       @default(0)
+  note            String?
+  serverUpdatedAt DateTime?
+  syncStatus      String    @default("SYNCED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+// Pas de `@unique` sur `matricule` ici (contrairement au serveur) : un doublon créé hors-ligne sur
+// deux postes différents doit pouvoir être écrit localement sans bloquer, et se résout comme une
+// erreur métier normale (FAILED, §6.3 du plan) à la synchro plutôt que de bloquer l'écriture locale.
+model Employee {
+  id               String    @id
+  firstName        String
+  lastName         String
+  role             String
+  specialty        String?
+  department       String?
+  matricule        String?
+  contractType     String?
+  contractNumber   String?
+  hireDate         DateTime?
+  contractEndDate  DateTime?
+  dailyStatus      String?
+  presentDays      Int?
+  absentDays       Int?
+  lateDays         Int?
+  averageHoursMin  Int?
+  overtimeHoursMin Int?
+  isActive         Boolean   @default(true)
+  serverUpdatedAt  DateTime?
+  syncStatus       String    @default("SYNCED")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+// Copie locale de l'abonnement Pandora signé (Plan-Site-Pandora.md §6.4) : permet de contrôler
+// l'abonnement hors connexion. `maxSeenAt` = date la plus récente jamais vue sur ce poste — si
+// l'horloge du poste recule en dessous, on ne la croit pas (protection contre le recul de l'heure).
+model LocalSubscription {
+  id        String   @id
+  payload   String
+  signature String
+  maxSeenAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@map("local_subscription")
+}

@@ -32,11 +32,19 @@ import type { ApiFinanceTransaction, ApiTransactionStatus, ApiTransactionType } 
 import { transactionStatusTone, EXPENSE_CATEGORY_COLOR } from './status'
 import type { FinanceTransaction, TransactionStatus, TransactionType } from './types'
 import { FinanceTransactionFormModal } from './FinanceTransactionFormModal'
+import { SupplierInvoicesTab } from './tabs/SupplierInvoicesTab'
+import { PaymentsReceivedTab } from './tabs/PaymentsReceivedTab'
+import { ServiceExpensesTab } from './tabs/ServiceExpensesTab'
+import { BudgetsTab } from './tabs/BudgetsTab'
+import { BankAccountsTab } from './tabs/BankAccountsTab'
+import { CashRegistersTab } from './tabs/CashRegistersTab'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
-type Tab = 'recent' | 'invoices' | 'payments' | 'byService' | 'budgets' | 'accounts'
+type Tab = 'recent' | 'cashRegisters' | 'invoices' | 'payments' | 'byService' | 'budgets' | 'accounts'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'recent', label: 'Opérations récentes' },
+  { id: 'cashRegisters', label: 'Caisses' },
   { id: 'invoices', label: 'Factures fournisseurs' },
   { id: 'payments', label: 'Paiements reçus' },
   { id: 'byService', label: 'Dépenses par service' },
@@ -44,22 +52,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'accounts', label: 'Comptes bancaires' }
 ]
 
-const FILTER_FIELDS = [
-  { label: "Type d'opération", value: 'Toutes les opérations' },
-  { label: 'Catégorie', value: 'Toutes les catégories' },
-  { label: 'Statut', value: 'Tous les statuts' }
-]
-
-const QUICK_ACTIONS = [
-  { icon: Plus, label: 'Créer une recette' },
-  { icon: ReceiptText, label: 'Enregistrer une dépense' },
-  { icon: CreditCard, label: 'Nouveau paiement' },
-  { icon: ClipboardList, label: 'Créer un budget' },
-  { icon: ArrowLeftRight, label: 'Transfert entre comptes' },
-  { icon: Landmark, label: 'Rapprochement bancaire' },
-  { icon: FileBarChart, label: 'Rapport financier' },
-  { icon: Settings, label: 'Paramètres finances' }
-]
+const ALL_FILTER = '__all__'
 
 const TYPE_LABEL: Record<ApiTransactionType, TransactionType> = {
   RECETTE: 'Recette',
@@ -69,7 +62,8 @@ const TYPE_LABEL: Record<ApiTransactionType, TransactionType> = {
 const STATUS_LABEL: Record<ApiTransactionStatus, TransactionStatus> = {
   PAYE: 'Payé',
   EN_ATTENTE: 'En attente',
-  EN_RETARD: 'En retard'
+  EN_RETARD: 'En retard',
+  ANNULE: 'Annulé'
 }
 
 function toTransaction(t: ApiFinanceTransaction): FinanceTransaction {
@@ -102,6 +96,11 @@ export function FinancePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('recent')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [createType, setCreateType] = useState<ApiTransactionType | undefined>(undefined)
+  const [filterType, setFilterType] = useState(ALL_FILTER)
+  const [filterCategory, setFilterCategory] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -118,14 +117,37 @@ export function FinancePage(): JSX.Element {
     }
   }, [])
 
-  const rows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return transactions
-    return transactions.filter((t) => `${t.reference} ${t.party} ${t.category}`.toLowerCase().includes(term))
-  }, [search, transactions])
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.finance.exportExcel()
+    setExporting(false)
+  }
 
-  const recettes = useMemo(() => transactions.filter((t) => t.type === 'Recette'), [transactions])
-  const depenses = useMemo(() => transactions.filter((t) => t.type === 'Dépense'), [transactions])
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(transactions.map((t) => t.category).filter(Boolean))).sort(),
+    [transactions]
+  )
+
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return transactions.filter((t) => {
+      if (term && !`${t.reference} ${t.party} ${t.category}`.toLowerCase().includes(term)) return false
+      if (filterType !== ALL_FILTER && t.type !== filterType) return false
+      if (filterCategory !== ALL_FILTER && t.category !== filterCategory) return false
+      if (filterStatus !== ALL_FILTER && t.status !== filterStatus) return false
+      return true
+    })
+  }, [search, transactions, filterType, filterCategory, filterStatus])
+
+  function handleResetFilters(): void {
+    setFilterType(ALL_FILTER)
+    setFilterCategory(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+  }
+
+  // Les opérations annulées (reçus de caisse annulés) restent listées mais sortent des totaux.
+  const recettes = useMemo(() => transactions.filter((t) => t.type === 'Recette' && t.status !== 'Annulé'), [transactions])
+  const depenses = useMemo(() => transactions.filter((t) => t.type === 'Dépense' && t.status !== 'Annulé'), [transactions])
   const totalRecettes = useMemo(() => recettes.reduce((sum, t) => sum + t.amount, 0), [recettes])
   const totalDepenses = useMemo(() => depenses.reduce((sum, t) => sum + t.amount, 0), [depenses])
   const resultatNet = totalRecettes - totalDepenses
@@ -164,19 +186,30 @@ export function FinancePage(): JSX.Element {
     [enRetard, enAttente]
   )
 
+  const QUICK_ACTIONS: { icon: typeof Plus; label: string; onClick?: () => void }[] = [
+    { icon: Plus, label: 'Créer une recette', onClick: () => { setCreateType('RECETTE'); setShowCreateModal(true) } },
+    { icon: ReceiptText, label: 'Enregistrer une dépense', onClick: () => { setCreateType('DEPENSE'); setShowCreateModal(true) } },
+    { icon: CreditCard, label: 'Nouveau paiement', onClick: () => setActiveTab('payments') },
+    { icon: ClipboardList, label: 'Créer un budget', onClick: () => setActiveTab('budgets') },
+    { icon: ArrowLeftRight, label: 'Transfert entre comptes', onClick: () => setActiveTab('accounts') },
+    { icon: Landmark, label: 'Rapprochement bancaire', onClick: () => setActiveTab('accounts') },
+    { icon: FileBarChart, label: 'Rapport financier', onClick: handleExportExcel },
+    { icon: Settings, label: 'Paramètres finances' }
+  ]
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        breadcrumb={['Accueil', 'Finances']}
-        title="Finances"
+        breadcrumb={['Accueil', 'Finance', 'Comptabilité']}
+        title="Comptabilité"
         subtitle="Gestion financière de l'établissement."
         actions={
           <>
-            <Button variant="secondary" size="sm">
-              <FileDown className="h-3.5 w-3.5" />
+            <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
               Exporter
             </Button>
-            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+            <Button size="sm" onClick={() => { setCreateType(undefined); setShowCreateModal(true) }}>
               <Plus className="h-3.5 w-3.5" />
               Nouvelle opération
             </Button>
@@ -186,6 +219,7 @@ export function FinancePage(): JSX.Element {
 
       {showCreateModal && (
         <FinanceTransactionFormModal
+          initialType={createType}
           onClose={() => setShowCreateModal(false)}
           onCreated={(transaction) => {
             setRawTransactions((prev) => [...prev, transaction])
@@ -231,7 +265,7 @@ export function FinancePage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SortableGroup id="finance.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card className="border-t-4 border-t-emerald-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
                 <TrendingUp className="h-5 w-5 text-emerald-600" />
@@ -267,9 +301,9 @@ export function FinancePage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Paiements en retard</p>
               <p className="text-xl font-bold text-gray-900">{enRetard.length}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="finance.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -289,10 +323,18 @@ export function FinancePage(): JSX.Element {
                 ))}
               </div>
 
-              {activeTab !== 'recent' ? (
-                <p className="px-6 py-12 text-center text-sm text-gray-400">
-                  Module « {TABS.find((t) => t.id === activeTab)?.label} » à spécifier.
-                </p>
+              {activeTab === 'cashRegisters' ? (
+                <CashRegistersTab />
+              ) : activeTab === 'invoices' ? (
+                <SupplierInvoicesTab />
+              ) : activeTab === 'payments' ? (
+                <PaymentsReceivedTab />
+              ) : activeTab === 'byService' ? (
+                <ServiceExpensesTab />
+              ) : activeTab === 'budgets' ? (
+                <BudgetsTab />
+              ) : activeTab === 'accounts' ? (
+                <BankAccountsTab />
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-3">
@@ -306,23 +348,27 @@ export function FinancePage(): JSX.Element {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="sm">
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                      <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                         Export Excel
                       </Button>
                       <Button variant="secondary" size="sm">
                         <Columns3 className="h-3.5 w-3.5" />
                         Colonnes
                       </Button>
-                      <Button variant="secondary" size="sm">
+                      <Button variant="secondary" size="sm" onClick={() => window.print()}>
                         <Printer className="h-3.5 w-3.5" />
                         Imprimer
                       </Button>
                     </div>
                   </div>
 
-                  {rows.length === 0 ? (
-                    <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune opération ne correspond à cette recherche.</p>
+                  {filteredRows.length === 0 ? (
+                    <p className="px-6 py-8 text-center text-sm text-gray-400">
+                      {transactions.length === 0
+                        ? 'Aucune opération enregistrée.'
+                        : 'Aucune opération ne correspond à la recherche ou aux filtres.'}
+                    </p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -339,7 +385,7 @@ export function FinancePage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {rows.map((t) => (
+                          {filteredRows.map((t) => (
                             <tr key={t.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                               <td className="px-6 py-3 text-gray-600">
                                 <p>{t.date}</p>
@@ -384,29 +430,70 @@ export function FinancePage(): JSX.Element {
                   )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                    <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {transactions.length} opérations</span>
+                    <span>
+                      Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {transactions.length} opérations
+                    </span>
                   </div>
                 </>
               )}
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="finance.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;opération</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les opérations</option>
+                      {Object.values(TYPE_LABEL).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Catégorie</label>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les catégories</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button size="sm" className="w-full" onClick={() => setActiveTab('recent')}>
                     Filtrer
                   </Button>
                 </div>
@@ -483,11 +570,11 @@ export function FinancePage(): JSX.Element {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Alertes + Actions rapides */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="finance.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
                 <h3 className="text-sm font-semibold text-gray-900">Alertes financières</h3>
@@ -524,6 +611,7 @@ export function FinancePage(): JSX.Element {
                 {QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.label}
+                    onClick={action.onClick}
                     className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm"
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-50 text-accent-600">
@@ -534,7 +622,7 @@ export function FinancePage(): JSX.Element {
                 ))}
               </div>
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>

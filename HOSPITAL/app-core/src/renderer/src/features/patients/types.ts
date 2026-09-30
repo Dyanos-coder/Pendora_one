@@ -6,16 +6,11 @@
 // autres domaines du Core.
 
 export type PatientStatus = 'active' | 'inactive'
-export type AdmissionType = 'Ambulatoire' | 'Hospitalisé' | 'Urgence'
+export type AdmissionType = 'Non admis' | 'Ambulatoire' | 'Hospitalisé' | 'Urgence'
 
-// Consultations, RDV à venir, vitaux, ordonnances, résultats et chronologie viennent désormais
-// du dossier patient agrégé (`window.api.patients.dossier`, voir shared/patient-types.ts
-// `ApiPatientDossier`) — seul `documents` reste mocké ici, en attente de l'item 11 (upload réel).
-export interface PatientDocument {
-  name: string
-  date: string
-  size: string
-}
+// Consultations, RDV à venir, vitaux, ordonnances, résultats, chronologie et documents viennent
+// désormais du dossier patient agrégé et de `window.api.patients.documents` (voir
+// shared/patient-types.ts `ApiPatientDossier` / `ApiPatientDocument`) — plus de mock ici.
 
 export interface Patient {
   id: string
@@ -36,11 +31,9 @@ export interface Patient {
   insuranceNumber: string
   insuranceExpiry: string
   lastVisit: string
-  balance: number
   emergencyContact: { name: string; phone: string }
   medicalHistory: string[]
   familyHistory: string[]
   lifestyle: string[]
   recordCompleteness: number
-  documents: PatientDocument[]
 }

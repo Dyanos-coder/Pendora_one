@@ -4,6 +4,7 @@ import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { BarChart } from '@renderer/components/BarChart'
 import type { ApiAutomationCategory, ApiAutomationLog, ApiAutomationRule } from '@shared/automation-types'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const CATEGORY_LABEL: Record<ApiAutomationCategory, string> = {
   RENDEZ_VOUS: 'Rendez-vous',
@@ -106,7 +107,7 @@ export function AutomationStudioPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="automationStudio.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Workflow className="h-5 w-5 text-violet-600" />
@@ -143,9 +144,9 @@ export function AutomationStudioPage(): JSX.Element {
                 />
               )}
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="automationStudio.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Règles d&apos;automatisation</h3>
@@ -190,7 +191,7 @@ export function AutomationStudioPage(): JSX.Element {
               </div>
             </Card>
 
-            <div className="space-y-6">
+            <SortableGroup id="automationStudio.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Règles par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
@@ -240,8 +241,8 @@ export function AutomationStudioPage(): JSX.Element {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
         </>
       )}
     </div>

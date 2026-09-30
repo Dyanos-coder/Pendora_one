@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileText, CheckCircle2, Hourglass, TriangleAlert, Search, Eye, MoreHorizontal, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import {
+  FileText,
+  CheckCircle2,
+  Hourglass,
+  TriangleAlert,
+  Search,
+  Eye,
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  Upload,
+  FileSignature
+} from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
@@ -9,6 +22,10 @@ import type { ApiProtocolDocument, ApiProtocolDocumentStatus } from '@shared/doc
 import { documentStatusTone, CATEGORY_CHART_COLOR } from './status'
 import type { DocumentStatus, ProtocolDocument } from './types'
 import { ProtocolDocumentFormModal } from './ProtocolDocumentFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
+import type { Session } from '@shared/auth-types'
+import { accessLevel, hasAccess } from '@shared/permissions'
+import { RequestSignatureModal, SignaturePanel } from './SignaturePanel'
 
 const STATUS_LABEL: Record<ApiProtocolDocumentStatus, DocumentStatus> = {
   PUBLIE: 'Publié',
@@ -24,11 +41,20 @@ function toDocument(d: ApiProtocolDocument): ProtocolDocument {
     version: d.version,
     status: STATUS_LABEL[d.status],
     updatedOn: new Date(d.revisedAt).toLocaleDateString('fr-FR'),
-    owner: d.owner
+    owner: d.owner,
+    fileName: d.fileName
   }
 }
 
-export function DocumentsPage(): JSX.Element {
+export function DocumentsPage({ session }: { session: Session }): JSX.Element {
+  const level = accessLevel(session.user.role, 'documents')
+  const canWrite = hasAccess(level, 'write')
+  const canDelete = hasAccess(level, 'full')
+  const isDirector = session.user.role === 'DIRIGEANT'
+  // Demande de signature : ouverte à tous. `undefined` = fermé, `null` = sans document présélectionné.
+  const [requestingFor, setRequestingFor] = useState<string | null | undefined>(undefined)
+  const [signatureRefresh, setSignatureRefresh] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
   const [documents, setDocuments] = useState<(ProtocolDocument & { revisedAtMs: number })[]>([])
   const [rawDocuments, setRawDocuments] = useState<ApiProtocolDocument[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +63,9 @@ export function DocumentsPage(): JSX.Element {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingDocument, setEditingDocument] = useState<ApiProtocolDocument | null>(null)
   const [deletingDocument, setDeletingDocument] = useState<ProtocolDocument | null>(null)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [viewingId, setViewingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -44,9 +73,7 @@ export function DocumentsPage(): JSX.Element {
       if (cancelled) return
       if (result.ok) {
         setRawDocuments(result.data.documents)
-        setDocuments(
-          result.data.documents.map((d) => ({ ...toDocument(d), revisedAtMs: new Date(d.revisedAt).getTime() }))
-        )
+        setDocuments(result.data.documents.map((d) => ({ ...toDocument(d), revisedAtMs: new Date(d.revisedAt).getTime() })))
       } else {
         setError(result.error)
       }
@@ -55,7 +82,40 @@ export function DocumentsPage(): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
+
+  function applyUpdatedDocument(document: ApiProtocolDocument): void {
+    setRawDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)))
+    setDocuments((prev) =>
+      prev.map((d) =>
+        d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d
+      )
+    )
+  }
+
+  async function handleUpload(id: string): Promise<void> {
+    setUploadingId(id)
+    setActionError(null)
+    const result = await window.api.documents.uploadFile(id)
+    setUploadingId(null)
+    if (result === null) return
+    if (result.ok) {
+      applyUpdatedDocument(result.data.document)
+    } else {
+      setActionError(result.error)
+    }
+  }
+
+  async function handleView(id: string): Promise<void> {
+    setViewingId(id)
+    setActionError(null)
+    try {
+      await window.api.documents.viewFile(id)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Impossible d’ouvrir le fichier.')
+    }
+    setViewingId(null)
+  }
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -86,22 +146,27 @@ export function DocumentsPage(): JSX.Element {
     return `conic-gradient(${stops.join(', ')})`
   }, [categoryBreakdown, total])
 
-  const recentlyUpdated = useMemo(
-    () => [...documents].sort((a, b) => b.revisedAtMs - a.revisedAtMs).slice(0, 4),
-    [documents]
-  )
+  const recentlyUpdated = useMemo(() => [...documents].sort((a, b) => b.revisedAtMs - a.revisedAtMs).slice(0, 4), [documents])
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        breadcrumb={['Accueil', 'Documents & Protocoles']}
-        title="Documents & Protocoles"
-        subtitle="Bibliothèque des protocoles, procédures et documents institutionnels."
+        breadcrumb={['Accueil', 'Documents & signature électronique']}
+        title="Documents & signature électronique"
+        subtitle="Protocoles, procédures et documents institutionnels — signature électronique du dirigeant."
         actions={
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="h-4 w-4" />
-            Nouveau document
-          </Button>
+          <>
+            <Button variant="secondary" onClick={() => setRequestingFor(null)}>
+              <FileSignature className="h-4 w-4" />
+              Demander une signature
+            </Button>
+            {canWrite && (
+              <Button onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4" />
+                Nouveau document
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -123,7 +188,9 @@ export function DocumentsPage(): JSX.Element {
           onCreated={(document) => {
             setRawDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)))
             setDocuments((prev) =>
-              prev.map((d) => (d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d))
+              prev.map((d) =>
+                d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d
+              )
             )
             setEditingDocument(null)
           }}
@@ -144,6 +211,28 @@ export function DocumentsPage(): JSX.Element {
         />
       )}
 
+      {requestingFor !== undefined && (
+        <RequestSignatureModal
+          documents={rawDocuments}
+          preselectedId={requestingFor}
+          onClose={() => setRequestingFor(undefined)}
+          onRequested={() => {
+            setRequestingFor(undefined)
+            setSignatureRefresh((n) => n + 1)
+            setReloadKey((n) => n + 1)
+          }}
+        />
+      )}
+
+      {actionError && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-2.5 text-xs text-red-600">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="shrink-0 text-red-400 hover:text-red-600">
+            ✕
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -154,7 +243,7 @@ export function DocumentsPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="documents.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <FileText className="h-5 w-5 text-violet-600" />
@@ -183,9 +272,16 @@ export function DocumentsPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">À réviser</p>
               <p className="text-xl font-bold text-gray-900">{toReview}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SignaturePanel
+            isDirector={isDirector}
+            refreshKey={signatureRefresh}
+            onDocumentsChanged={() => setReloadKey((n) => n + 1)}
+            onView={(id) => void handleView(id)}
+          />
+
+          <SortableGroup id="documents.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Documents</h3>
@@ -226,26 +322,55 @@ export function DocumentsPage(): JSX.Element {
                         <td className="px-6 py-3 text-gray-600">{d.updatedOn}</td>
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-1">
-                            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                              <Eye className="h-4 w-4" />
-                            </button>
                             <button
-                              onClick={() => setEditingDocument(rawDocuments.find((r) => r.id === d.id) ?? null)}
-                              title="Modifier le document"
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                              onClick={() => handleView(d.id)}
+                              disabled={!d.fileName || viewingId === d.id}
+                              title={d.fileName ? `Voir ${d.fileName}` : 'Aucun fichier — téléversez-en un'}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                             >
-                              <Pencil className="h-4 w-4" />
+                              {viewingId === d.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                             </button>
-                            <button
-                              onClick={() => setDeletingDocument(d)}
-                              title="Supprimer le document"
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
+                            {rawDocuments.find((r) => r.id === d.id)?.mimeType === 'application/pdf' && (
+                              <button
+                                onClick={() => setRequestingFor(d.id)}
+                                title="Demander la signature du dirigeant"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent-600"
+                              >
+                                <FileSignature className="h-4 w-4" />
+                              </button>
+                            )}
+                            {canWrite && (
+                              <button
+                                onClick={() => handleUpload(d.id)}
+                                disabled={uploadingId === d.id}
+                                title={d.fileName ? 'Remplacer le fichier' : 'Téléverser un fichier'}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              >
+                                {uploadingId === d.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Upload className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
+                            {canWrite && (
+                              <button
+                                onClick={() => setEditingDocument(rawDocuments.find((r) => r.id === d.id) ?? null)}
+                                title="Modifier le document"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => setDeletingDocument(d)}
+                                title="Supprimer le document"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -255,20 +380,26 @@ export function DocumentsPage(): JSX.Element {
               </div>
             </Card>
 
-            <div className="space-y-6">
+            <SortableGroup id="documents.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
                   <div className="flex items-center gap-4">
-                    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: donutBackground }}>
+                    <div
+                      className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: donutBackground }}
+                    >
                       <div className="h-11 w-11 rounded-full bg-white" />
                     </div>
                     <div className="space-y-1 text-[11px]">
                       {categoryBreakdown.map(({ label, count }) => (
                         <div key={label} className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: CATEGORY_CHART_COLOR[label] ?? '#9ca3af' }} />
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: CATEGORY_CHART_COLOR[label] ?? '#9ca3af' }}
+                          />
                           <span className="text-gray-600">{label}</span>
                           <span className="font-medium text-gray-900">{count}</span>
                         </div>
@@ -291,8 +422,8 @@ export function DocumentsPage(): JSX.Element {
                   ))}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
         </>
       )}
     </div>

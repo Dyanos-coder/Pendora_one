@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
+import { PicklistInput } from '@renderer/components/PicklistInput'
+import { PICKLIST_KEYS } from '@shared/picklist-types'
 import type { ApiMedication, CreateMedicationInput } from '@shared/pharmacy-types'
 
 interface MedicationFormModalProps {
@@ -65,11 +67,16 @@ export function MedicationFormModal({ onClose, onCreated, editing }: MedicationF
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Nom *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+            <PicklistInput listKey={PICKLIST_KEYS.PHARMACY_MEDICATION_NAME} value={name} onChange={setName} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>Catégorie *</label>
-            <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} />
+            <PicklistInput
+              listKey={PICKLIST_KEYS.PHARMACY_MEDICATION_CATEGORY}
+              value={category}
+              onChange={setCategory}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Emplacement *</label>

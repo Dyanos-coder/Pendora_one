@@ -8,12 +8,27 @@ files:
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  # Fichier de base locale de dev — jamais utilisé en prod (voir main/paths.ts, `userData` en
+  # dehors de dev), inutile de l'embarquer dans l'installeur.
+  - '!dev.db'
+  # Config Prisma de dev pour la base distante — en production, les migrations de
+  # prisma-remote/migrations sont appliquées par l'app elle-même (migrate-remote-db.ts).
+  - '!prisma-remote.config.ts'
 asarUnpack:
   - resources/**
+  # `@libsql`/`libsql` embarquent un binaire natif (`.node`, `win32-x64-msvc/index.node` etc.) —
+  # un module natif ne peut pas être chargé (`dlopen`/`LoadLibrary`) depuis l'intérieur d'un
+  # `app.asar` (archive virtuelle, pas un vrai chemin disque) : sans ce unpack, toute la base
+  # locale (mode hors-ligne) échoue silencieusement dans l'app installée alors qu'elle fonctionne
+  # en dev (qui lit directement depuis node_modules sur disque).
+  - node_modules/@libsql/**
+  - node_modules/libsql/**
 win:
   executableName: pandora-health
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  # Nom fixé en dur plutôt que ${name} (nom du paquet npm « hospital-app-core ») : ne pas renommer
+  # le paquet lui-même, il détermine le dossier userData des postes (base locale, accès, session).
+  artifactName: pandora-health-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -25,3 +40,14 @@ linux:
     - AppImage
   category: Utility
 npmRebuild: false
+# Mise à jour automatique (Plan-Mise-A-Jour-Automatique.md) : `npm run release` dépose sur ce dépôt
+# PUBLIC (installateurs uniquement, le code reste privé) le .exe, son .blockmap et latest.yml ; les
+# postes installés y lisent latest.yml (app-update.yml est généré dans l'installateur à partir de
+# ce bloc). La publication demande un jeton GitHub dans la variable d'environnement GH_TOKEN, sur
+# le poste de publication uniquement — jamais embarqué dans l'application. `release` (et non
+# `draft`) : la version est visible des postes dès sa publication.
+publish:
+  provider: github
+  owner: Dyanos-coder
+  repo: pandora-health-releases
+  releaseType: release

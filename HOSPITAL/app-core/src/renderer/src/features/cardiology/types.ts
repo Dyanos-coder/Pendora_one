@@ -21,4 +21,6 @@ export interface CardioExam {
   priority: CardioPriority
   expectedDurationMin: number | null
   room: string
+  resultFileName: string | null
+  paid?: boolean
 }

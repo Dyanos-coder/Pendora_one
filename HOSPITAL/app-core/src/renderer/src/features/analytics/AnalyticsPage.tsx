@@ -5,6 +5,7 @@ import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
 import { BarChart } from '@renderer/components/BarChart'
 import type { ApiDepartmentComparison, ApiGeneratedReport, ApiReportCategory, ApiReportCategoryCount } from '@shared/reports-types'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const CATEGORY_ICON: Record<ApiReportCategory, typeof Activity> = {
   ACTIVITE_MEDICALE: Activity,
@@ -79,7 +80,7 @@ export function AnalyticsPage(): JSX.Element {
       ) : (
         <>
           {/* Catégories de rapports */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SortableGroup id="analytics.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {categories.map((c) => {
               const Icon = CATEGORY_ICON[c.category]
               return (
@@ -102,9 +103,9 @@ export function AnalyticsPage(): JSX.Element {
                 </Card>
               )
             })}
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="analytics.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Rapports récents</h3>
@@ -156,7 +157,7 @@ export function AnalyticsPage(): JSX.Element {
                 </p>
               )}
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>

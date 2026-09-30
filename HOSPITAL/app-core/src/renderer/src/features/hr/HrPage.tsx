@@ -31,6 +31,13 @@ import type { ApiEmployeeDailyStatus, ApiHrEmployee } from '@shared/hr-types'
 import { employeeStatusTone, DAY_STATUS_COLOR } from './status'
 import type { Employee, EmployeeStatus } from './types'
 import { HrEmployeeFormModal } from './HrEmployeeFormModal'
+import { AttendanceTab } from './tabs/AttendanceTab'
+import { ContractsTab } from './tabs/ContractsTab'
+import { PerformanceTab } from './tabs/PerformanceTab'
+import { TrainingTab } from './tabs/TrainingTab'
+import { PayrollTab } from './tabs/PayrollTab'
+import { DocumentsTab } from './tabs/DocumentsTab'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 type Tab = 'overview' | 'employees' | 'attendance' | 'contracts' | 'performance' | 'training' | 'payroll' | 'documents'
 
@@ -45,23 +52,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documents', label: 'Documents' }
 ]
 
-const FILTER_FIELDS = [
-  { label: 'Service', value: 'Tous les services' },
-  { label: 'Fonction', value: 'Toutes les fonctions' },
-  { label: 'Statut', value: 'Tous les statuts' },
-  { label: 'Type de contrat', value: 'Tous les types' }
-]
-
-const QUICK_ACTIONS = [
-  { icon: UserPlus, label: 'Nouvel employé' },
-  { icon: FileSignature, label: 'Ajouter un contrat' },
-  { icon: ClipboardCheck, label: 'Enregistrer présence' },
-  { icon: CalendarPlus, label: 'Demande de congé' },
-  { icon: GraduationCap, label: 'Planifier formation' },
-  { icon: Star, label: 'Évaluation employé' },
-  { icon: FileBarChart, label: "Rapport d'absences" },
-  { icon: Wallet, label: 'Export de paie' }
-]
+const ALL_FILTER = '__all__'
 
 const EMPLOYEE_DOCUMENTS = [{ label: 'CV.pdf' }, { label: 'Diplômes & Certifications.pdf' }, { label: 'Contrat de travail.pdf' }]
 
@@ -141,6 +132,11 @@ export function HRPage(): JSX.Element {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<ApiHrEmployee | null>(null)
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterRole, setFilterRole] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
+  const [filterContractType, setFilterContractType] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -161,11 +157,34 @@ export function HRPage(): JSX.Element {
     }
   }, [])
 
-  const rows = useMemo(() => {
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.hr.exportExcel()
+    setExporting(false)
+  }
+
+  const serviceOptions = useMemo(() => Array.from(new Set(employees.map((e) => e.service).filter(Boolean))).sort(), [employees])
+  const roleOptions = useMemo(() => Array.from(new Set(employees.map((e) => e.role).filter(Boolean))).sort(), [employees])
+  const contractTypeOptions = useMemo(() => Array.from(new Set(employees.map((e) => e.contractType))).sort(), [employees])
+
+  const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return employees
-    return employees.filter((e) => `${e.name} ${e.service} ${e.role}`.toLowerCase().includes(term))
-  }, [search, employees])
+    return employees.filter((e) => {
+      if (term && !`${e.name} ${e.service} ${e.role}`.toLowerCase().includes(term)) return false
+      if (filterService !== ALL_FILTER && e.service !== filterService) return false
+      if (filterRole !== ALL_FILTER && e.role !== filterRole) return false
+      if (filterStatus !== ALL_FILTER && e.status !== filterStatus) return false
+      if (filterContractType !== ALL_FILTER && e.contractType !== filterContractType) return false
+      return true
+    })
+  }, [search, employees, filterService, filterRole, filterStatus, filterContractType])
+
+  function handleResetFilters(): void {
+    setFilterService(ALL_FILTER)
+    setFilterRole(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+    setFilterContractType(ALL_FILTER)
+  }
 
   const selected = employees.find((e) => e.id === selectedId) ?? employees[0]
 
@@ -209,6 +228,17 @@ export function HRPage(): JSX.Element {
   }, [totalPresentDays, totalAbsentDays])
   const globalPresenceRate = totalPresentDays + totalAbsentDays === 0 ? 0 : Math.round((totalPresentDays / (totalPresentDays + totalAbsentDays)) * 1000) / 10
 
+  const QUICK_ACTIONS: { icon: typeof UserPlus; label: string; onClick?: () => void }[] = [
+    { icon: UserPlus, label: 'Nouvel employé', onClick: () => setShowCreateModal(true) },
+    { icon: FileSignature, label: 'Ajouter un contrat', onClick: () => setActiveTab('contracts') },
+    { icon: ClipboardCheck, label: 'Enregistrer présence', onClick: () => setActiveTab('attendance') },
+    { icon: CalendarPlus, label: 'Demande de congé', onClick: () => setActiveTab('attendance') },
+    { icon: GraduationCap, label: 'Planifier formation', onClick: () => setActiveTab('training') },
+    { icon: Star, label: 'Évaluation employé', onClick: () => setActiveTab('performance') },
+    { icon: FileBarChart, label: "Rapport d'absences", onClick: () => setActiveTab('attendance') },
+    { icon: Wallet, label: 'Export de paie', onClick: () => setActiveTab('payroll') }
+  ]
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
@@ -217,8 +247,8 @@ export function HRPage(): JSX.Element {
         subtitle="Gestion du personnel, des contrats, des temps de travail et des performances."
         actions={
           <>
-            <Button variant="secondary" size="sm">
-              <FileDown className="h-3.5 w-3.5" />
+            <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
               Exporter
             </Button>
             <Button size="sm" onClick={() => setShowCreateModal(true)}>
@@ -277,7 +307,7 @@ export function HRPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <SortableGroup id="hr.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Users className="h-5 w-5 text-violet-600" />
@@ -320,9 +350,9 @@ export function HRPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Contrats à échéance (90j)</p>
               <p className="text-xl font-bold text-gray-900">{contractExpiries[2].count}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="hr.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -342,10 +372,18 @@ export function HRPage(): JSX.Element {
                 ))}
               </div>
 
-              {activeTab !== 'overview' && activeTab !== 'employees' ? (
-                <p className="px-6 py-12 text-center text-sm text-gray-400">
-                  Module « {TABS.find((t) => t.id === activeTab)?.label} » à spécifier.
-                </p>
+              {activeTab === 'attendance' ? (
+                <AttendanceTab employees={rawEmployees} />
+              ) : activeTab === 'contracts' ? (
+                <ContractsTab employees={rawEmployees} />
+              ) : activeTab === 'performance' ? (
+                <PerformanceTab employees={rawEmployees} />
+              ) : activeTab === 'training' ? (
+                <TrainingTab employees={rawEmployees} />
+              ) : activeTab === 'payroll' ? (
+                <PayrollTab employees={rawEmployees} />
+              ) : activeTab === 'documents' ? (
+                <DocumentsTab employees={rawEmployees} />
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-3">
@@ -358,80 +396,144 @@ export function HRPage(): JSX.Element {
                         className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
                       />
                     </div>
-                    <Button variant="secondary" size="sm">
-                      <FileDown className="h-3.5 w-3.5" />
+                    <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                      {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
                       Export Excel
                     </Button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                          <th className="px-6 py-2.5 font-medium">Employé</th>
-                          <th className="px-6 py-2.5 font-medium">Service</th>
-                          <th className="px-6 py-2.5 font-medium">Fonction</th>
-                          <th className="px-6 py-2.5 font-medium">Contrat</th>
-                          <th className="px-6 py-2.5 font-medium">Statut</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((e) => (
-                          <tr
-                            key={e.id}
-                            onClick={() => setSelectedId(e.id)}
-                            className={
-                              'cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50 ' +
-                              (selectedId === e.id ? 'bg-accent-50/50' : '')
-                            }
-                          >
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-2.5">
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-50 text-[11px] font-semibold text-accent-700">
-                                  {initials(e.name)}
-                                </span>
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium text-gray-900">{e.name}</p>
-                                  <p className="truncate text-xs text-gray-400">{e.matricule}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-3 text-gray-600">{e.service}</td>
-                            <td className="px-6 py-3 text-gray-600">{e.role}</td>
-                            <td className="px-6 py-3 text-gray-600">{e.contractType}</td>
-                            <td className="px-6 py-3">
-                              <StatusBadge label={e.status} tone={employeeStatusTone(e.status)} />
-                            </td>
+                  {filteredRows.length === 0 ? (
+                    <p className="px-6 py-8 text-center text-sm text-gray-400">
+                      {employees.length === 0
+                        ? 'Aucun employé enregistré.'
+                        : 'Aucun employé ne correspond à la recherche ou aux filtres.'}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                            <th className="px-6 py-2.5 font-medium">Employé</th>
+                            <th className="px-6 py-2.5 font-medium">Service</th>
+                            <th className="px-6 py-2.5 font-medium">Fonction</th>
+                            <th className="px-6 py-2.5 font-medium">Contrat</th>
+                            <th className="px-6 py-2.5 font-medium">Statut</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {filteredRows.map((e) => (
+                            <tr
+                              key={e.id}
+                              onClick={() => setSelectedId(e.id)}
+                              className={
+                                'cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50 ' +
+                                (selectedId === e.id ? 'bg-accent-50/50' : '')
+                              }
+                            >
+                              <td className="px-6 py-3">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-50 text-[11px] font-semibold text-accent-700">
+                                    {initials(e.name)}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium text-gray-900">{e.name}</p>
+                                    <p className="truncate text-xs text-gray-400">{e.matricule}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-3 text-gray-600">{e.service}</td>
+                              <td className="px-6 py-3 text-gray-600">{e.role}</td>
+                              <td className="px-6 py-3 text-gray-600">{e.contractType}</td>
+                              <td className="px-6 py-3">
+                                <StatusBadge label={e.status} tone={employeeStatusTone(e.status)} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                    <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {employees.length} employés</span>
+                    <span>
+                      Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {employees.length} employés
+                    </span>
                   </div>
                 </>
               )}
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="hr.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {serviceOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Fonction</label>
+                    <select
+                      value={filterRole}
+                      onChange={(e) => setFilterRole(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les fonctions</option>
+                      {roleOptions.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type de contrat</label>
+                    <select
+                      value={filterContractType}
+                      onChange={(e) => setFilterContractType(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les types</option>
+                      {contractTypeOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button size="sm" className="w-full" onClick={() => setActiveTab('overview')}>
                     Filtrer
                   </Button>
                 </div>
@@ -518,11 +620,11 @@ export function HRPage(): JSX.Element {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Présences & Absences (mois en cours) */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="hr.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <h3 className="mb-4 text-sm font-semibold text-gray-900">Présences & Absences (mois en cours)</h3>
               <div className="flex items-center gap-4">
@@ -555,11 +657,11 @@ export function HRPage(): JSX.Element {
                 Calculé sur {employees.length} employés — {totalPresentDays} jours présents sur {totalPresentDays + totalAbsentDays} jours ouvrés cumulés.
               </p>
             </Card>
-          </div>
+          </SortableGroup>
 
           {/* Détail des présences */}
           {selected && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <SortableGroup id="hr.grid4" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-900">Détail des présences</h3>
@@ -600,7 +702,7 @@ export function HRPage(): JSX.Element {
                 </div>
               </Card>
 
-              <div className="space-y-6">
+              <SortableGroup id="hr.side2" className="space-y-6">
                 <Card>
                   <h3 className="mb-3 text-sm font-semibold text-gray-900">Informations du contrat</h3>
                   <div className="space-y-2.5 text-xs">
@@ -641,8 +743,8 @@ export function HRPage(): JSX.Element {
                     ))}
                   </div>
                 </Card>
-              </div>
-            </div>
+              </SortableGroup>
+            </SortableGroup>
           )}
 
           {/* Actions rapides */}
@@ -654,6 +756,7 @@ export function HRPage(): JSX.Element {
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.label}
+                  onClick={action.onClick}
                   className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-50 text-accent-600">

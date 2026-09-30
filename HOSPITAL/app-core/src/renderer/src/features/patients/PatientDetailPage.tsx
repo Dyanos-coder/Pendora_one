@@ -19,17 +19,20 @@ import {
   Loader2,
   Plus,
   Ban,
-  RotateCcw
+  RotateCcw,
+  Upload,
+  Trash2
 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import { ProgressRing } from '@renderer/components/ProgressRing'
 import { Button } from '@renderer/components/Button'
-import { MOCK_PATIENTS } from './mock-data'
+import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import { PatientAvatar } from './PatientAvatar'
 import { PatientFormModal } from './PatientFormModal'
 import { AddVitalsModal } from './AddVitalsModal'
 import { AddPrescriptionModal } from './AddPrescriptionModal'
+import { PatientDocumentFormModal } from './PatientDocumentFormModal'
 import {
   statusInfo,
   resultTone,
@@ -43,10 +46,12 @@ import { formatFullDate, formatTime } from '@renderer/features/appointments/week
 import type { Patient } from './types'
 import type {
   AdmissionType as ApiAdmissionType,
+  ApiPatientDocument,
   ApiPatientDossier,
   ApiTimelineEventType,
   PatientDetail as ApiPatientDetail
 } from '@shared/patient-types'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface PatientDetailPageProps {
   patientId: string
@@ -62,6 +67,7 @@ const TIMELINE_ICON: Record<ApiTimelineEventType, typeof Stethoscope> = {
 }
 
 const ADMISSION_LABEL: Record<ApiAdmissionType, Patient['admissionType']> = {
+  NON_ADMIS: 'Non admis',
   AMBULATOIRE: 'Ambulatoire',
   HOSPITALISE: 'Hospitalisé',
   URGENCE: 'Urgence'
@@ -72,11 +78,18 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-/** Fusionne l'identité réelle du patient (API) avec les documents, seule vue du dossier encore
- * mockée (upload de fichiers réel = item 11, pas encore fait). Consultations, RDV à venir,
- * vitaux, ordonnances, résultats et chronologie viennent du dossier agrégé (voir `dossier` state
- * ci-dessous, `window.api.patients.dossier` → `ApiPatientDossier`). */
-function mergePatient(api: ApiPatientDetail, mockDocuments: Patient['documents']): Patient {
+function formatFileSize(bytes: number | null): string {
+  if (bytes === null) return '—'
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
+
+/** Consultations, RDV à venir, vitaux, ordonnances, résultats, chronologie et documents viennent
+ * tous de vraies données à ce stade — documents via `window.api.patients.documents` (item 11,
+ * voir `documents` state ci-dessous), le reste du dossier agrégé via `window.api.patients.dossier`
+ * (`dossier` state, `ApiPatientDossier`). */
+function mergePatient(api: ApiPatientDetail): Patient {
   return {
     id: api.id,
     code: api.code,
@@ -96,13 +109,11 @@ function mergePatient(api: ApiPatientDetail, mockDocuments: Patient['documents']
     insuranceNumber: api.insuranceNumber ?? '—',
     insuranceExpiry: formatDate(api.insuranceExpiry),
     lastVisit: api.lastVisit ?? '—',
-    balance: api.balance,
     emergencyContact: { name: api.emergencyContact.name ?? '—', phone: api.emergencyContact.phone ?? '—' },
     medicalHistory: api.medicalHistory,
     familyHistory: api.familyHistory,
     lifestyle: api.lifestyle,
-    recordCompleteness: api.recordCompleteness,
-    documents: mockDocuments
+    recordCompleteness: api.recordCompleteness
   }
 }
 
@@ -116,6 +127,13 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
   const [showAddPrescriptionModal, setShowAddPrescriptionModal] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printError, setPrintError] = useState<string | null>(null)
+
+  const [documents, setDocuments] = useState<ApiPatientDocument[]>([])
+  const [showAddDocumentModal, setShowAddDocumentModal] = useState(false)
+  const [deletingDocument, setDeletingDocument] = useState<ApiPatientDocument | null>(null)
+  const [uploadingDocumentId, setUploadingDocumentId] = useState<string | null>(null)
+  const [viewingDocumentId, setViewingDocumentId] = useState<string | null>(null)
+  const [documentError, setDocumentError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -139,6 +157,41 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
       cancelled = true
     }
   }, [patientId])
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.patients.documents.list(patientId).then((result) => {
+      if (cancelled) return
+      if (result.ok) setDocuments(result.data.documents)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [patientId])
+
+  async function handleUploadDocument(documentId: string): Promise<void> {
+    setUploadingDocumentId(documentId)
+    setDocumentError(null)
+    const result = await window.api.patients.documents.uploadFile(patientId, documentId)
+    setUploadingDocumentId(null)
+    if (result === null) return
+    if (result.ok) {
+      setDocuments((prev) => prev.map((d) => (d.id === documentId ? result.data.document : d)))
+    } else {
+      setDocumentError(result.error)
+    }
+  }
+
+  async function handleViewDocument(documentId: string): Promise<void> {
+    setViewingDocumentId(documentId)
+    setDocumentError(null)
+    try {
+      await window.api.patients.documents.view(patientId, documentId)
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Impossible d'ouvrir le fichier.")
+    }
+    setViewingDocumentId(null)
+  }
 
   async function handlePrint(): Promise<void> {
     setPrinting(true)
@@ -183,7 +236,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
     )
   }
 
-  const patient = mergePatient(apiPatient, MOCK_PATIENTS.find((p) => p.id === patientId)?.documents ?? [])
+  const patient = mergePatient(apiPatient)
   const consultations = dossier?.consultations ?? []
   const upcomingAppointments = dossier?.upcomingAppointments ?? []
   const vitals = dossier?.vitals ?? []
@@ -247,6 +300,32 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
         />
       )}
 
+      {showAddDocumentModal && (
+        <PatientDocumentFormModal
+          patientId={patientId}
+          onClose={() => setShowAddDocumentModal(false)}
+          onCreated={(document) => {
+            setDocuments((prev) => [document, ...prev])
+            setShowAddDocumentModal(false)
+          }}
+        />
+      )}
+      {deletingDocument && (
+        <ConfirmDialog
+          title="Supprimer le document"
+          message={`Voulez-vous vraiment supprimer « ${deletingDocument.title} » ?`}
+          onCancel={() => setDeletingDocument(null)}
+          onConfirm={async () => {
+            const result = await window.api.patients.documents.delete(patientId, deletingDocument.id)
+            return result.ok ? { ok: true } : result
+          }}
+          onConfirmed={() => {
+            setDocuments((prev) => prev.filter((d) => d.id !== deletingDocument.id))
+            setDeletingDocument(null)
+          }}
+        />
+      )}
+
       {/* Identité */}
       <Card className="bg-gradient-to-br from-white to-accent-50/40">
         <div className="flex flex-wrap items-start justify-between gap-6">
@@ -290,14 +369,13 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <InfoTile
               label="Assurance"
               value={patient.insuranceProvider}
               hint={`N° ${patient.insuranceNumber} · Expire : ${patient.insuranceExpiry}`}
             />
             <InfoTile label="Statut" value={patient.admissionType} hint={`Dernière visite : ${patient.lastVisit}`} />
-            <InfoTile label="Solde patient" value={`${patient.balance} FCFA`} hint="À jour" tone="success" />
             <InfoTile
               label="Contact d'urgence"
               value={patient.emergencyContact.name}
@@ -308,7 +386,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <SortableGroup id="patientDetail.grid1" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Colonne principale */}
         <div className="space-y-6 lg:col-span-2">
           <Card className="p-0">
@@ -474,7 +552,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
         </div>
 
         {/* Colonne latérale */}
-        <div className="space-y-6">
+        <SortableGroup id="patientDetail.side1" className="space-y-6">
           <Card>
             <h3 className="mb-4 text-sm font-semibold text-gray-900">Résumé du dossier</h3>
             <div className="flex items-center gap-4">
@@ -537,28 +615,64 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
           </Card>
 
           <Card className="p-0">
-            <div className="border-b border-gray-100 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h3 className="text-sm font-semibold text-gray-900">Documents récents</h3>
+              <button
+                onClick={() => setShowAddDocumentModal(true)}
+                title="Ajouter un document"
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
+            {documentError && <p className="px-6 py-2 text-xs text-red-500">{documentError}</p>}
             <RecordList
-              items={patient.documents}
+              items={documents}
               emptyMessage="Aucun document."
-              keyFn={(d) => d.name}
+              keyFn={(d) => d.id}
               renderRow={(d) => (
-                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3 last:border-0">
+                <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-6 py-3 last:border-0">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">{d.name}</p>
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {d.title}
+                      {d.category && <span className="ml-1.5 text-xs font-normal text-gray-400">({d.category})</span>}
+                    </p>
                     <p className="text-xs text-gray-400">
-                      {d.date} · {d.size}
+                      {formatDate(d.uploadedAt)} · {formatFileSize(d.fileSize)}
+                      {!d.fileName && ' · Aucun fichier'}
                     </p>
                   </div>
-                  <Eye className="h-4 w-4 shrink-0 text-gray-400" />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => handleViewDocument(d.id)}
+                      disabled={!d.fileName || viewingDocumentId === d.id}
+                      title={d.fileName ? `Voir ${d.fileName}` : 'Aucun fichier'}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {viewingDocumentId === d.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => handleUploadDocument(d.id)}
+                      disabled={uploadingDocumentId === d.id}
+                      title={d.fileName ? 'Remplacer le fichier' : 'Téléverser un fichier'}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      {uploadingDocumentId === d.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => setDeletingDocument(d)}
+                      title="Supprimer"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             />
           </Card>
-        </div>
-      </div>
+        </SortableGroup>
+      </SortableGroup>
     </div>
   )
 }

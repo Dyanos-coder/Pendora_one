@@ -5,6 +5,7 @@ import { PageHeader } from '@renderer/components/PageHeader'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import type { ApiAlertCategory, ApiCalculatedAlert } from '@shared/ai-types'
 import { AiChatPanel } from './AiChatPanel'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const FILTERS: { id: ApiAlertCategory | 'Toutes'; label: string }[] = [
   { id: 'Toutes', label: 'Toutes' },
@@ -102,7 +103,7 @@ export function AIPredictionsPage(): JSX.Element {
           </div>
 
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="aIPredictions.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <BrainCircuit className="h-5 w-5 text-violet-600" />
@@ -131,7 +132,7 @@ export function AIPredictionsPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Alertes financières</p>
               <p className="text-xl font-bold text-gray-900">{financeCount}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
           <Card className="p-0">
             <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">

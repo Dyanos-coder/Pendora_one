@@ -9,6 +9,7 @@ export interface ApiEndoscopyProcedure {
   resultAt: string | null
   procedureType: string
   indication: string | null
+  service: string | null
   room: string | null
   status: ApiEndoscopyStatus
   priority: ApiEndoscopyPriority
@@ -20,9 +21,17 @@ export interface ApiEndoscopyProcedure {
   gender: 'M' | 'F' | null
   endoscopistId: string | null
   endoscopistName: string | null
+  resultFileName: string | null
+  /** Couvert par un reçu de caisse payé (liste en ligne uniquement). */
+  paid?: boolean
+  resultMimeType: string | null
+  resultFileSize: number | null
+  updatedAt: string
 }
 
 export interface CreateEndoscopyProcedureInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne. */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -51,4 +60,7 @@ export interface UpdateEndoscopyProcedureInput {
   status?: ApiEndoscopyStatus
   expectedDurationMin?: number | null
   room?: string | null
+  /** Posé en interne par endoscopy.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

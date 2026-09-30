@@ -23,7 +23,8 @@ const STATUS_OPTIONS: { value: ApiBloodPouchStatus; label: string }[] = [
   { value: 'DISPONIBLE', label: 'Disponible' },
   { value: 'RESERVEE', label: 'Réservée' },
   { value: 'TRANSFUSEE', label: 'Transfusée' },
-  { value: 'PERIMEE', label: 'Périmée' }
+  { value: 'PERIMEE', label: 'Périmée' },
+  { value: 'ECARTEE', label: 'Écartée' }
 ]
 
 function todayLocal(): string {

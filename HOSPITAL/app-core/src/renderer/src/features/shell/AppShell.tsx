@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -16,6 +16,7 @@ import {
   Boxes,
   Droplets,
   Landmark,
+  Wallet,
   Truck,
   UserCog,
   Settings,
@@ -32,11 +33,18 @@ import {
   ChevronDown
 } from 'lucide-react'
 import type { Session } from '@shared/auth-types'
+import { applyModuleDependencies } from '@shared/setup-types'
+import type { ConnectivityStatus } from '@shared/sync-types'
 import type { PageId } from './nav-types'
-import { IMPLEMENTED_PAGES } from './nav-types'
+import { IMPLEMENTED_PAGES, PAGE_DOMAIN } from './nav-types'
+import { accessLevel } from '@shared/permissions'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
 import { BrandMark } from '@renderer/components/BrandMark'
+import { ConnectivityIndicator } from './ConnectivityIndicator'
+import { SyncConflictToast } from './SyncConflictToast'
+import { LayoutEditBanner, LayoutToggle } from './LayoutControls'
+import { LayoutProvider } from '@renderer/components/layout-context'
 import { DashboardPage } from '@renderer/features/dashboard/DashboardPage'
 import { PatientsPage } from '@renderer/features/patients/PatientsPage'
 import { PatientDetailPage } from '@renderer/features/patients/PatientDetailPage'
@@ -54,6 +62,7 @@ import { PharmacyPage } from '@renderer/features/pharmacy/PharmacyPage'
 import { StocksPage } from '@renderer/features/stocks/StocksPage'
 import { BloodBankPage } from '@renderer/features/blood-bank/BloodBankPage'
 import { FinancePage } from '@renderer/features/finance/FinancePage'
+import { CashierPage } from '@renderer/features/cashier/CashierPage'
 import { ProcurementPage } from '@renderer/features/procurement/ProcurementPage'
 import { HRPage } from '@renderer/features/hr/HrPage'
 import { QualityPage } from '@renderer/features/quality/QualityPage'
@@ -65,9 +74,14 @@ import { AIPredictionsPage } from '@renderer/features/ai-predictions/AIPredictio
 import { AnalyticsPage } from '@renderer/features/analytics/AnalyticsPage'
 import { AutomationStudioPage } from '@renderer/features/automation-studio/AutomationStudioPage'
 import { ComingSoonPage } from '@renderer/features/shell/ComingSoonPage'
+import { SubscriptionBanner, SubscriptionLock } from '@renderer/features/subscription/SubscriptionLock'
+import { useSubscription } from '@renderer/features/subscription/useSubscription'
 
 interface AppShellProps {
   session: Session
+  /** Écrans à afficher dans la navigation pour ce poste (voir Plan-Installeur-Configurable.md) —
+   * `dashboard` et `settings` restent toujours visibles quel que soit ce tableau (voir plus bas). */
+  enabledModules: string[]
   onLogout: () => void
 }
 
@@ -90,8 +104,7 @@ const NAV: NavGroup[] = [
       { id: 'appointments', label: 'Rendez-vous', icon: CalendarDays },
       { id: 'consultations', label: 'Consultations', icon: Stethoscope },
       { id: 'hospitalization', label: 'Hospitalisation', icon: BedDouble },
-      { id: 'emergencies', label: 'Urgences', icon: Siren },
-      { id: 'operating-room', label: 'Bloc opératoire', icon: Scissors }
+      { id: 'emergencies', label: 'Urgences', icon: Siren }
     ]
   },
   {
@@ -101,7 +114,8 @@ const NAV: NavGroup[] = [
       { id: 'imaging', label: 'Imagerie médicale', icon: ScanLine },
       { id: 'cardiology', label: 'Cardiologie', icon: HeartPulse },
       { id: 'pathology', label: 'Anatomopathologie', icon: Microscope },
-      { id: 'endoscopy', label: 'Endoscopie', icon: Telescope }
+      { id: 'endoscopy', label: 'Endoscopie', icon: Telescope },
+      { id: 'operating-room', label: 'Bloc opératoire', icon: Scissors }
     ]
   },
   {
@@ -113,9 +127,15 @@ const NAV: NavGroup[] = [
     ]
   },
   {
+    label: 'Finance',
+    items: [
+      { id: 'cashier', label: 'Caisse', icon: Wallet },
+      { id: 'finance', label: 'Comptabilité', icon: Landmark }
+    ]
+  },
+  {
     label: 'Administration',
     items: [
-      { id: 'finance', label: 'Finances', icon: Landmark },
       { id: 'procurement', label: 'Approvisionnement', icon: Truck },
       { id: 'hr', label: 'Ressources Humaines', icon: UserCog },
       { id: 'settings', label: 'Paramètres', icon: Settings }
@@ -127,7 +147,7 @@ const NAV: NavGroup[] = [
       { id: 'quality', label: 'Qualité & Accréditation', icon: ShieldCheck },
       { id: 'risk-management', label: 'Gestion des risques', icon: TriangleAlert },
       { id: 'audit-compliance', label: 'Audit & Conformité', icon: ClipboardCheck },
-      { id: 'documents', label: 'Documents & Protocoles', icon: FileText }
+      { id: 'documents', label: 'Documents & signature électronique', icon: FileText }
     ]
   },
   {
@@ -154,14 +174,58 @@ const ROLE_LABEL: Record<string, string> = {
   INFIRMIER: 'Infirmier(ère)',
   TECHNICIEN: 'Technicien',
   PHARMACIEN: 'Pharmacien',
-  ADMINISTRATIF: 'Administratif'
+  ADMINISTRATIF: 'Administratif',
+  CAISSIER: 'Caissier(ère)'
 }
 
-export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
-  const [activePage, setActivePage] = useState<PageId>('dashboard')
+export function AppShell({ session, enabledModules, onLogout }: AppShellProps): JSX.Element {
+  // `settings` toujours visible (sinon impossible de rouvrir Paramètres → Ultra Admin pour
+  // réactiver un module décoché par erreur) — voir ModuleTree.tsx pour l'édition de ce réglage.
+  // Deux filtres cumulés : modules activés pour l'établissement ET droits du rôle (un écran sans
+  // aucun accès pour ce rôle est masqué — ex. un caissier ne voit que Caisse, Patients et Paramètres).
+  // Troisième filtre : modules couverts par l'abonnement Pandora (payés + gratuits) — voir
+  // subscription.service.ts ; null = pas de restriction (contrôle non appliqué en développement).
+  const subscription = useSubscription()
+  const paidSet = subscription?.allowedModules ? new Set(subscription.allowedModules) : null
+  const enabledSet = new Set(applyModuleDependencies(enabledModules).filter((id) => !paidSet || paidSet.has(id)))
+  const canSee = (page: PageId): boolean => accessLevel(session.user.role, PAGE_DOMAIN[page]) !== 'none'
+  const visibleNav = NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.id === 'settings' || (enabledSet.has(item.id) && canSee(item.id)))
+  })).filter((group) => group.items.length > 0)
+  const showDashboard = canSee('dashboard')
+  // Page d'arrivée : le tableau de bord, ou — pour un rôle qui n'y a pas accès (caissier) — le
+  // premier écran autorisé du menu.
+  const cashierVisible = visibleNav.some((group) => group.items.some((item) => item.id === 'cashier'))
+  const [activePage, setActivePage] = useState<PageId>(() =>
+    showDashboard ? 'dashboard' : cashierVisible ? 'cashier' : (visibleNav[0]?.items[0]?.id ?? 'settings')
+  )
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set([NAV[0].label]))
+  // Ouverture de Paramètres directement sur « Abonnement » (bandeau d'échéance) ; `settingsKey`
+  // remonte la page pour appliquer la section même si Paramètres est déjà affiché.
+  const [settingsSection, setSettingsSection] = useState<'Abonnement' | undefined>(undefined)
+  const [settingsKey, setSettingsKey] = useState(0)
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(
+    () => new Set([visibleNav[0]?.label ?? NAV[0].label, ...(showDashboard || !cashierVisible ? [] : ['Finance'])])
+  )
+  // Bandeau hors-ligne (voir ConnectivityIndicator.tsx pour l'icône détaillée dans l'en-tête) :
+  // un rappel explicite au-dessus de chaque écran évite de laisser croire à une panne générale de
+  // l'app quand seuls certains modules manquent de copie locale — voir NETWORK_ERROR_MESSAGE côté
+  // main (remote-api.client.ts).
+  const [connectivityStatus, setConnectivityStatus] = useState<ConnectivityStatus | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.connectivity.status().then((s) => {
+      if (!cancelled) setConnectivityStatus(s)
+    })
+    const unsubscribe = window.api.connectivity.onChange(setConnectivityStatus)
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [])
 
   const role = session.user.role
   const initials = session.user.name
@@ -170,6 +234,15 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
     .slice(0, 2)
     .join('')
     .toUpperCase()
+
+  useEffect(() => {
+    // Sauvegarde automatique quotidienne (item 21) : une tentative par ouverture de session,
+    // silencieuse (voir ensureDailyBackup) — seul le DIRIGEANT y a accès côté serveur.
+    if (role === 'DIRIGEANT') {
+      window.api.backup.ensureDaily().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function toggleGroup(label: string): void {
     setOpenGroups((prev) => {
@@ -181,6 +254,7 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
   }
 
   function navigate(page: PageId): void {
+    setSettingsSection(undefined)
     setActivePage(page)
     if (page !== 'patients') setSelectedPatientId(null)
     const group = NAV.find((g) => g.items.some((item) => item.id === page))
@@ -193,6 +267,15 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
   }
 
   function renderPage(): JSX.Element {
+    // Écran ouvert avant l'arrivée de l'état d'abonnement (ou lien interne) vers un module non payé.
+    if (paidSet && activePage !== 'dashboard' && activePage !== 'settings' && !paidSet.has(activePage)) {
+      return (
+        <div className="mx-auto mt-16 max-w-md text-center">
+          <p className="text-sm font-semibold text-gray-900">{NAV_LABELS[activePage]} n&apos;est pas inclus dans votre abonnement.</p>
+          <p className="mt-1 text-sm text-gray-500">Le dirigeant peut l&apos;ajouter dans Paramètres › Abonnement.</p>
+        </div>
+      )
+    }
     if (activePage === 'dashboard') {
       return <DashboardPage userFirstName={session.user.name.split(' ')[0]} onNavigate={navigate} />
     }
@@ -205,7 +288,7 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
       return <PatientsPage onOpenPatient={openPatient} />
     }
     if (activePage === 'appointments') {
-      return <AppointmentsPage onOpenPatient={openPatient} />
+      return <AppointmentsPage onOpenPatient={openPatient} session={session} />
     }
     if (activePage === 'consultations') {
       return <ConsultationsPage onOpenPatient={openPatient} onNavigate={navigate} />
@@ -243,6 +326,9 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
     if (activePage === 'blood-bank') {
       return <BloodBankPage onOpenPatient={openPatient} />
     }
+    if (activePage === 'cashier') {
+      return <CashierPage session={session} />
+    }
     if (activePage === 'finance') {
       return <FinancePage />
     }
@@ -262,10 +348,10 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
       return <AuditCompliancePage />
     }
     if (activePage === 'documents') {
-      return <DocumentsPage />
+      return <DocumentsPage session={session} />
     }
     if (activePage === 'settings') {
-      return <SettingsPage session={session} onLogout={onLogout} />
+      return <SettingsPage key={settingsKey} session={session} onLogout={onLogout} initialSection={settingsSection} />
     }
     if (activePage === 'ai-predictions') {
       return <AIPredictionsPage />
@@ -280,7 +366,9 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
   }
 
   return (
+    <LayoutProvider userId={session.user.id}>
     <div className="flex h-screen bg-gray-50 text-gray-900">
+      <SyncConflictToast />
       {/* Sidebar */}
       <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
         <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-5">
@@ -292,20 +380,22 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
         </div>
 
         <nav className="flex-1 space-y-4 overflow-y-auto px-3 pt-4 pb-4">
-          <button
-            onClick={() => navigate('dashboard')}
-            className={
-              'flex w-full items-center gap-3 rounded-lg border-l-2 py-2 pl-2.5 pr-3 text-sm font-medium transition-colors ' +
-              (activePage === 'dashboard'
-                ? 'border-accent-500 bg-accent-50 font-semibold text-accent-700'
-                : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900')
-            }
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Tableau de bord
-          </button>
+          {showDashboard && (
+            <button
+              onClick={() => navigate('dashboard')}
+              className={
+                'flex w-full items-center gap-3 rounded-lg border-l-2 py-2 pl-2.5 pr-3 text-sm font-medium transition-colors ' +
+                (activePage === 'dashboard'
+                  ? 'border-accent-500 bg-accent-50 font-semibold text-accent-700'
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900')
+              }
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Tableau de bord
+            </button>
+          )}
 
-          {NAV.map((group) => {
+          {visibleNav.map((group) => {
             const open = openGroups.has(group.label)
             return (
               <div key={group.label}>
@@ -365,6 +455,9 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
+            <LayoutToggle />
+            <ConnectivityIndicator />
+
             <button
               title="Notifications"
               className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
@@ -391,8 +484,45 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-8">{renderPage()}</main>
+        <main className="flex-1 overflow-auto p-8">
+          {connectivityStatus === 'OFFLINE' && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
+              <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              Hors ligne — certains écrans affichent uniquement les données déjà consultées en ligne
+              auparavant ; d&apos;autres nécessitent une connexion pour fonctionner.
+            </div>
+          )}
+          {session.user.email === 'admin@pandorahealth.local' && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+              <span className="flex items-center gap-2">
+                <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                Vous utilisez encore le compte administrateur par défaut créé à l&apos;installation — pensez à
+                changer son email et son mot de passe.
+              </span>
+              <button
+                onClick={() => navigate('settings')}
+                className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-medium text-amber-700 hover:bg-amber-100"
+              >
+                Aller aux Paramètres
+              </button>
+            </div>
+          )}
+          {subscription && (
+            <SubscriptionBanner
+              info={subscription}
+              onOpen={() => {
+                navigate('settings')
+                setSettingsSection('Abonnement')
+                setSettingsKey((k) => k + 1)
+              }}
+            />
+          )}
+          <LayoutEditBanner pageKey={`${activePage}:${selectedPatientId ?? ''}`} />
+          {renderPage()}
+        </main>
       </div>
+
+      {subscription?.blocked && <SubscriptionLock info={subscription} session={session} onLogout={onLogout} />}
 
       {showLogoutConfirm && (
         <Modal title="Confirmer la déconnexion" onClose={() => setShowLogoutConfirm(false)}>
@@ -408,5 +538,6 @@ export function AppShell({ session, onLogout }: AppShellProps): JSX.Element {
         </Modal>
       )}
     </div>
+    </LayoutProvider>
   )
 }

@@ -15,12 +15,14 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  Trash2
+  Trash2,
+  Paperclip
 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge } from '@renderer/components/StatusBadge'
+import { PaidBadge } from '@renderer/features/cashier/PaidBadge'
 import { BarChart } from '@renderer/components/BarChart'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiEndoscopyPriority, ApiEndoscopyProcedure, ApiEndoscopyStatus } from '@shared/endoscopy-types'
@@ -28,6 +30,7 @@ import { endoscopyStatusTone, endoscopyPriorityTone, PROCEDURE_TYPE_CHART_COLOR 
 import type { EndoscopyProcedure, EndoscopyStatus } from './types'
 import { isSameDay } from '@renderer/features/appointments/week'
 import { EndoscopyProcedureFormModal } from './EndoscopyProcedureFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface EndoscopyPageProps {
   onOpenPatient: (patientId: string) => void
@@ -65,24 +68,20 @@ function toRecord(p: ApiEndoscopyProcedure): EndoscopyProcedure {
     resultAt: p.resultAt ? new Date(p.resultAt) : null,
     procedureType: p.procedureType,
     indication: p.indication ?? '—',
+    service: p.service ?? '—',
     endoscopist: p.endoscopistName ?? '—',
     endoscopistId: p.endoscopistId,
     status: STATUS_LABEL[p.status],
     priority: PRIORITY_LABEL[p.priority],
     expectedDurationMin: p.expectedDurationMin,
-    room: p.room ?? '—'
+    room: p.room ?? '—',
+    resultFileName: p.resultFileName,
+    paid: p.paid
   }
 }
 
-const FILTER_FIELDS = [
-  { label: 'Période', value: "Aujourd'hui" },
-  { label: 'Service demandeur', value: 'Tous les services' },
-  { label: "Type d'acte", value: 'Tous les types' },
-  { label: 'Endoscopiste', value: 'Tous les endoscopistes' },
-  { label: 'Statut', value: 'Tous les statuts' },
-  { label: 'Priorité', value: 'Toutes les priorités' },
-  { label: 'Salle / Appareil', value: 'Toutes les salles' }
-]
+const ALL_FILTER = '__all__'
+type PeriodFilter = 'all' | 'morning' | 'afternoon' | 'evening'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -118,8 +117,16 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
   const [deletingProcedure, setDeletingProcedure] = useState<EndoscopyProcedure | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingResultFor, setUploadingResultFor] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>('all')
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterType, setFilterType] = useState(ALL_FILTER)
+  const [filterEndoscopist, setFilterEndoscopist] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
+  const [filterPriority, setFilterPriority] = useState(ALL_FILTER)
+  const [filterRoom, setFilterRoom] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -137,6 +144,20 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
       cancelled = true
     }
   }, [])
+
+  async function handleResultFile(procedure: EndoscopyProcedure): Promise<void> {
+    if (procedure.resultFileName) {
+      await window.api.endoscopy.viewResultFile(procedure.id)
+      return
+    }
+    setUploadingResultFor(procedure.id)
+    const result = await window.api.endoscopy.uploadResultFile(procedure.id)
+    setUploadingResultFor(null)
+    if (result?.ok) {
+      const updated = toRecord(result.data.procedure)
+      setProcedures((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+    }
+  }
 
   const today = useMemo(() => new Date(), [])
   const todayProcedures = useMemo(() => procedures.filter((p) => isSameDay(p.requestedAt, today)), [procedures, today])
@@ -165,6 +186,53 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
     if (!term) return base
     return base.filter((p) => `${p.patientName} ${p.procedureType} ${p.indication} ${p.endoscopist}`.toLowerCase().includes(term))
   }, [activeTab, search, procedures])
+
+  const serviceOptions = useMemo(
+    () => Array.from(new Set(todayProcedures.map((p) => p.service).filter((s) => s && s !== '—'))).sort(),
+    [todayProcedures]
+  )
+  const procedureTypeOptions = useMemo(
+    () => Array.from(new Set(todayProcedures.map((p) => p.procedureType))).sort(),
+    [todayProcedures]
+  )
+  const endoscopistOptions = useMemo(
+    () => Array.from(new Set(todayProcedures.map((p) => p.endoscopist).filter((e) => e && e !== '—'))).sort(),
+    [todayProcedures]
+  )
+  const roomOptions = useMemo(
+    () => Array.from(new Set(todayProcedures.map((p) => p.room).filter((r) => r && r !== '—'))).sort(),
+    [todayProcedures]
+  )
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((p) => {
+        if (filterService !== ALL_FILTER && p.service !== filterService) return false
+        if (filterType !== ALL_FILTER && p.procedureType !== filterType) return false
+        if (filterEndoscopist !== ALL_FILTER && p.endoscopist !== filterEndoscopist) return false
+        if (filterStatus !== ALL_FILTER && p.status !== filterStatus) return false
+        if (filterPriority !== ALL_FILTER && p.priority !== filterPriority) return false
+        if (filterRoom !== ALL_FILTER && p.room !== filterRoom) return false
+        if (filterPeriod !== 'all') {
+          const hour = p.requestedAt.getHours()
+          if (filterPeriod === 'morning' && !(hour >= 8 && hour < 12)) return false
+          if (filterPeriod === 'afternoon' && !(hour >= 12 && hour < 18)) return false
+          if (filterPeriod === 'evening' && !(hour >= 18 && hour < 20)) return false
+        }
+        return true
+      }),
+    [rows, filterService, filterType, filterEndoscopist, filterStatus, filterPriority, filterRoom, filterPeriod]
+  )
+
+  function handleResetFilters(): void {
+    setFilterPeriod('all')
+    setFilterService(ALL_FILTER)
+    setFilterType(ALL_FILTER)
+    setFilterEndoscopist(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+    setFilterPriority(ALL_FILTER)
+    setFilterRoom(ALL_FILTER)
+  }
 
   const typeBreakdown = useMemo(() => {
     const counts = new Map<string, number>()
@@ -291,7 +359,7 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <SortableGroup id="endoscopy.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Telescope className="h-5 w-5 text-violet-600" />
@@ -341,9 +409,9 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
               <p className="mt-3 text-xs font-medium text-gray-500">Patients suivis</p>
               <p className="mt-0.5 text-xl font-bold text-gray-900">{patientsFollowed ?? '—'}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="endoscopy.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -382,15 +450,17 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                     <Columns3 className="h-3.5 w-3.5" />
                     Colonnes
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
                     <Printer className="h-3.5 w-3.5" />
                     Imprimer
                   </Button>
                 </div>
               </div>
 
-              {rows.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun acte dans cette catégorie.</p>
+              {filteredRows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">
+                  {rows.length === 0 ? 'Aucun acte dans cette catégorie.' : 'Aucun acte ne correspond aux filtres.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -409,7 +479,7 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((p) => (
+                      {filteredRows.map((p) => (
                         <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-6 py-3 text-gray-600">
                             <p>{formatDate(p.requestedAt)}</p>
@@ -432,6 +502,7 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                           <td className="px-6 py-3 text-gray-600">{p.endoscopist}</td>
                           <td className="px-6 py-3">
                             <StatusBadge label={p.status} tone={endoscopyStatusTone(p.status)} />
+                            <PaidBadge paid={p.paid} />
                           </td>
                           <td className="px-6 py-3">
                             <StatusBadge label={p.priority} tone={endoscopyPriorityTone(p.priority)} />
@@ -461,6 +532,18 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
+                              <button
+                                onClick={() => handleResultFile(p)}
+                                disabled={uploadingResultFor === p.id}
+                                title={p.resultFileName ? `Voir le résultat (${p.resultFileName})` : 'Téléverser le résultat'}
+                                className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 ${p.resultFileName ? 'text-accent-600' : 'text-gray-400 hover:text-gray-700'}`}
+                              >
+                                {uploadingResultFor === p.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Paperclip className="h-4 w-4" />
+                                )}
+                              </button>
                               <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
@@ -474,29 +557,125 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
               )}
 
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} actes</span>
+                <span>
+                  Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {TAB_ROWS[activeTab].length} actes
+                </span>
               </div>
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="endoscopy.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
-                  </Button>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <select
+                      value={filterPeriod}
+                      onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value="all">Toute la journée</option>
+                      <option value="morning">Matin (08h-12h)</option>
+                      <option value="afternoon">Après-midi (12h-18h)</option>
+                      <option value="evening">Soir (18h-20h)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service demandeur</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {serviceOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;acte</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les types</option>
+                      {procedureTypeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Endoscopiste</label>
+                    <select
+                      value={filterEndoscopist}
+                      onChange={(e) => setFilterEndoscopist(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les endoscopistes</option>
+                      {endoscopistOptions.map((e) => (
+                        <option key={e} value={e}>
+                          {e}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Priorité</label>
+                    <select
+                      value={filterPriority}
+                      onChange={(e) => setFilterPriority(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les priorités</option>
+                      {Object.values(PRIORITY_LABEL).map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Salle / Appareil</label>
+                    <select
+                      value={filterRoom}
+                      onChange={(e) => setFilterRoom(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les salles</option>
+                      {roomOptions.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </Card>
 
@@ -551,11 +730,11 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Panneaux du bas */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="endoscopy.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <h3 className="mb-4 text-sm font-semibold text-gray-900">Activité du jour par tranche horaire</h3>
               <BarChart categories={HOURLY_BUCKET_LABELS} values={hourlyActivity} />
@@ -603,7 +782,7 @@ export function EndoscopyPage({ onOpenPatient }: EndoscopyPageProps): JSX.Elemen
                 </div>
               )}
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>

@@ -27,10 +27,15 @@ import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge } from '@renderer/components/StatusBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
-import type { ApiBloodPouch, ApiBloodPouchStatus } from '@shared/blood-bank-types'
+import type { ApiBloodPouch, ApiBloodPouchStatus, ApiTransfusionRequest } from '@shared/blood-bank-types'
 import { pouchStatusTone, POUCH_TYPE_CHART_COLOR } from './status'
 import type { BloodPouch, PouchStatus } from './types'
 import { BloodPouchFormModal } from './BloodPouchFormModal'
+import { DonationsTab } from './tabs/DonationsTab'
+import { RequestsTab } from './tabs/RequestsTab'
+import { TransfusionsTab } from './tabs/TransfusionsTab'
+import { AnalysesTab } from './tabs/AnalysesTab'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface BloodBankPageProps {
   onOpenPatient: (patientId: string) => void
@@ -47,30 +52,15 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'expired', label: 'Périmées / Retirées' }
 ]
 
-const FILTER_FIELDS = [
-  { label: 'Groupe sanguin', value: 'Tous les groupes' },
-  { label: 'Type / Composant', value: 'Tous les types' },
-  { label: 'Statut', value: 'Tous les statuts' }
-]
-
-const QUICK_ACTIONS = [
-  { icon: HeartHandshake, label: 'Enregistrer un don' },
-  { icon: Truck, label: 'Réceptionner poches' },
-  { icon: ClipboardCheck, label: 'Valider analyse' },
-  { icon: Archive, label: 'Mettre en réserve' },
-  { icon: FlaskConical, label: 'Créer demande transfusion' },
-  { icon: PackageCheck, label: 'Enregistrer transfusion' },
-  { icon: ClipboardList, label: 'Inventaire stock' },
-  { icon: PackageX, label: 'Retirer poche périmée' },
-  { icon: FileBarChart, label: "Rapport d'activité" }
-]
+const ALL_FILTER = '__all__'
 
 const STATE_LABEL: Record<ApiBloodPouchStatus, PouchStatus> = {
   DISPONIBLE: 'Disponible',
   EN_ATTENTE_ANALYSE: 'En attente analyse',
   RESERVEE: 'Réservée',
   TRANSFUSEE: 'Transfusée',
-  PERIMEE: 'Périmée'
+  PERIMEE: 'Périmée',
+  ECARTEE: 'Écartée'
 }
 
 function componentCategory(component: string): string {
@@ -98,6 +88,7 @@ function toPouch(p: ApiBloodPouch): BloodPouch {
 export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Element {
   const [pouches, setPouches] = useState<BloodPouch[]>([])
   const [rawPouches, setRawPouches] = useState<ApiBloodPouch[]>([])
+  const [rawRequests, setRawRequests] = useState<ApiTransfusionRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingPouch, setEditingPouch] = useState<ApiBloodPouch | null>(null)
@@ -105,6 +96,10 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('pouches')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [filterGroup, setFilterGroup] = useState(ALL_FILTER)
+  const [filterComponent, setFilterComponent] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -116,16 +111,57 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
       } else setError(result.error)
       setLoading(false)
     })
+    window.api.bloodBank.requests.list().then((result) => {
+      if (!cancelled && result.ok) setRawRequests(result.data.requests)
+    })
     return () => {
       cancelled = true
     }
   }, [])
+
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.bloodBank.exportExcel()
+    setExporting(false)
+  }
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return pouches
     return pouches.filter((p) => `${p.pouchNumber} ${p.bloodGroup} ${p.component} ${p.donorName}`.toLowerCase().includes(term))
   }, [search, pouches])
+
+  const bloodGroupOptions = useMemo(() => Array.from(new Set(pouches.map((p) => p.bloodGroup))).sort(), [pouches])
+  const componentOptions = useMemo(() => Array.from(new Set(pouches.map((p) => p.component))).sort(), [pouches])
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((p) => {
+        if (filterGroup !== ALL_FILTER && p.bloodGroup !== filterGroup) return false
+        if (filterComponent !== ALL_FILTER && p.component !== filterComponent) return false
+        if (filterStatus !== ALL_FILTER && p.status !== filterStatus) return false
+        return true
+      }),
+    [rows, filterGroup, filterComponent, filterStatus]
+  )
+
+  function handleResetFilters(): void {
+    setFilterGroup(ALL_FILTER)
+    setFilterComponent(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+  }
+
+  const QUICK_ACTIONS: { icon: typeof HeartHandshake; label: string; onClick?: () => void }[] = [
+    { icon: HeartHandshake, label: 'Enregistrer un don', onClick: () => setActiveTab('donations') },
+    { icon: Truck, label: 'Réceptionner poches', onClick: () => setShowCreateModal(true) },
+    { icon: ClipboardCheck, label: 'Valider analyse', onClick: () => setActiveTab('analyses') },
+    { icon: Archive, label: 'Mettre en réserve', onClick: () => setActiveTab('pouches') },
+    { icon: FlaskConical, label: 'Créer demande transfusion', onClick: () => setActiveTab('requests') },
+    { icon: PackageCheck, label: 'Enregistrer transfusion', onClick: () => setActiveTab('transfusions') },
+    { icon: ClipboardList, label: 'Inventaire stock', onClick: () => setActiveTab('pouches') },
+    { icon: PackageX, label: 'Retirer poche périmée', onClick: () => setActiveTab('expired') },
+    { icon: FileBarChart, label: "Rapport d'activité" }
+  ]
 
   const disponibles = useMemo(() => pouches.filter((p) => p.status === 'Disponible'), [pouches])
   const transfusees = useMemo(() => pouches.filter((p) => p.status === 'Transfusée'), [pouches])
@@ -181,8 +217,8 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
               <FileUp className="h-3.5 w-3.5" />
               Importer des données
             </Button>
-            <Button variant="secondary" size="sm">
-              <FileDown className="h-3.5 w-3.5" />
+            <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
               Exporter
             </Button>
             <Button size="sm" onClick={() => setShowCreateModal(true)}>
@@ -240,7 +276,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SortableGroup id="bloodBank.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card className="border-t-4 border-t-red-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
                 <Droplet className="h-5 w-5 text-red-600" />
@@ -276,7 +312,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
               <p className="mt-3 text-xs font-medium text-gray-500">Poches périmées</p>
               <p className="text-xl font-bold text-gray-900">{perimees.length}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
           {/* Stock par groupe */}
           <Card>
@@ -304,7 +340,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
             )}
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="bloodBank.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -324,10 +360,62 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                 ))}
               </div>
 
-              {activeTab !== 'pouches' ? (
-                <p className="px-6 py-12 text-center text-sm text-gray-400">
-                  Module « {TABS.find((t) => t.id === activeTab)?.label} » à spécifier.
-                </p>
+              {activeTab === 'donations' ? (
+                <DonationsTab pouches={rawPouches} />
+              ) : activeTab === 'requests' ? (
+                <RequestsTab />
+              ) : activeTab === 'transfusions' ? (
+                <TransfusionsTab pouches={rawPouches} requests={rawRequests} />
+              ) : activeTab === 'analyses' ? (
+                <AnalysesTab pouches={rawPouches} />
+              ) : activeTab === 'expired' ? (
+                <>
+                  {(() => {
+                    const expired = pouches.filter((p) => p.status === 'Périmée' || p.status === 'Écartée')
+                    return expired.length === 0 ? (
+                      <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune poche périmée ou écartée.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                              <th className="px-6 py-2.5 font-medium">N° Poche</th>
+                              <th className="px-6 py-2.5 font-medium">Groupe</th>
+                              <th className="px-6 py-2.5 font-medium">Type / Composant</th>
+                              <th className="px-6 py-2.5 font-medium">Statut</th>
+                              <th className="px-6 py-2.5 font-medium">Expiration</th>
+                              <th className="px-6 py-2.5 font-medium">Donneur</th>
+                              <th className="px-6 py-2.5 font-medium" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expired.map((p) => (
+                              <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                                <td className="px-6 py-3 text-xs text-gray-500">{p.pouchNumber}</td>
+                                <td className="px-6 py-3 font-semibold text-gray-900">{p.bloodGroup}</td>
+                                <td className="px-6 py-3 text-gray-600">{p.component}</td>
+                                <td className="px-6 py-3">
+                                  <StatusBadge label={p.status} tone={pouchStatusTone(p.status)} />
+                                </td>
+                                <td className="px-6 py-3 text-gray-600">{p.expiryDate}</td>
+                                <td className="px-6 py-3 text-gray-600">{p.donorName}</td>
+                                <td className="px-6 py-3">
+                                  <button
+                                    onClick={() => setEditingPouch(rawPouches.find((r) => r.id === p.id) ?? null)}
+                                    title="Modifier la poche"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
+                </>
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-3">
@@ -340,14 +428,16 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                         className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
                       />
                     </div>
-                    <Button variant="secondary" size="sm">
-                      <FileDown className="h-3.5 w-3.5" />
+                    <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                      {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
                       Export Excel
                     </Button>
                   </div>
 
-                  {rows.length === 0 ? (
-                    <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune poche ne correspond à cette recherche.</p>
+                  {filteredRows.length === 0 ? (
+                    <p className="px-6 py-8 text-center text-sm text-gray-400">
+                      {rows.length === 0 ? 'Aucune poche ne correspond à cette recherche.' : 'Aucune poche ne correspond aux filtres.'}
+                    </p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -364,7 +454,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                           </tr>
                         </thead>
                         <tbody>
-                          {rows.map((p) => (
+                          {filteredRows.map((p) => (
                             <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                               <td className="px-6 py-3 text-xs text-gray-500">{p.pouchNumber}</td>
                               <td className="px-6 py-3 font-semibold text-gray-900">{p.bloodGroup}</td>
@@ -412,31 +502,69 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                   )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                    <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {pouches.length} poches</span>
+                    <span>
+                      Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {pouches.length} poches
+                    </span>
                   </div>
                 </>
               )}
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="bloodBank.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
-                  </Button>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Groupe sanguin</label>
+                    <select
+                      value={filterGroup}
+                      onChange={(e) => setFilterGroup(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les groupes</option>
+                      {bloodGroupOptions.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type / Composant</label>
+                    <select
+                      value={filterComponent}
+                      onChange={(e) => setFilterComponent(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les types</option>
+                      {componentOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATE_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </Card>
 
@@ -506,19 +634,22 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                 )}
                 <p className="mt-3 text-center text-xs text-gray-400">Total {pouches.length}</p>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Actions rapides */}
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
               <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
             </div>
-            <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
+            <SortableGroup id="bloodBank.grid3" className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.label}
-                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm"
+                  onClick={action.onClick}
+                  disabled={!action.onClick}
+                  title={action.onClick ? undefined : 'Fonctionnalité non disponible pour le moment'}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
                     <action.icon className="h-5 w-5" />
@@ -526,7 +657,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                   <span className="text-[11px] font-medium leading-tight text-gray-700">{action.label}</span>
                 </button>
               ))}
-            </div>
+            </SortableGroup>
           </Card>
         </>
       )}

@@ -4,6 +4,7 @@ import type { TransactionStatus } from './types'
 export function transactionStatusTone(status: TransactionStatus): StatusTone {
   if (status === 'Payé') return 'success'
   if (status === 'En attente') return 'warning'
+  if (status === 'Annulé') return 'neutral'
   return 'danger'
 }
 

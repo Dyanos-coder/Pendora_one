@@ -17,7 +17,7 @@ const CAPABILITIES = [
   'Imagerie',
   'Pharmacie',
   'Banque de sang',
-  'Finances'
+  'Caisse & Comptabilité'
 ]
 
 export function LoginScreen({ onLogin, error }: LoginScreenProps): JSX.Element {
@@ -153,7 +153,7 @@ export function LoginScreen({ onLogin, error }: LoginScreenProps): JSX.Element {
               </>
             )}
           </Button>
-
+{/* 
           <div className="mt-8 rounded-lg bg-gray-50 p-3.5 text-xs text-gray-500">
             <p className="mb-1.5 font-medium text-gray-600">Comptes de démonstration</p>
             <p>
@@ -162,7 +162,7 @@ export function LoginScreen({ onLogin, error }: LoginScreenProps): JSX.Element {
             <p>
               <span className="font-mono text-gray-700">praticien@demo.pandorahealth</span> / demo1234
             </p>
-          </div>
+          </div> */}
         </form>
       </div>
     </div>

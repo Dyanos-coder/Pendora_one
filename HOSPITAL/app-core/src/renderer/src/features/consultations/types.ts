@@ -17,4 +17,5 @@ export interface ConsultationRecord {
   motive: string
   status: ConsultationStatus
   dossier: string
+  documentFileName: string | null
 }

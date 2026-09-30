@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { create, list, remove, update } from '../services/imaging.service'
+import { create, exportExcel, list, remove, update, uploadResultFile, viewResultFile } from '../services/imaging.service'
 import type { CreateImagingRequestInput, UpdateImagingRequestInput } from '../../shared/imaging-types'
 
 export function registerImagingIpcHandlers(): void {
@@ -10,4 +10,10 @@ export function registerImagingIpcHandlers(): void {
   ipcMain.handle('imaging:update', (_event, id: string, input: UpdateImagingRequestInput) => update(id, input))
 
   ipcMain.handle('imaging:delete', (_event, id: string) => remove(id))
+
+  ipcMain.handle('imaging:exportExcel', () => exportExcel())
+
+  ipcMain.handle('imaging:uploadResultFile', (_event, id: string) => uploadResultFile(id))
+
+  ipcMain.handle('imaging:viewResultFile', (_event, id: string) => viewResultFile(id))
 }

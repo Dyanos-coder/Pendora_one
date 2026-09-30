@@ -9,6 +9,7 @@ import type { ApiAudit, ApiAuditFinding, ApiComplianceFramework, ApiGovernanceAu
 import { auditStatusTone } from './status'
 import type { Audit, AuditStatus, Framework } from './types'
 import { AuditFormModal } from './AuditFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const STATUS_LABEL: Record<ApiGovernanceAuditStatus, AuditStatus> = {
   PLANIFIE: 'Planifié',
@@ -181,7 +182,7 @@ export function AuditCompliancePage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="auditCompliance.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-emerald-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
                 <ClipboardCheck className="h-5 w-5 text-emerald-600" />
@@ -210,9 +211,9 @@ export function AuditCompliancePage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Audits en cours</p>
               <p className="text-xl font-bold text-gray-900">{inProgress.length}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="auditCompliance.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Audits</h3>
@@ -266,7 +267,7 @@ export function AuditCompliancePage(): JSX.Element {
               </div>
             </Card>
 
-            <div className="space-y-6">
+            <SortableGroup id="auditCompliance.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-3 text-sm font-semibold text-gray-900">Référentiels suivis</h3>
                 <div className="space-y-3">
@@ -314,8 +315,8 @@ export function AuditCompliancePage(): JSX.Element {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>

@@ -9,9 +9,13 @@
   --color-brand-800: #221d3d;
   --color-brand-700: #322a56;
 
+  --color-accent-800: #312e81;
+  --color-accent-700: #3730a3;
   --color-accent-600: #4338ca;
   --color-accent-500: #4f46e5;
   --color-accent-400: #818cf8;
+  --color-accent-200: #c7d2fe;
+  --color-accent-100: #e0e7ff;
   --color-accent-50: #eef2ff;
 }
 
@@ -23,4 +27,76 @@ body,
 
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
+}
+
+/* Impression (item 16 PETITES MODIFS) — les boutons « Imprimer » appellent window.print() sur la
+ * page courante : sans ces règles, la barre latérale, l'en-tête, les boutons et la hauteur fixe de
+ * la fenêtre (h-screen + overflow) partaient à l'impression, coupant le contenu à un seul écran.
+ * On n'imprime que le contenu de la page, sur toute sa hauteur, sans éléments d'interface. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  aside,
+  header,
+  nav,
+  button,
+  select,
+  input,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  .h-screen,
+  .overflow-hidden,
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .bg-gray-50 {
+    background: #fff !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  table {
+    width: 100%;
+    font-size: 10px;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img,
+  svg {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
 }

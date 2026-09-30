@@ -21,4 +21,8 @@ export interface LabRequest {
   sample: string
   technician: string
   technicianId: string | null
+  requestingDoctor: string
+  requestingDoctorId: string | null
+  resultFileName: string | null
+  paid?: boolean
 }

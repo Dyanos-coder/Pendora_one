@@ -2,7 +2,7 @@
 // la note équivalente dans features/patients/types.ts).
 
 export type TransactionType = 'Recette' | 'Dépense'
-export type TransactionStatus = 'Payé' | 'En attente' | 'En retard'
+export type TransactionStatus = 'Payé' | 'En attente' | 'En retard' | 'Annulé'
 
 export interface FinanceTransaction {
   id: string

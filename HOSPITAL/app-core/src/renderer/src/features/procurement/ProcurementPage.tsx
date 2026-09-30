@@ -27,6 +27,9 @@ import type { ApiProcurementPriority, ApiProcurementRequest, ApiProcurementStatu
 import { procurementPriorityTone, procurementStatusTone, STATUS_CHART_COLOR } from './status'
 import type { ProcurementPriority, ProcurementRequest, ProcurementStatus, Supplier } from './types'
 import { ProcurementRequestFormModal } from './ProcurementRequestFormModal'
+import { OrdersTab } from './tabs/OrdersTab'
+import { ReceptionsTab } from './tabs/ReceptionsTab'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 type Tab = 'needs' | 'purchaseRequests' | 'orders' | 'receptions' | 'suppliers'
 
@@ -81,6 +84,7 @@ export function ProcurementPage(): JSX.Element {
   const [requests, setRequests] = useState<ProcurementRequest[]>([])
   const [rawRequests, setRawRequests] = useState<ApiProcurementRequest[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [rawSuppliers, setRawSuppliers] = useState<ApiSupplier[]>([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingRequest, setEditingRequest] = useState<ApiProcurementRequest | null>(null)
   const [deletingRequest, setDeletingRequest] = useState<ProcurementRequest | null>(null)
@@ -88,6 +92,7 @@ export function ProcurementPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('needs')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -97,7 +102,10 @@ export function ProcurementPage(): JSX.Element {
         setRawRequests(reqResult.data.requests)
         setRequests(reqResult.data.requests.map(toRequest))
       } else setError(reqResult.error)
-      if (supResult.ok) setSuppliers(supResult.data.suppliers.map(toSupplier))
+      if (supResult.ok) {
+        setRawSuppliers(supResult.data.suppliers)
+        setSuppliers(supResult.data.suppliers.map(toSupplier))
+      }
       setLoading(false)
     })
     return () => {
@@ -153,6 +161,12 @@ export function ProcurementPage(): JSX.Element {
   }, [requests])
   const maxRequested = topRequested.length === 0 ? 1 : topRequested[0].quantity
 
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.procurement.exportExcel()
+    setExporting(false)
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
@@ -207,14 +221,14 @@ export function ProcurementPage(): JSX.Element {
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement de l'approvisionnement…
+          Chargement de l&apos;approvisionnement…
         </div>
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="procurement.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-blue-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
                 <ClipboardList className="h-5 w-5 text-blue-600" />
@@ -243,11 +257,11 @@ export function ProcurementPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Fiabilité fournisseurs (moy.)</p>
               <p className="text-xl font-bold text-gray-900">{avgOnTime === null ? '—' : `${avgOnTime}%`}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
           {/* Pipeline */}
           <Card>
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">Cycle d'approvisionnement</h3>
+            <h3 className="mb-4 text-sm font-semibold text-gray-900">Cycle d&apos;approvisionnement</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {pipeline.map((stage) => (
                 <div key={stage.status} className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4">
@@ -261,7 +275,7 @@ export function ProcurementPage(): JSX.Element {
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="procurement.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
                 {TABS.map((tab) => (
@@ -293,11 +307,11 @@ export function ProcurementPage(): JSX.Element {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="sm">
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                      <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                         Export Excel
                       </Button>
-                      <Button variant="secondary" size="sm">
+                      <Button variant="secondary" size="sm" onClick={() => window.print()}>
                         <Printer className="h-3.5 w-3.5" />
                         Imprimer
                       </Button>
@@ -370,6 +384,69 @@ export function ProcurementPage(): JSX.Element {
                 </>
               )}
 
+              {activeTab === 'purchaseRequests' && (
+                <>
+                  {requests.filter((r) => r.status !== 'À valider').length === 0 ? (
+                    <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune demande d&apos;achat validée.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                            <th className="px-6 py-2.5 font-medium">Référence</th>
+                            <th className="px-6 py-2.5 font-medium">Article</th>
+                            <th className="px-6 py-2.5 font-medium">Quantité</th>
+                            <th className="px-6 py-2.5 font-medium">Priorité</th>
+                            <th className="px-6 py-2.5 font-medium">Statut</th>
+                            <th className="px-6 py-2.5 font-medium">Demandeur</th>
+                            <th className="px-6 py-2.5 font-medium" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {requests
+                            .filter((r) => r.status !== 'À valider')
+                            .map((r) => (
+                              <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                                <td className="px-6 py-3 font-medium text-gray-900">{r.reference}</td>
+                                <td className="px-6 py-3 text-gray-600">
+                                  {r.article}
+                                  <p className="text-xs text-gray-400">
+                                    {r.category} · {r.date}
+                                  </p>
+                                </td>
+                                <td className="px-6 py-3 text-gray-600">{r.quantity}</td>
+                                <td className="px-6 py-3">
+                                  <StatusBadge label={r.priority} tone={procurementPriorityTone(r.priority)} />
+                                </td>
+                                <td className="px-6 py-3">
+                                  <StatusBadge label={r.status} tone={procurementStatusTone(r.status)} />
+                                </td>
+                                <td className="px-6 py-3 text-gray-600">{r.requester}</td>
+                                <td className="px-6 py-3">
+                                  <button
+                                    onClick={() => setEditingRequest(rawRequests.find((raw) => raw.id === r.id) ?? null)}
+                                    title="Modifier"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
+                    Une demande d&apos;achat est un besoin exprimé une fois validé (statut différent de « À valider »).
+                  </p>
+                </>
+              )}
+
+              {activeTab === 'orders' && <OrdersTab requests={rawRequests} suppliers={rawSuppliers} />}
+
+              {activeTab === 'receptions' && <ReceptionsTab />}
+
               {activeTab === 'suppliers' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -402,15 +479,10 @@ export function ProcurementPage(): JSX.Element {
                 </div>
               )}
 
-              {activeTab !== 'needs' && activeTab !== 'suppliers' && (
-                <p className="px-6 py-12 text-center text-sm text-gray-400">
-                  Module « {TABS.find((t) => t.id === activeTab)?.label} » à spécifier.
-                </p>
-              )}
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="procurement.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par statut</h3>
                 {statusBreakdown.length === 0 ? (
@@ -461,8 +533,8 @@ export function ProcurementPage(): JSX.Element {
                   </div>
                 )}
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Alertes */}
           <Card className="p-0">

@@ -20,6 +20,7 @@ const ROLE_OPTIONS: { value: ApiRole; label: string }[] = [
   { value: 'TECHNICIEN', label: 'Technicien' },
   { value: 'PHARMACIEN', label: 'Pharmacien' },
   { value: 'ADMINISTRATIF', label: 'Administratif' },
+  { value: 'CAISSIER', label: 'Caissier(ère)' },
   { value: 'DIRIGEANT', label: 'Dirigeant' }
 ]
 

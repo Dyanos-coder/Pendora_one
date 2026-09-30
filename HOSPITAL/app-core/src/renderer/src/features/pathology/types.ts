@@ -21,4 +21,6 @@ export interface PathologyRequest {
   status: PathologyStatus
   priority: PathologyPriority
   expectedDurationMin: number | null
+  resultFileName: string | null
+  paid?: boolean
 }

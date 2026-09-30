@@ -21,18 +21,21 @@ import {
   Tags,
   FileBarChart,
   Loader2,
-  Trash2
+  Trash2,
+  Paperclip
 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge } from '@renderer/components/StatusBadge'
+import { PaidBadge } from '@renderer/features/cashier/PaidBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiPathologyPriority, ApiPathologyRequest, ApiPathologyStatus } from '@shared/pathology-types'
 import { pathologyStatusTone, pathologyPriorityTone, SAMPLE_TYPE_CHART_COLOR } from './status'
 import type { PathologyRequest, PathologyStatus } from './types'
-import { isSameDay } from '@renderer/features/appointments/week'
+import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { PathologyRequestFormModal } from './PathologyRequestFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface PathologyPageProps {
   onOpenPatient: (patientId: string) => void
@@ -73,19 +76,14 @@ function toRecord(r: ApiPathologyRequest): PathologyRequest {
     doctorId: r.doctorId,
     status: STATUS_LABEL[r.status],
     priority: PRIORITY_LABEL[r.priority],
-    expectedDurationMin: r.expectedDurationMin
+    expectedDurationMin: r.expectedDurationMin,
+    resultFileName: r.resultFileName,
+    paid: r.paid
   }
 }
 
-const FILTER_FIELDS = [
-  { label: 'Période', value: "Aujourd'hui" },
-  { label: 'Service demandeur', value: 'Tous les services' },
-  { label: 'Type de prélèvement', value: 'Tous les types' },
-  { label: 'Localisation / Organe', value: 'Toutes les localisations' },
-  { label: 'Statut', value: 'Tous les statuts' },
-  { label: 'Priorité', value: 'Toutes les priorités' },
-  { label: 'Médecin demandeur', value: 'Tous les médecins' }
-]
+const ALL_FILTER = '__all__'
+type PeriodFilter = 'today' | 'week' | 'month' | 'all'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -119,8 +117,17 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
   const [patientsFollowed, setPatientsFollowed] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingResultFor, setUploadingResultFor] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>('today')
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterType, setFilterType] = useState(ALL_FILTER)
+  const [filterLocation, setFilterLocation] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
+  const [filterPriority, setFilterPriority] = useState(ALL_FILTER)
+  const [filterDoctor, setFilterDoctor] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -139,32 +146,115 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
     }
   }, [])
 
+  async function handleResultFile(request: PathologyRequest): Promise<void> {
+    if (request.resultFileName) {
+      await window.api.pathology.viewResultFile(request.id)
+      return
+    }
+    setUploadingResultFor(request.id)
+    const result = await window.api.pathology.uploadResultFile(request.id)
+    setUploadingResultFor(null)
+    if (result?.ok) {
+      const updated = toRecord(result.data.request)
+      setRequests((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+    }
+  }
+
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.pathology.exportExcel()
+    setExporting(false)
+  }
+
   const today = useMemo(() => new Date(), [])
+  const realMonday = useMemo(() => mondayOf(today), [today])
   const todayRequests = useMemo(() => requests.filter((r) => isSameDay(r.requestedAt, today)), [requests, today])
   const waiting = useMemo(() => todayRequests.filter((r) => r.status === 'En attente de prélèvement'), [todayRequests])
   const inProgress = useMemo(() => todayRequests.filter((r) => r.status === 'En cours'), [todayRequests])
   const validated = useMemo(() => todayRequests.filter((r) => r.status === 'Résultat validé'), [todayRequests])
   const urgent = useMemo(() => todayRequests.filter((r) => r.priority === 'Urgent'), [todayRequests])
-  const cancelled = useMemo(() => todayRequests.filter((r) => r.status === 'Annulée'), [todayRequests])
   const urgentPending = useMemo(() => urgent.filter((r) => r.status !== 'Résultat validé' && r.status !== 'Annulée'), [urgent])
 
-  const TABS: { id: Tab; label: string; count: number }[] = [
-    { id: 'all', label: 'Toutes les demandes', count: todayRequests.length },
-    { id: 'waiting', label: 'En attente de prélèvement', count: waiting.length },
-    { id: 'inProgress', label: 'En cours', count: inProgress.length },
-    { id: 'validated', label: 'Résultats validés', count: validated.length },
-    { id: 'urgent', label: 'Demandes urgentes', count: urgent.length },
-    { id: 'cancelled', label: 'Annulées', count: cancelled.length }
-  ]
+  // Périmètre de la liste/onglets, piloté par le filtre "Période" (les cartes KPI ci-dessus
+  // restent volontairement figées sur "aujourd'hui").
+  const periodRequests = useMemo(
+    () =>
+      requests.filter((r) => {
+        if (filterPeriod === 'today') return isSameDay(r.requestedAt, today)
+        if (filterPeriod === 'week') {
+          const idx = dayIndexInWeek(realMonday, r.requestedAt)
+          return idx >= 0 && idx < 7
+        }
+        if (filterPeriod === 'month') {
+          return r.requestedAt.getMonth() === today.getMonth() && r.requestedAt.getFullYear() === today.getFullYear()
+        }
+        return true
+      }),
+    [requests, filterPeriod, today, realMonday]
+  )
 
-  const TAB_ROWS: Record<Tab, PathologyRequest[]> = { all: todayRequests, waiting, inProgress, validated, urgent, cancelled }
+  const TAB_ROWS: Record<Tab, PathologyRequest[]> = {
+    all: periodRequests,
+    waiting: periodRequests.filter((r) => r.status === 'En attente de prélèvement'),
+    inProgress: periodRequests.filter((r) => r.status === 'En cours'),
+    validated: periodRequests.filter((r) => r.status === 'Résultat validé'),
+    urgent: periodRequests.filter((r) => r.priority === 'Urgent'),
+    cancelled: periodRequests.filter((r) => r.status === 'Annulée')
+  }
+
+  const TABS: { id: Tab; label: string; count: number }[] = [
+    { id: 'all', label: 'Toutes les demandes', count: TAB_ROWS.all.length },
+    { id: 'waiting', label: 'En attente de prélèvement', count: TAB_ROWS.waiting.length },
+    { id: 'inProgress', label: 'En cours', count: TAB_ROWS.inProgress.length },
+    { id: 'validated', label: 'Résultats validés', count: TAB_ROWS.validated.length },
+    { id: 'urgent', label: 'Demandes urgentes', count: TAB_ROWS.urgent.length },
+    { id: 'cancelled', label: 'Annulées', count: TAB_ROWS.cancelled.length }
+  ]
 
   const rows = useMemo(() => {
     const base = TAB_ROWS[activeTab]
     const term = search.trim().toLowerCase()
     if (!term) return base
     return base.filter((r) => `${r.patientName} ${r.sampleType} ${r.location} ${r.service}`.toLowerCase().includes(term))
-  }, [activeTab, search, requests])
+  }, [activeTab, search, periodRequests])
+
+  const serviceOptions = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.service).filter((s) => s && s !== '—'))).sort(),
+    [requests]
+  )
+  const typeOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.sampleType).filter(Boolean))).sort(), [requests])
+  const locationOptions = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.location).filter((l) => l && l !== '—'))).sort(),
+    [requests]
+  )
+  const doctorOptions = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.doctor).filter((d) => d && d !== '—'))).sort(),
+    [requests]
+  )
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (filterService !== ALL_FILTER && r.service !== filterService) return false
+        if (filterType !== ALL_FILTER && r.sampleType !== filterType) return false
+        if (filterLocation !== ALL_FILTER && r.location !== filterLocation) return false
+        if (filterStatus !== ALL_FILTER && r.status !== filterStatus) return false
+        if (filterPriority !== ALL_FILTER && r.priority !== filterPriority) return false
+        if (filterDoctor !== ALL_FILTER && r.doctor !== filterDoctor) return false
+        return true
+      }),
+    [rows, filterService, filterType, filterLocation, filterStatus, filterPriority, filterDoctor]
+  )
+
+  function handleResetFilters(): void {
+    setFilterPeriod('today')
+    setFilterService(ALL_FILTER)
+    setFilterType(ALL_FILTER)
+    setFilterLocation(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+    setFilterPriority(ALL_FILTER)
+    setFilterDoctor(ALL_FILTER)
+  }
 
   const sampleBreakdown = useMemo(() => {
     const counts = new Map<string, number>()
@@ -299,7 +389,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <SortableGroup id="pathology.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <FlaskConical className="h-5 w-5 text-violet-600" />
@@ -349,9 +439,9 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
               <p className="mt-3 text-xs font-medium text-gray-500">Patients suivis</p>
               <p className="mt-0.5 text-xl font-bold text-gray-900">{patientsFollowed ?? '—'}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="pathology.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -382,23 +472,25 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                     Export Excel
                   </Button>
                   <Button variant="secondary" size="sm">
                     <Columns3 className="h-3.5 w-3.5" />
                     Colonnes
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
                     <Printer className="h-3.5 w-3.5" />
                     Imprimer
                   </Button>
                 </div>
               </div>
 
-              {rows.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune demande dans cette catégorie.</p>
+              {filteredRows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">
+                  {rows.length === 0 ? 'Aucune demande dans cette catégorie.' : 'Aucune demande ne correspond aux filtres.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -417,7 +509,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((r) => (
+                      {filteredRows.map((r) => (
                         <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-6 py-3 text-gray-600">
                             <p>{formatDate(r.requestedAt)}</p>
@@ -440,6 +532,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                           <td className="px-6 py-3 text-gray-600">{r.service}</td>
                           <td className="px-6 py-3">
                             <StatusBadge label={r.status} tone={pathologyStatusTone(r.status)} />
+                            <PaidBadge paid={r.paid} />
                           </td>
                           <td className="px-6 py-3">
                             <StatusBadge label={r.priority} tone={pathologyPriorityTone(r.priority)} />
@@ -469,6 +562,18 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
+                              <button
+                                onClick={() => handleResultFile(r)}
+                                disabled={uploadingResultFor === r.id}
+                                title={r.resultFileName ? `Voir le résultat (${r.resultFileName})` : 'Téléverser le résultat'}
+                                className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 ${r.resultFileName ? 'text-accent-600' : 'text-gray-400 hover:text-gray-700'}`}
+                              >
+                                {uploadingResultFor === r.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Paperclip className="h-4 w-4" />
+                                )}
+                              </button>
                               <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
@@ -482,26 +587,125 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
               )}
 
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} demandes</span>
+                <span>
+                  Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {TAB_ROWS[activeTab].length} demandes
+                </span>
               </div>
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="pathology.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <select
+                      value={filterPeriod}
+                      onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value="today">Aujourd&apos;hui</option>
+                      <option value="week">Cette semaine</option>
+                      <option value="month">Ce mois-ci</option>
+                      <option value="all">Toutes les périodes</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service demandeur</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {serviceOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type de prélèvement</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les types</option>
+                      {typeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Localisation / Organe</label>
+                    <select
+                      value={filterLocation}
+                      onChange={(e) => setFilterLocation(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les localisations</option>
+                      {locationOptions.map((l) => (
+                        <option key={l} value={l}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Priorité</label>
+                    <select
+                      value={filterPriority}
+                      onChange={(e) => setFilterPriority(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les priorités</option>
+                      {Object.values(PRIORITY_LABEL).map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin demandeur</label>
+                    <select
+                      value={filterDoctor}
+                      onChange={(e) => setFilterDoctor(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les médecins</option>
+                      {doctorOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <Button size="sm" className="w-full">
                     Filtrer
                   </Button>
@@ -545,19 +749,19 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                   <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
-                  <QuickAction icon={Plus} label="Créer une nouvelle demande" />
-                  <QuickAction icon={ClipboardCheck} label="Enregistrer un prélèvement" />
-                  <QuickAction icon={Link2} label="Associer un échantillon" />
+                  <QuickAction icon={Plus} label="Créer une nouvelle demande" onClick={() => setShowCreateModal(true)} />
+                  <QuickAction icon={ClipboardCheck} label="Enregistrer un prélèvement" onClick={() => setActiveTab('waiting')} />
+                  <QuickAction icon={Link2} label="Associer un échantillon" onClick={() => setActiveTab('inProgress')} />
                   <QuickAction icon={ClipboardList} label="Consulter planning du laboratoire" />
                   <QuickAction icon={Tags} label="Imprimer étiquettes" />
-                  <QuickAction icon={FileBarChart} label="Rapport quotidien d'anatomo-pathologie" />
+                  <QuickAction icon={FileBarChart} label="Rapport quotidien d'anatomo-pathologie" onClick={handleExportExcel} />
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Panneaux du bas */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <SortableGroup id="pathology.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
             <Card>
               <h3 className="mb-4 text-sm font-semibold text-gray-900">Demandes par service</h3>
               {requestsByService.length === 0 ? (
@@ -643,16 +847,27 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                 )}
               </div>
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>
   )
 }
 
-function QuickAction({ icon: Icon, label }: { icon: typeof Plus; label: string }): JSX.Element {
+function QuickAction({
+  icon: Icon,
+  label,
+  onClick
+}: {
+  icon: typeof Plus
+  label: string
+  onClick?: () => void
+}): JSX.Element {
   return (
-    <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900">
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+    >
       <Icon className="h-3.5 w-3.5 text-gray-400" />
       {label}
     </button>

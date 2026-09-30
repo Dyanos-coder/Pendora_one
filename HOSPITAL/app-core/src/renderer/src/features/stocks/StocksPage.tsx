@@ -31,6 +31,12 @@ import type { ApiDepot, ApiDepotItem, ApiItemState } from '@shared/stocks-types'
 import { itemStateTone, CATEGORY_CHART_COLOR, DEPOT_CHART_COLOR } from './status'
 import type { Depot, DepotItem, ItemState } from './types'
 import { DepotItemFormModal } from './DepotItemFormModal'
+import { MovementsTab } from './tabs/MovementsTab'
+import { TransfersTab } from './tabs/TransfersTab'
+import { InventoryTab } from './tabs/InventoryTab'
+import { LossesTab } from './tabs/LossesTab'
+import { AnalysisTab } from './tabs/AnalysisTab'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 type Tab = 'overview' | 'movements' | 'transfers' | 'inventory' | 'losses' | 'analysis'
 
@@ -43,21 +49,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'analysis', label: 'Analyse' }
 ]
 
-const FILTER_FIELDS = [
-  { label: 'Catégorie', value: 'Toutes les catégories' },
-  { label: 'Dépôt', value: 'Tous les dépôts' },
-  { label: 'Statut', value: 'Tous les statuts' }
-]
-
-const QUICK_ACTIONS = [
-  { icon: ArrowDownToLine, label: 'Entrée de stock' },
-  { icon: ArrowUpFromLine, label: 'Sortie de stock' },
-  { icon: ArrowLeftRight, label: 'Transfert entre dépôts' },
-  { icon: ClipboardCheck, label: 'Inventaire rapide' },
-  { icon: SlidersHorizontal, label: 'Ajuster le stock' },
-  { icon: Undo2, label: 'Retrait / Perte' },
-  { icon: Tags, label: 'Imprimer étiquettes' }
-]
+const ALL_FILTER = '__all__'
 
 const STATE_LABEL: Record<ApiItemState, ItemState> = {
   RUPTURE: 'Rupture',
@@ -86,6 +78,7 @@ function initials(name: string): string {
 export function StocksPage(): JSX.Element {
   const [depots, setDepots] = useState<ApiDepot[]>([])
   const [items, setItems] = useState<DepotItem[]>([])
+  const [rawItems, setRawItems] = useState<ApiDepotItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -93,6 +86,10 @@ export function StocksPage(): JSX.Element {
   const [deletingItem, setDeletingItem] = useState<DepotItem | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [filterCategory, setFilterCategory] = useState(ALL_FILTER)
+  const [filterDepot, setFilterDepot] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -100,6 +97,7 @@ export function StocksPage(): JSX.Element {
       if (cancelled) return
       if (depotsResult.ok) setDepots(depotsResult.data.depots)
       if (itemsResult.ok) {
+        setRawItems(itemsResult.data.items)
         setItems(itemsResult.data.items.map(toItem))
       } else {
         setError(itemsResult.error)
@@ -116,6 +114,36 @@ export function StocksPage(): JSX.Element {
     if (!term) return items
     return items.filter((i) => `${i.name} ${i.category} ${i.depot}`.toLowerCase().includes(term))
   }, [search, items])
+
+  const categoryOptions = useMemo(() => Array.from(new Set(items.map((i) => i.category))).sort(), [items])
+  const depotOptions = useMemo(() => Array.from(new Set(items.map((i) => i.depot))).sort(), [items])
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((i) => {
+        if (filterCategory !== ALL_FILTER && i.category !== filterCategory) return false
+        if (filterDepot !== ALL_FILTER && i.depot !== filterDepot) return false
+        if (filterStatus !== ALL_FILTER && i.state !== filterStatus) return false
+        return true
+      }),
+    [rows, filterCategory, filterDepot, filterStatus]
+  )
+
+  function handleResetFilters(): void {
+    setFilterCategory(ALL_FILTER)
+    setFilterDepot(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+  }
+
+  const QUICK_ACTIONS: { icon: typeof ArrowDownToLine; label: string; onClick?: () => void }[] = [
+    { icon: ArrowDownToLine, label: 'Entrée de stock', onClick: () => setActiveTab('movements') },
+    { icon: ArrowUpFromLine, label: 'Sortie de stock', onClick: () => setActiveTab('movements') },
+    { icon: ArrowLeftRight, label: 'Transfert entre dépôts', onClick: () => setActiveTab('transfers') },
+    { icon: ClipboardCheck, label: 'Inventaire rapide', onClick: () => setActiveTab('inventory') },
+    { icon: SlidersHorizontal, label: 'Ajuster le stock', onClick: () => setActiveTab('inventory') },
+    { icon: Undo2, label: 'Retrait / Perte', onClick: () => setActiveTab('losses') },
+    { icon: Tags, label: 'Imprimer étiquettes' }
+  ]
 
   const ruptures = useMemo(() => items.filter((i) => i.state === 'Rupture'), [items])
   const stockFaible = useMemo(() => items.filter((i) => i.state === 'Stock faible'), [items])
@@ -170,6 +198,12 @@ export function StocksPage(): JSX.Element {
 
   const totalUnits = useMemo(() => items.reduce((sum, i) => sum + i.available, 0), [items])
 
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.stocks.exportExcel()
+    setExporting(false)
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
@@ -190,6 +224,7 @@ export function StocksPage(): JSX.Element {
           onClose={() => setShowCreateModal(false)}
           onCreated={(item) => {
             setItems((prev) => [...prev, toItem(item)])
+            setRawItems((prev) => [...prev, item])
             setShowCreateModal(false)
           }}
         />
@@ -203,6 +238,7 @@ export function StocksPage(): JSX.Element {
           onCreated={(item) => {
             const updated = toItem(item)
             setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+            setRawItems((prev) => prev.map((i) => (i.id === item.id ? item : i)))
             setEditingItem(null)
           }}
         />
@@ -216,6 +252,7 @@ export function StocksPage(): JSX.Element {
           onConfirm={() => window.api.stocks.delete(deletingItem.id)}
           onConfirmed={() => {
             setItems((prev) => prev.filter((i) => i.id !== deletingItem.id))
+            setRawItems((prev) => prev.filter((i) => i.id !== deletingItem.id))
             setDeletingItem(null)
           }}
         />
@@ -231,7 +268,7 @@ export function StocksPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SortableGroup id="stocks.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-t-4 border-t-blue-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
                 <Package className="h-5 w-5 text-blue-600" />
@@ -260,7 +297,7 @@ export function StocksPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Ruptures</p>
               <p className="text-xl font-bold text-gray-900">{ruptures.length}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
           <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
@@ -272,7 +309,7 @@ export function StocksPage(): JSX.Element {
           {/* Aperçu des dépôts */}
           <div>
             <h3 className="mb-3 text-sm font-semibold text-gray-900">Aperçu des dépôts</h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <SortableGroup id="stocks.grid2" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {depotsWithAvailability.map((depot) => (
                 <Card key={depot.id} className="p-4">
                   <p className="text-sm font-semibold text-gray-900">{depot.name}</p>
@@ -287,10 +324,10 @@ export function StocksPage(): JSX.Element {
                   </div>
                 </Card>
               ))}
-            </div>
+            </SortableGroup>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="stocks.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -310,10 +347,16 @@ export function StocksPage(): JSX.Element {
                 ))}
               </div>
 
-              {activeTab !== 'overview' ? (
-                <p className="px-6 py-12 text-center text-sm text-gray-400">
-                  Module « {TABS.find((t) => t.id === activeTab)?.label} » à spécifier.
-                </p>
+              {activeTab === 'movements' ? (
+                <MovementsTab items={rawItems} />
+              ) : activeTab === 'transfers' ? (
+                <TransfersTab items={rawItems} depots={depots} />
+              ) : activeTab === 'inventory' ? (
+                <InventoryTab items={rawItems} />
+              ) : activeTab === 'losses' ? (
+                <LossesTab items={rawItems} />
+              ) : activeTab === 'analysis' ? (
+                <AnalysisTab />
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-3">
@@ -327,23 +370,25 @@ export function StocksPage(): JSX.Element {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="sm">
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                      <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                         Export Excel
                       </Button>
                       <Button variant="secondary" size="sm">
                         <Columns3 className="h-3.5 w-3.5" />
                         Colonnes
                       </Button>
-                      <Button variant="secondary" size="sm">
+                      <Button variant="secondary" size="sm" onClick={() => window.print()}>
                         <Printer className="h-3.5 w-3.5" />
                         Imprimer
                       </Button>
                     </div>
                   </div>
 
-                  {rows.length === 0 ? (
-                    <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun article ne correspond à cette recherche.</p>
+                  {filteredRows.length === 0 ? (
+                    <p className="px-6 py-8 text-center text-sm text-gray-400">
+                      {rows.length === 0 ? 'Aucun article ne correspond à cette recherche.' : 'Aucun article ne correspond aux filtres.'}
+                    </p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -359,7 +404,7 @@ export function StocksPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {rows.map((item) => (
+                          {filteredRows.map((item) => (
                             <tr key={item.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                               <td className="px-6 py-3">
                                 <div className="flex items-center gap-2.5">
@@ -407,31 +452,69 @@ export function StocksPage(): JSX.Element {
                   )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                    <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {items.length} articles</span>
+                    <span>
+                      Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {items.length} articles
+                    </span>
                   </div>
                 </>
               )}
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="stocks.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
-                  </Button>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Catégorie</label>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les catégories</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Dépôt</label>
+                    <select
+                      value={filterDepot}
+                      onChange={(e) => setFilterDepot(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les dépôts</option>
+                      {depotOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATE_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </Card>
 
@@ -464,8 +547,8 @@ export function StocksPage(): JSX.Element {
                   </div>
                 )}
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Panneaux du bas */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -534,7 +617,10 @@ export function StocksPage(): JSX.Element {
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.label}
-                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm"
+                  onClick={action.onClick}
+                  disabled={!action.onClick}
+                  title={action.onClick ? undefined : 'Fonctionnalité non disponible pour le moment'}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-50 text-accent-600">
                     <action.icon className="h-5 w-5" />

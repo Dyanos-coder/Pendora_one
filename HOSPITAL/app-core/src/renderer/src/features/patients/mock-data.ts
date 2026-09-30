@@ -22,18 +22,11 @@ export const MOCK_PATIENTS: Patient[] = [
     insuranceNumber: '7894561230',
     insuranceExpiry: '31/12/2025',
     lastVisit: '03/06/2026',
-    balance: 0,
     emergencyContact: { name: 'Koffi Alice (Épouse)', phone: '+229 90 11 22 33' },
     medicalHistory: ['Hypertension artérielle — Diagnostiquée en 2021', 'Diabète de type 2 — Diagnostiqué en 2022', 'Aucun antécédent chirurgical'],
     familyHistory: ['Diabète (Père)', 'Hypertension (Mère)'],
     lifestyle: ['Non fumeur', 'Activité physique : Modérée', 'Alimentation : Équilibrée'],
-    recordCompleteness: 95,
-    documents: [
-      { name: "Résultats d'analyse - 03/06/2026", date: '03/06/2026', size: '450 Ko' },
-      { name: 'Ordonnance - 03/06/2026', date: '03/06/2026', size: '230 Ko' },
-      { name: 'Facture n° F-2026-0145', date: '03/06/2026', size: '120 Ko' },
-      { name: 'Échographie abdominale', date: '22/04/2026', size: '2.4 Mo' }
-    ]
+    recordCompleteness: 95
   },
   makeLightPatient({ id: 'p-1982', code: 'P-2025-0001982', firstName: 'Léa', lastName: 'Ahouré', age: 28, gender: 'F', service: 'Gynécologie', status: 'active', lastVisit: '21/05/2025', insuranceProvider: 'CNAM' }),
   makeLightPatient({ id: 'p-1112', code: 'P-2025-0001112', firstName: 'Clément', lastName: 'Dossou', age: 42, gender: 'M', service: 'Médecine interne', status: 'active', lastVisit: '21/05/2025', insuranceProvider: 'ASSNAT' }),
@@ -71,12 +64,10 @@ function makeLightPatient(options: LightPatientOptions): Patient {
     admissionType: 'Ambulatoire',
     insuranceNumber: '—',
     insuranceExpiry: '—',
-    balance: 0,
     emergencyContact: { name: '—', phone: '—' },
     medicalHistory: [],
     familyHistory: [],
     lifestyle: [],
-    recordCompleteness: 40,
-    documents: []
+    recordCompleteness: 40
   }
 }

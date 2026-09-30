@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
 import type { ApiUser } from '@shared/user-types'
 import type { Role } from '@shared/auth-types'
+import type { ApiEmployee } from '@shared/appointment-types'
 
 interface UserFormModalProps {
   onClose: () => void
@@ -20,7 +21,8 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'INFIRMIER', label: 'Infirmier(ère)' },
   { value: 'TECHNICIEN', label: 'Technicien' },
   { value: 'PHARMACIEN', label: 'Pharmacien' },
-  { value: 'ADMINISTRATIF', label: 'Administratif' }
+  { value: 'ADMINISTRATIF', label: 'Administratif' },
+  { value: 'CAISSIER', label: 'Caissier(ère)' }
 ]
 
 export function UserFormModal({ onClose, onCreated }: UserFormModalProps): JSX.Element {
@@ -28,8 +30,16 @@ export function UserFormModal({ onClose, onCreated }: UserFormModalProps): JSX.E
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('ADMINISTRATIF')
+  const [unlinkedEmployees, setUnlinkedEmployees] = useState<ApiEmployee[]>([])
+  const [employeeId, setEmployeeId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.users.listUnlinkedEmployees().then((result) => {
+      if (result.ok) setUnlinkedEmployees(result.data.employees)
+    })
+  }, [])
 
   async function handleSubmit(event: FormEvent): Promise<void> {
     event.preventDefault()
@@ -41,7 +51,13 @@ export function UserFormModal({ onClose, onCreated }: UserFormModalProps): JSX.E
     setSubmitting(true)
     setError(null)
 
-    const result = await window.api.users.create({ name: name.trim(), email: email.trim(), password, role })
+    const result = await window.api.users.create({
+      name: name.trim(),
+      email: email.trim(),
+      password,
+      role,
+      employeeId: employeeId || undefined
+    })
     setSubmitting(false)
     if (result.ok) {
       onCreated(result.data.user)
@@ -51,7 +67,7 @@ export function UserFormModal({ onClose, onCreated }: UserFormModalProps): JSX.E
   }
 
   return (
-    <Modal title="Inviter un utilisateur" onClose={onClose} widthClassName="max-w-md">
+    <Modal title="Créer un utilisateur" onClose={onClose} widthClassName="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className={labelClass}>Nom complet *</label>
@@ -74,6 +90,24 @@ export function UserFormModal({ onClose, onCreated }: UserFormModalProps): JSX.E
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className={labelClass}>Fiche employé liée</label>
+          <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={inputClass}>
+            <option value="">— Aucune (pas de fiche employé) —</option>
+            {unlinkedEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.lastName} {e.firstName} — {e.role}
+                {e.specialty ? ` (${e.specialty})` : ''}
+              </option>
+            ))}
+          </select>
+          {role === 'MEDECIN' && (
+            <p className="mt-1 text-[11px] text-gray-400">
+              Pour un médecin, rattacher sa fiche employé restreint son compte à ne programmer que ses propres
+              rendez-vous.
+            </p>
+          )}
         </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}

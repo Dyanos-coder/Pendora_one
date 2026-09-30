@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { beds, create, list, occupancy, remove, update } from '../services/hospitalizations.service'
+import { beds, create, exportExcel, list, occupancy, remove, update } from '../services/hospitalizations.service'
 import type { CreateHospitalizationInput, UpdateHospitalizationInput } from '../../shared/hospitalization-types'
 
 export function registerHospitalizationsIpcHandlers(): void {
@@ -14,4 +14,6 @@ export function registerHospitalizationsIpcHandlers(): void {
   ipcMain.handle('hospitalizations:beds', () => beds())
 
   ipcMain.handle('hospitalizations:occupancy', () => occupancy())
+
+  ipcMain.handle('hospitalizations:exportExcel', () => exportExcel())
 }

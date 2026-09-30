@@ -19,6 +19,7 @@ export interface ApiHospitalization {
   bedId: string | null
   doctorId: string | null
   doctorName: string | null
+  updatedAt: string
 }
 
 export interface ApiBed {
@@ -38,6 +39,9 @@ export interface ApiBedOccupancy {
 }
 
 export interface CreateHospitalizationInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne — jamais fourni par le
+   * renderer, posé en interne par hospitalizations.service.ts (main). */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -58,4 +62,7 @@ export interface UpdateHospitalizationInput {
   service?: string | null
   motive?: string | null
   status?: ApiHospitalizationStatus
+  /** Posé en interne par hospitalizations.service.ts (main) en mode hors-ligne, jamais fourni par
+   * le renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

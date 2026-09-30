@@ -5,7 +5,7 @@
 // Pas de notion de tenant/membership : une instance de l'app (app-server + sa base MySQL) sert
 // une seule entreprise, donc un seul rôle par utilisateur et une seule entreprise par session.
 
-export type Role = 'DIRIGEANT' | 'MEDECIN' | 'INFIRMIER' | 'TECHNICIEN' | 'PHARMACIEN' | 'ADMINISTRATIF'
+export type Role = 'DIRIGEANT' | 'MEDECIN' | 'INFIRMIER' | 'TECHNICIEN' | 'PHARMACIEN' | 'ADMINISTRATIF' | 'CAISSIER'
 
 export interface CompanyInfo {
   name: string
@@ -17,6 +17,9 @@ export interface SessionUser {
   email: string
   name: string
   role: Role
+  /** Id du dossier employé lié à ce compte, s'il existe — `null` sinon. Utilisé pour restreindre
+   * un médecin à ne programmer des rendez-vous que pour lui-même (voir AppointmentFormModal.tsx). */
+  employeeId: string | null
 }
 
 export interface Session {

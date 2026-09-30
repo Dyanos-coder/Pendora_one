@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { create, list, patientsFollowed, remove, update } from '../services/pathology.service'
+import { create, exportExcel, list, patientsFollowed, remove, update, uploadResultFile, viewResultFile } from '../services/pathology.service'
 import type { CreatePathologyRequestInput, UpdatePathologyRequestInput } from '../../shared/pathology-types'
 
 export function registerPathologyIpcHandlers(): void {
@@ -12,4 +12,10 @@ export function registerPathologyIpcHandlers(): void {
   ipcMain.handle('pathology:delete', (_event, id: string) => remove(id))
 
   ipcMain.handle('pathology:patientsFollowed', () => patientsFollowed())
+
+  ipcMain.handle('pathology:exportExcel', () => exportExcel())
+
+  ipcMain.handle('pathology:uploadResultFile', (_event, id: string) => uploadResultFile(id))
+
+  ipcMain.handle('pathology:viewResultFile', (_event, id: string) => viewResultFile(id))
 }

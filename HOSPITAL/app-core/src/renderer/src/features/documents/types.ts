@@ -11,4 +11,5 @@ export interface ProtocolDocument {
   status: DocumentStatus
   updatedOn: string
   owner: string
+  fileName: string | null
 }

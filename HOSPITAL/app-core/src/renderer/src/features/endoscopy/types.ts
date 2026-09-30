@@ -15,10 +15,13 @@ export interface EndoscopyProcedure {
   resultAt: Date | null
   procedureType: string
   indication: string
+  service: string
   endoscopist: string
   endoscopistId: string | null
   status: EndoscopyStatus
   priority: EndoscopyPriority
   expectedDurationMin: number | null
   room: string
+  resultFileName: string | null
+  paid?: boolean
 }

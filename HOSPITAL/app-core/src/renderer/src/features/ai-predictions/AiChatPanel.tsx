@@ -1,6 +1,34 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Sparkles, Send, Loader2, Plus, Pencil, BedDouble, Pill, ShieldAlert } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { AiConversation, AiConversationMessage } from '@shared/ai-types'
+
+// Rendu markdown pour les réponses de l'assistant (item "PETITES MODIFS") : le backend renvoie du
+// texte formaté (gras, listes, liens...) qui s'affichait auparavant tel quel (ex. "**mot**" au
+// lieu du gras). Les messages de l'utilisateur, eux, restent en texte brut — ce sont ses propres
+// mots, pas du contenu à interpréter.
+const MARKDOWN_COMPONENTS = {
+  p: ({ children }: { children?: ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
+  strong: ({ children }: { children?: ReactNode }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+  ul: ({ children }: { children?: ReactNode }) => <ul className="mb-2 list-disc space-y-0.5 pl-4 last:mb-0">{children}</ul>,
+  ol: ({ children }: { children?: ReactNode }) => <ol className="mb-2 list-decimal space-y-0.5 pl-4 last:mb-0">{children}</ol>,
+  a: ({ children, href }: { children?: ReactNode; href?: string }) => (
+    <a href={href} target="_blank" rel="noreferrer" className="text-accent-600 underline hover:text-accent-700">
+      {children}
+    </a>
+  ),
+  code: ({ children }: { children?: ReactNode }) => (
+    <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[13px] text-gray-800">{children}</code>
+  ),
+  table: ({ children }: { children?: ReactNode }) => (
+    <div className="mb-2 overflow-x-auto last:mb-0">
+      <table className="w-full text-left text-xs">{children}</table>
+    </div>
+  ),
+  th: ({ children }: { children?: ReactNode }) => <th className="border-b border-gray-200 px-2 py-1 font-medium">{children}</th>,
+  td: ({ children }: { children?: ReactNode }) => <td className="border-b border-gray-100 px-2 py-1">{children}</td>
+}
 
 const SUGGESTIONS = [
   { icon: BedDouble, label: "Quelle est l'occupation des lits en ce moment ?" },
@@ -188,8 +216,10 @@ export function AiChatPanel(): JSX.Element {
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-50 text-accent-600">
                       <Sparkles className="h-4 w-4" />
                     </div>
-                    <div className="max-w-xl whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-gray-200 bg-white p-4 text-sm leading-relaxed text-gray-700">
-                      {message.text}
+                    <div className="max-w-xl rounded-2xl rounded-tl-sm border border-gray-200 bg-white p-4 text-sm leading-relaxed text-gray-700">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+                        {message.text}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 )

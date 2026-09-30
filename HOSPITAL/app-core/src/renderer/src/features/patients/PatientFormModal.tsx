@@ -22,7 +22,10 @@ export function PatientFormModal({ onClose, onCreated, editing }: PatientFormMod
   const [phone, setPhone] = useState(editing?.phone ?? '')
   const [email, setEmail] = useState(editing?.email ?? '')
   const [bloodType, setBloodType] = useState(editing?.bloodType ?? '')
-  const [admissionType, setAdmissionType] = useState<AdmissionType>(editing?.admissionType ?? 'AMBULATOIRE')
+  const [admissionType, setAdmissionType] = useState<AdmissionType>(editing?.admissionType ?? 'NON_ADMIS')
+  // Hospitalisé/Urgence : posés automatiquement par les pages Hospitalisation et Urgences — non
+  // modifiables ici (le champ n'est alors pas envoyé).
+  const automaticAdmission = admissionType === 'HOSPITALISE' || admissionType === 'URGENCE'
   const [service, setService] = useState(editing?.service ?? '')
   const [insuranceProvider, setInsuranceProvider] = useState(editing?.insuranceProvider ?? '')
   const [insuranceNumber, setInsuranceNumber] = useState(editing?.insuranceNumber ?? '')
@@ -52,7 +55,7 @@ export function PatientFormModal({ onClose, onCreated, editing }: PatientFormMod
           email: email.trim() || null,
           bloodType: bloodType.trim() || null,
           allergies: allergies.trim() || null,
-          admissionType,
+          admissionType: automaticAdmission ? undefined : admissionType,
           service: service.trim() || null,
           insuranceProvider: insuranceProvider.trim() || null,
           insuranceNumber: insuranceNumber.trim() || null,
@@ -116,15 +119,36 @@ export function PatientFormModal({ onClose, onCreated, editing }: PatientFormMod
           </div>
           <div>
             <label className={labelClass}>Groupe sanguin</label>
-            <input value={bloodType} onChange={(e) => setBloodType(e.target.value)} placeholder="ex. O+" className={inputClass} />
+            <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputClass}>
+              <option value="">Non renseigné</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
           </div>
           <div>
             <label className={labelClass}>Type d&apos;admission</label>
-            <select value={admissionType} onChange={(e) => setAdmissionType(e.target.value as AdmissionType)} className={inputClass}>
+            <select
+              value={admissionType}
+              onChange={(e) => setAdmissionType(e.target.value as AdmissionType)}
+              disabled={automaticAdmission}
+              className={`${inputClass} disabled:bg-gray-50 disabled:text-gray-500`}
+            >
+              <option value="NON_ADMIS">Non admis</option>
               <option value="AMBULATOIRE">Ambulatoire</option>
-              <option value="HOSPITALISE">Hospitalisé</option>
-              <option value="URGENCE">Urgence</option>
+              {automaticAdmission && <option value="HOSPITALISE">Hospitalisé</option>}
+              {automaticAdmission && <option value="URGENCE">Urgence</option>}
             </select>
+            <p className="mt-1 text-[11px] text-gray-400">
+              {automaticAdmission
+                ? 'Défini automatiquement par la page ' + (admissionType === 'HOSPITALISE' ? 'Hospitalisation.' : 'Urgences.')
+                : 'Hospitalisé / Urgence : mis à jour automatiquement depuis les pages Hospitalisation et Urgences.'}
+            </p>
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Service</label>

@@ -20,9 +20,17 @@ export interface ApiImagingRequest {
   gender: 'M' | 'F' | null
   doctorId: string | null
   doctorName: string | null
+  resultFileName: string | null
+  /** Couvert par un reçu de caisse payé (liste en ligne uniquement). */
+  paid?: boolean
+  resultMimeType: string | null
+  resultFileSize: number | null
+  updatedAt: string
 }
 
 export interface CreateImagingRequestInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne. */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -49,4 +57,7 @@ export interface UpdateImagingRequestInput {
   priority?: ApiImagingPriority
   status?: ApiImagingStatus
   expectedDurationMin?: number | null
+  /** Posé en interne par imaging.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

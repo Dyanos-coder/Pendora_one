@@ -32,6 +32,7 @@ import { hospitalizationStatusTone, BED_CHART_COLOR } from './status'
 import type { HospitalizationRecord, HospitalizationStatus } from './types'
 import { isSameDay } from '@renderer/features/appointments/week'
 import { HospitalizationFormModal } from './HospitalizationFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface HospitalizationPageProps {
   onOpenPatient: (patientId: string) => void
@@ -66,12 +67,7 @@ function toRecord(h: ApiHospitalization): HospitalizationRecord {
 
 const EXTRA_TABS = ['Sorties aujourd\'hui', 'Transferts', 'Sorties prévues', 'Sorties récentes']
 
-const FILTER_FIELDS = [
-  { label: 'Service', value: 'Tous les services' },
-  { label: 'Médecin responsable', value: 'Tous les médecins' },
-  { label: 'Statut', value: 'Tous les statuts' },
-  { label: "Type d'hospitalisation", value: 'Tous les types' }
-]
+const ALL_FILTER = '__all__'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -97,6 +93,11 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
   const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterDoctor, setFilterDoctor] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
+  const [filterType, setFilterType] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -129,13 +130,47 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
   ]
 
   const TAB_ROWS: Record<Tab, HospitalizationRecord[]> = { all: hospitalizations, hospitalized, waiting }
+  const tabRows = TAB_ROWS[activeTab]
 
-  const rows = useMemo(() => {
-    const base = TAB_ROWS[activeTab]
+  const serviceOptions = useMemo(
+    () => Array.from(new Set(hospitalizations.map((h) => h.service).filter((s) => s && s !== '—'))).sort(),
+    [hospitalizations]
+  )
+  const doctorOptions = useMemo(
+    () => Array.from(new Set(hospitalizations.map((h) => h.doctor).filter((d) => d && d !== '—'))).sort(),
+    [hospitalizations]
+  )
+  // Il n'existe pas de champ « type d'hospitalisation » dédié : le motif est le champ le plus
+  // proche pour catégoriser les hospitalisations, on l'utilise donc pour ce filtre.
+  const motiveOptions = useMemo(
+    () => Array.from(new Set(hospitalizations.map((h) => h.motive).filter((m) => m && m !== '—'))).sort(),
+    [hospitalizations]
+  )
+
+  const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return base
-    return base.filter((h) => `${h.patientName} ${h.service} ${h.doctor} ${h.motive}`.toLowerCase().includes(term))
-  }, [activeTab, search, hospitalizations])
+    return tabRows.filter((h) => {
+      if (term && !`${h.patientName} ${h.service} ${h.doctor} ${h.motive}`.toLowerCase().includes(term)) return false
+      if (filterService !== ALL_FILTER && h.service !== filterService) return false
+      if (filterDoctor !== ALL_FILTER && h.doctor !== filterDoctor) return false
+      if (filterStatus !== ALL_FILTER && h.status !== filterStatus) return false
+      if (filterType !== ALL_FILTER && h.motive !== filterType) return false
+      return true
+    })
+  }, [tabRows, search, filterService, filterDoctor, filterStatus, filterType])
+
+  function handleResetFilters(): void {
+    setFilterService(ALL_FILTER)
+    setFilterDoctor(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+    setFilterType(ALL_FILTER)
+  }
+
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.hospitalizations.exportExcel()
+    setExporting(false)
+  }
 
   function toggleRow(id: string): void {
     setChecked((prev) => {
@@ -231,7 +266,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <SortableGroup id="hospitalization.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <BedDouble className="h-5 w-5 text-violet-600" />
@@ -278,9 +313,9 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                 {occupancy?.AVAILABLE ?? '—'} / {occupancy?.total ?? '—'}
               </p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="hospitalization.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -316,23 +351,25 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                     Export Excel
                   </Button>
                   <Button variant="secondary" size="sm">
                     <Columns3 className="h-3.5 w-3.5" />
                     Colonnes
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
                     <Printer className="h-3.5 w-3.5" />
                     Imprimer
                   </Button>
                 </div>
               </div>
 
-              {rows.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune hospitalisation dans cette catégorie.</p>
+              {filteredRows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">
+                  {tabRows.length === 0 ? 'Aucune hospitalisation dans cette catégorie.' : 'Aucune hospitalisation ne correspond aux filtres.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -351,7 +388,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((h) => (
+                      {filteredRows.map((h) => (
                         <tr key={h.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-6 py-3">
                             <input
@@ -421,25 +458,79 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
               )}
 
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} hospitalisations</span>
+                <span>
+                  Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {tabRows.length} hospitalisations
+                </span>
               </div>
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="hospitalization.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Filtres</h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {serviceOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin responsable</label>
+                    <select
+                      value={filterDoctor}
+                      onChange={(e) => setFilterDoctor(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les médecins</option>
+                      {doctorOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;hospitalisation</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les types</option>
+                      {motiveOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button size="sm" className="w-full" onClick={handleResetFilters}>
+                    Réinitialiser les filtres
                   </Button>
                 </div>
               </Card>
@@ -476,11 +567,11 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                   <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
-                  <QuickAction icon={Plus} label="Nouvelle hospitalisation" />
+                  <QuickAction icon={Plus} label="Nouvelle hospitalisation" onClick={() => setShowCreateModal(true)} />
                   <QuickAction icon={ArrowLeftRight} label="Transférer un patient" />
                   <QuickAction icon={CalendarCheck} label="Planifier une sortie" />
-                  <QuickAction icon={Printer} label="Imprimer liste d'hospitalisés" />
-                  <QuickAction icon={FileDown} label="Exporter statistique" />
+                  <QuickAction icon={Printer} label="Imprimer liste d'hospitalisés" onClick={() => window.print()} />
+                  <QuickAction icon={FileDown} label="Exporter statistique" onClick={handleExportExcel} />
                   <QuickAction icon={ChartBar} label="Voir les sorties prévues" />
                 </div>
               </Card>
@@ -502,8 +593,8 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
         </>
       )}
     </div>
@@ -520,9 +611,20 @@ function BedLegendRow({ label, count, color }: { label: string; count: number; c
   )
 }
 
-function QuickAction({ icon: Icon, label }: { icon: typeof Plus; label: string }): JSX.Element {
+function QuickAction({
+  icon: Icon,
+  label,
+  onClick
+}: {
+  icon: typeof Plus
+  label: string
+  onClick?: () => void
+}): JSX.Element {
   return (
-    <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900">
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+    >
       <Icon className="h-3.5 w-3.5 text-gray-400" />
       {label}
     </button>

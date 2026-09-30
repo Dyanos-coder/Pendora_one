@@ -21,4 +21,6 @@ export interface ImagingRequest {
   status: ImagingStatus
   priority: ImagingPriority
   expectedDurationMin: number | null
+  resultFileName: string | null
+  paid?: boolean
 }

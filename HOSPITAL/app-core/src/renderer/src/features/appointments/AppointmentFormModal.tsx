@@ -4,9 +4,11 @@ import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
 import type { ApiAppointment, ApiAppointmentType, ApiEmployee, CreateAppointmentInput } from '@shared/appointment-types'
 import type { PatientSummary } from '@shared/patient-types'
+import type { Session } from '@shared/auth-types'
 import type { Appointment } from './types'
 
 interface AppointmentFormModalProps {
+  session: Session
   onClose: () => void
   onCreated: (appointment: ApiAppointment) => void
   editing?: Appointment
@@ -48,11 +50,17 @@ const LABEL_TO_API_TYPE: Record<string, ApiAppointmentType> = {
   Autre: 'AUTRE'
 }
 
-export function AppointmentFormModal({ onClose, onCreated, editing }: AppointmentFormModalProps): JSX.Element {
+export function AppointmentFormModal({ session, onClose, onCreated, editing }: AppointmentFormModalProps): JSX.Element {
+  // Un médecin ne programme que pour lui-même (demande explicite) — le champ Médecin est
+  // verrouillé sur son propre dossier employé plutôt que de lui laisser choisir un collègue.
+  const isDoctor = session.user.role === 'MEDECIN'
+  const myDoctorId = session.user.employeeId
+  const lockedToSelf = isDoctor && !!myDoctorId
+
   const [patients, setPatients] = useState<PatientSummary[]>([])
   const [doctors, setDoctors] = useState<ApiEmployee[]>([])
   const [patientId, setPatientId] = useState(editing?.patientId ?? '')
-  const [doctorId, setDoctorId] = useState(editing?.doctorId ?? '')
+  const [doctorId, setDoctorId] = useState(lockedToSelf ? myDoctorId : (editing?.doctorId ?? ''))
   const [date, setDate] = useState(editing ? dateInputValue(editing.date) : '')
   const [time, setTime] = useState(editing ? timeInputValue(editing.date) : '09:00')
   const [durationMin, setDurationMin] = useState(editing?.durationMin ?? 30)
@@ -82,9 +90,14 @@ export function AppointmentFormModal({ onClose, onCreated, editing }: Appointmen
     setSubmitting(true)
     setError(null)
 
+    // Filet de sécurité : même si le champ est verrouillé côté UI, on repose ici sur l'état
+    // plutôt que sur la présence du <select> pour garantir qu'un médecin ne peut jamais soumettre
+    // un rendez-vous pour quelqu'un d'autre.
+    const effectiveDoctorId = lockedToSelf ? myDoctorId : doctorId
+
     const input: CreateAppointmentInput = {
       patientId: patientId || undefined,
-      doctorId: doctorId || undefined,
+      doctorId: effectiveDoctorId || undefined,
       date: new Date(`${date}T${time}`).toISOString(),
       durationMin,
       service: service.trim() || undefined,
@@ -96,7 +109,7 @@ export function AppointmentFormModal({ onClose, onCreated, editing }: Appointmen
     const result = editing
       ? await window.api.appointments.update(editing.id, {
           patientId: patientId || null,
-          doctorId: doctorId || null,
+          doctorId: effectiveDoctorId || null,
           date: input.date,
           durationMin: input.durationMin,
           service: input.service ?? null,
@@ -130,14 +143,23 @@ export function AppointmentFormModal({ onClose, onCreated, editing }: Appointmen
           </div>
           <div>
             <label className={labelClass}>Médecin</label>
-            <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={inputClass}>
-              <option value="">— Non assigné —</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  Dr. {d.lastName} {d.firstName}. {d.specialty ? `— ${d.specialty}` : ''}
-                </option>
-              ))}
-            </select>
+            {lockedToSelf ? (
+              <input
+                value={`Dr. ${session.user.name} (vous)`}
+                disabled
+                title="Un médecin ne peut programmer un rendez-vous que pour lui-même."
+                className={`${inputClass} cursor-not-allowed bg-gray-50 text-gray-500`}
+              />
+            ) : (
+              <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={inputClass}>
+                <option value="">— Non assigné —</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    Dr. {d.lastName} {d.firstName}. {d.specialty ? `— ${d.specialty}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className={labelClass}>Date *</label>

@@ -22,9 +22,13 @@ export interface ApiAppointment {
   age: number | null
   doctorId: string | null
   doctorName: string | null
+  updatedAt: string
 }
 
 export interface CreateAppointmentInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne — jamais fourni par le
+   * renderer, posé en interne par appointments.service.ts (main). */
+  id?: string
   patientId?: string
   patientName?: string
   patientAge?: number
@@ -50,6 +54,9 @@ export interface UpdateAppointmentInput {
   motive?: string | null
   status?: ApiAppointmentStatus
   reminder?: string | null
+  /** Posé en interne par appointments.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }
 
 export interface ApiEmployee {

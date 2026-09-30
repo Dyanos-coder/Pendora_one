@@ -21,9 +21,13 @@ export interface ApiEmergencyVisit {
   gender: 'M' | 'F' | null
   doctorId: string | null
   doctorName: string | null
+  updatedAt: string
 }
 
 export interface CreateEmergencyVisitInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne — jamais fourni par le
+   * renderer, posé en interne par emergencies.service.ts (main). */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -49,4 +53,7 @@ export interface UpdateEmergencyVisitInput {
   zone?: string | null
   status?: ApiEmergencyStatus
   outcome?: string | null
+  /** Posé en interne par emergencies.service.ts (main) en mode hors-ligne, jamais fourni par le
+   * renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

@@ -32,8 +32,9 @@ import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiEmergencyStatus, ApiEmergencyVisit, ApiSeverity } from '@shared/emergency-types'
 import { severityTone, emergencyStatusTone, SEVERITY_CHART_COLOR } from './status'
 import type { EmergencyRecord, EmergencyStatus, Severity } from './types'
-import { isSameDay } from '@renderer/features/appointments/week'
+import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { EmergencyFormModal } from './EmergencyFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 interface EmergenciesPageProps {
   onOpenPatient: (patientId: string) => void
@@ -83,14 +84,8 @@ function toRecord(v: ApiEmergencyVisit): EmergencyRecord {
   }
 }
 
-const FILTER_FIELDS = [
-  { label: 'Période', value: "Aujourd'hui" },
-  { label: 'Service', value: 'Tous les services' },
-  { label: 'Niveau de gravité', value: 'Tous les niveaux' },
-  { label: 'Statut', value: 'Tous les statuts' },
-  { label: 'Médecin responsable', value: 'Tous les médecins' },
-  { label: 'Zone / Salle', value: 'Toutes les zones' }
-]
+const ALL_FILTER = '__all__'
+type PeriodFilter = 'all' | 'today' | 'week' | 'month'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -119,6 +114,15 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>('all')
+  // Il n'existe pas de champ « service » distinct pour un passage aux urgences : la zone est le
+  // champ le plus proche pour ce filtre (voir aussi le filtre « Zone / Salle » plus bas).
+  const [filterService, setFilterService] = useState(ALL_FILTER)
+  const [filterSeverity, setFilterSeverity] = useState(ALL_FILTER)
+  const [filterStatus, setFilterStatus] = useState(ALL_FILTER)
+  const [filterDoctor, setFilterDoctor] = useState(ALL_FILTER)
+  const [filterZone, setFilterZone] = useState(ALL_FILTER)
 
   useEffect(() => {
     let cancelled = false
@@ -136,7 +140,14 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
     }
   }, [])
 
+  async function handleExportExcel(): Promise<void> {
+    setExporting(true)
+    await window.api.emergencies.exportExcel()
+    setExporting(false)
+  }
+
   const today = useMemo(() => new Date(), [])
+  const realMonday = useMemo(() => mondayOf(today), [today])
   const active = useMemo(
     () => visits.filter((v) => v.status === 'En cours' || v.status === 'En observation' || v.status === 'En attente de triage'),
     [visits]
@@ -173,12 +184,60 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
     annule: discharged.filter((v) => v.status === 'Annulé')
   }
 
-  const rows = useMemo(() => {
-    const base = TAB_ROWS[activeTab]
+  const tabRows = TAB_ROWS[activeTab]
+
+  const zoneOptions = useMemo(
+    () => Array.from(new Set(visits.map((v) => v.zone).filter((z) => z && z !== '—'))).sort(),
+    [visits]
+  )
+  const doctorOptions = useMemo(
+    () => Array.from(new Set(visits.map((v) => v.doctor).filter((d) => d && d !== '—'))).sort(),
+    [visits]
+  )
+
+  const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return base
-    return base.filter((v) => `${v.patientName} ${v.motive} ${v.doctor} ${v.zone}`.toLowerCase().includes(term))
-  }, [activeTab, search, visits])
+    return tabRows.filter((v) => {
+      if (term && !`${v.patientName} ${v.motive} ${v.doctor} ${v.zone}`.toLowerCase().includes(term)) return false
+      if (filterService !== ALL_FILTER && v.zone !== filterService) return false
+      if (filterSeverity !== ALL_FILTER && v.severity !== filterSeverity) return false
+      if (filterStatus !== ALL_FILTER && v.status !== filterStatus) return false
+      if (filterDoctor !== ALL_FILTER && v.doctor !== filterDoctor) return false
+      if (filterZone !== ALL_FILTER && v.zone !== filterZone) return false
+      if (filterPeriod === 'today' && !isSameDay(v.arrivalTime, today)) return false
+      if (filterPeriod === 'week') {
+        const idx = dayIndexInWeek(realMonday, v.arrivalTime)
+        if (idx < 0 || idx >= 7) return false
+      }
+      if (
+        filterPeriod === 'month' &&
+        (v.arrivalTime.getMonth() !== today.getMonth() || v.arrivalTime.getFullYear() !== today.getFullYear())
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [
+    tabRows,
+    search,
+    filterService,
+    filterSeverity,
+    filterStatus,
+    filterDoctor,
+    filterZone,
+    filterPeriod,
+    today,
+    realMonday
+  ])
+
+  function handleResetFilters(): void {
+    setFilterPeriod('all')
+    setFilterService(ALL_FILTER)
+    setFilterSeverity(ALL_FILTER)
+    setFilterStatus(ALL_FILTER)
+    setFilterDoctor(ALL_FILTER)
+    setFilterZone(ALL_FILTER)
+  }
 
   const severityBreakdown = useMemo(() => {
     const counts: Record<Severity, number> = { Critique: 0, Élevé: 0, Moyen: 0, Faible: 0 }
@@ -293,7 +352,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <SortableGroup id="emergencies.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Siren className="h-5 w-5 text-violet-600" />
@@ -337,9 +396,9 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
               <p className="mt-0.5 text-xl font-bold text-red-600">{critical.length}</p>
               <p className="text-xs text-gray-400">Nécessitent attention</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="emergencies.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Liste principale */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-4 pt-2">
@@ -370,23 +429,25 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                     Export Excel
                   </Button>
                   <Button variant="secondary" size="sm">
                     <Columns3 className="h-3.5 w-3.5" />
                     Colonnes
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
                     <Printer className="h-3.5 w-3.5" />
                     Imprimer
                   </Button>
                 </div>
               </div>
 
-              {rows.length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun patient dans cette catégorie.</p>
+              {filteredRows.length === 0 ? (
+                <p className="px-6 py-8 text-center text-sm text-gray-400">
+                  {tabRows.length === 0 ? 'Aucun patient dans cette catégorie.' : 'Aucun patient ne correspond aux filtres.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -405,7 +466,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((v) => (
+                      {filteredRows.map((v) => (
                         <tr key={v.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                           <td className="px-6 py-3 font-medium text-gray-900">{formatClock(v.arrivalTime)}</td>
                           <td className="px-6 py-3">
@@ -470,29 +531,110 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
               )}
 
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {TAB_ROWS[activeTab].length} patients</span>
+                <span>
+                  Affichage de {filteredRows.length === 0 ? 0 : 1} à {filteredRows.length} sur {tabRows.length} patients
+                </span>
               </div>
             </Card>
 
             {/* Colonne latérale */}
-            <div className="space-y-6">
+            <SortableGroup id="emergencies.side1" className="space-y-6">
               <Card>
                 <h3 className="mb-4 flex items-center justify-between text-sm font-semibold text-gray-900">
                   Filtres
-                  <button className="text-xs font-normal text-accent-600 hover:text-accent-500">Réinitialiser</button>
+                  <button onClick={handleResetFilters} className="text-xs font-normal text-accent-600 hover:text-accent-500">
+                    Réinitialiser
+                  </button>
                 </h3>
                 <div className="space-y-3">
-                  {FILTER_FIELDS.map((field) => (
-                    <div key={field.label}>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">{field.label}</label>
-                      <select className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none">
-                        <option>{field.value}</option>
-                      </select>
-                    </div>
-                  ))}
-                  <Button size="sm" className="w-full">
-                    Filtrer
-                  </Button>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <select
+                      value={filterPeriod}
+                      onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value="all">Toutes les périodes</option>
+                      <option value="today">Aujourd&apos;hui</option>
+                      <option value="week">Cette semaine</option>
+                      <option value="month">Ce mois-ci</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <select
+                      value={filterService}
+                      onChange={(e) => setFilterService(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les services</option>
+                      {zoneOptions.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Niveau de gravité</label>
+                    <select
+                      value={filterSeverity}
+                      onChange={(e) => setFilterSeverity(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les niveaux</option>
+                      {Object.values(SEVERITY_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les statuts</option>
+                      {Object.values(STATUS_LABEL).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin responsable</label>
+                    <select
+                      value={filterDoctor}
+                      onChange={(e) => setFilterDoctor(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Tous les médecins</option>
+                      {doctorOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Zone / Salle</label>
+                    <select
+                      value={filterZone}
+                      onChange={(e) => setFilterZone(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                    >
+                      <option value={ALL_FILTER}>Toutes les zones</option>
+                      {zoneOptions.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </Card>
 
@@ -546,12 +688,19 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                   <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
-                  <QuickAction icon={Plus} label="Nouveau patient urgent" />
-                  <QuickAction icon={Zap} label="Triage rapide" />
-                  <QuickAction icon={ArrowLeftRight} label="Transférer un patient" />
-                  <QuickAction icon={Printer} label="Imprimer la liste" />
-                  <QuickAction icon={FileDown} label="Exporter statistiques urgences" />
-                  <QuickAction icon={ChartBar} label={`Voir patients critiques (${critical.length})`} onClick={() => setActiveTab('all')} />
+                  <QuickAction icon={Plus} label="Nouveau patient urgent" onClick={() => setShowCreateModal(true)} />
+                  <QuickAction icon={Zap} label="Triage rapide" onClick={() => setActiveTab('triage')} />
+                  <QuickAction icon={ArrowLeftRight} label="Transférer un patient" onClick={() => setActiveTab('transfere')} />
+                  <QuickAction icon={Printer} label="Imprimer la liste" onClick={() => window.print()} />
+                  <QuickAction icon={FileDown} label="Exporter statistiques urgences" onClick={handleExportExcel} />
+                  <QuickAction
+                    icon={ChartBar}
+                    label={`Voir patients critiques (${critical.length})`}
+                    onClick={() => {
+                      setActiveTab('all')
+                      setFilterSeverity('Critique')
+                    }}
+                  />
                 </div>
               </Card>
 
@@ -582,11 +731,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           {/* Panneaux du bas */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <SortableGroup id="emergencies.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
                 <h3 className="text-sm font-semibold text-gray-900">Patients en attente de triage ({waitingTriage.length})</h3>
@@ -671,7 +820,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                 />
               </div>
             </Card>
-          </div>
+          </SortableGroup>
         </>
       )}
     </div>

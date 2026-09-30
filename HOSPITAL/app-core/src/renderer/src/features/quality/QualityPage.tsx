@@ -9,6 +9,7 @@ import type { ApiQualityAction, ApiQualityCertification, ApiQualityIndicator, Ap
 import { indicatorStatusTone, CATEGORY_CHART_COLOR } from './status'
 import type { IndicatorStatus, QualityIndicator } from './types'
 import { QualityIndicatorFormModal } from './QualityIndicatorFormModal'
+import { SortableGroup } from '@renderer/components/SortableGroup'
 
 const STATUS_LABEL: Record<ApiQualityIndicatorStatus, IndicatorStatus> = {
   CONFORME: 'Conforme',
@@ -193,7 +194,7 @@ export function QualityPage(): JSX.Element {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SortableGroup id="quality.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card className="border-t-4 border-t-violet-400 p-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
                 <Gauge className="h-5 w-5 text-violet-600" />
@@ -229,9 +230,9 @@ export function QualityPage(): JSX.Element {
               <p className="mt-3 text-xs font-medium text-gray-500">Non-conformités ouvertes</p>
               <p className="text-xl font-bold text-red-600">{nonConformCount}</p>
             </Card>
-          </div>
+          </SortableGroup>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <SortableGroup id="quality.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
                 <h3 className="text-sm font-semibold text-gray-900">Indicateurs qualité</h3>
@@ -294,7 +295,7 @@ export function QualityPage(): JSX.Element {
               </div>
             </Card>
 
-            <div className="space-y-6">
+            <SortableGroup id="quality.side1" className="space-y-6">
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
                   <h3 className="text-sm font-semibold text-gray-900">Certifications</h3>
@@ -347,8 +348,8 @@ export function QualityPage(): JSX.Element {
                   ))}
                 </div>
               </Card>
-            </div>
-          </div>
+            </SortableGroup>
+          </SortableGroup>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>

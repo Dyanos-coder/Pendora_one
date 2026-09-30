@@ -22,6 +22,7 @@ export interface ApiSurgery {
   anesthetistName: string | null
   roomId: string | null
   roomName: string | null
+  updatedAt: string
 }
 
 export interface ApiOperatingRoom {
@@ -31,6 +32,8 @@ export interface ApiOperatingRoom {
 }
 
 export interface CreateSurgeryInput {
+  /** Optionnel : id généré côté client pour une création hors-ligne. */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -58,4 +61,7 @@ export interface UpdateSurgeryInput {
   specialty?: string | null
   status?: ApiSurgeryStatus
   expectedDurationMin?: number | null
+  /** Posé en interne par operating-room.service.ts (main) en mode hors-ligne, jamais fourni par
+   * le renderer — voir Plan-Mode-Hors-Ligne-Synchronisation.md §6.3. */
+  expectedUpdatedAt?: string
 }

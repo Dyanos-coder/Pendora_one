@@ -1,0 +1,1915 @@
+// Pandora Health — Backend
+// Dupliqué depuis app-server (Pandora One Core) : une instance app-server + une base MySQL
+// par établissement (pas de multi-tenant partagé), donc pas de tenantId à porter sur chaque
+// table. Le socle auth/company/audit est repris tel quel ; les modèles génériques du Core
+// (Invoice, Sale, StockItem, Memory*) ont été retirés — le module Patients/Soins n'a pas
+// encore de schéma propre, il arrivera avec la spécification du premier écran qui en a besoin.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/main/server/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Table à une seule ligne : les informations de l'établissement qui possède cette instance.
+model Company {
+  id             String   @id @default(uuid())
+  name           String
+  sector         String?
+  address        String?
+  phone          String?
+  contactEmail   String?
+  timezone       String?
+  // Position de référence de l'établissement (item 14 PETITES MODIFS) — sert à horodater/localiser
+  // la pointeuse automatique du personnel à la connexion (voir EmployeeAttendance).
+  latitude       Float?
+  longitude      Float?
+  logo           Bytes?   @db.LongBlob
+  logoMimeType   String?
+  // Repris sur les reçus de caisse (Plan-Module-Caisse.md §2 étape 6) : n° d'identification de
+  // l'établissement (RCCM, NIF…) et mention libre imprimée en bas de chaque reçu.
+  registrationNumber String?
+  receiptFooter      String? @db.Text
+  // Modules affichés dans la navigation, réglage propre à l'établissement (donc partagé par tous
+  // les postes qui s'y connectent) — JSON stringifié d'un tableau d'ids d'écran, ou null = tous
+  // activés. Voir Plan-Installeur-Configurable.md.
+  enabledModules String?  @db.Text
+  // Clé API Gemini de l'assistant IA — en base plutôt que dans un .env de serveur (le backend est
+  // embarqué dans chaque poste) : saisie une fois dans Paramètres, valable pour tous les postes.
+  // Jamais renvoyée à l'interface (seulement `aiApiKeyConfigured`).
+  aiApiKey       String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@map("company")
+}
+
+// Valeurs apprises pour les champs "liste déroulante avec ajout automatique" (catégorie de
+// document patient, service d'hospitalisation, zone des urgences, type d'analyse labo, nom/
+// catégorie de médicament...) — voir PETITES MODIFS items 3/6/7/8/12. `listKey` identifie le champ
+// concerné (ex. "hospitalizationService"), `value` la valeur proposée. Alimentée automatiquement à
+// chaque création/modification qui introduit une valeur inédite — pas d'écran de gestion dédié.
+model PicklistValue {
+  id        String   @id @default(uuid())
+  listKey   String
+  value     String
+  createdAt DateTime @default(now())
+
+  @@unique([listKey, value])
+  @@map("picklist_value")
+}
+
+model NotificationPreference {
+  id    String  @id
+  label String
+  email Boolean @default(true)
+
+  @@map("notification_preference")
+}
+
+enum Role {
+  DIRIGEANT
+  MEDECIN
+  INFIRMIER
+  TECHNICIEN
+  PHARMACIEN
+  ADMINISTRATIF
+  // Module Caisse : ne voit que Caisse et Patients (lecture + création rapide).
+  CAISSIER
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  role           Role
+  isActive       Boolean   @default(true)
+  // Incrémenté pour révoquer à la demande tous les jetons déjà émis pour ce compte (déconnexion
+  // serveur, suspicion de vol de jeton...) sans attendre l'expiration naturelle du JWT (30 jours,
+  // volontairement long pour la reconnexion hors-ligne — voir jwt.ts). Comparé à la valeur
+  // encodée dans le JWT à chaque requête (requireAuth) : mismatch = jeton révoqué.
+  sessionVersion Int       @default(0)
+  createdAt      DateTime  @default(now())
+  employee       Employee?
+  cashRegisters  CashRegisterCashier[]
+  cashSessions   CashSession[]
+  receipts       Receipt[]             @relation("ReceiptCashier")
+  // Signature numérique (image) — téléversée par le dirigeant, apposée sur les PDF qu'il signe.
+  signatureImage    Bytes?             @db.LongBlob
+  signatureMimeType String?
+  signatureRequests SignatureRequest[] @relation("SignatureRequester")
+  signatureDecisions SignatureRequest[] @relation("SignatureDecider")
+
+  @@map("user")
+}
+
+// Annuaire unique de tout le personnel (médecins, infirmiers, techniciens...), référencé par
+// employeeId depuis les autres domaines (Rendez-vous, Consultations, Bloc opératoire...) au
+// lieu de champs texte libre. Un Employee n'a pas forcément de compte de connexion (userId
+// nullable) — utile pour du personnel vacataire ou juste cité dans des dossiers.
+enum EmployeeContractType {
+  CDI
+  CDD
+}
+
+// Présence du jour, distincte du statut de compte (isActive) — un employé actif peut être
+// absent ou en congé aujourd'hui sans que son dossier RH soit désactivé pour autant.
+enum EmployeeDailyStatus {
+  PRESENT
+  ABSENT
+  CONGE
+  RETARD
+}
+
+model Employee {
+  id                   String               @id @default(uuid())
+  userId               String?              @unique
+  user                 User?                @relation(fields: [userId], references: [id])
+  firstName            String
+  lastName             String
+  role                 Role
+  specialty            String?
+  department           String?
+  phone                String?
+  email                String?
+  isActive             Boolean              @default(true)
+  matricule            String?              @unique
+  contractType         EmployeeContractType?
+  contractNumber       String?
+  hireDate             DateTime?
+  contractEndDate      DateTime?
+  dailyStatus          EmployeeDailyStatus?
+  presentDays          Int?
+  absentDays           Int?
+  lateDays             Int?
+  averageHoursMin      Int?
+  overtimeHoursMin     Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+  consultations Consultation[]
+  hospitalizations Hospitalization[]
+  emergencyVisits EmergencyVisit[]
+  surgeriesAsSurgeon Surgery[] @relation("SurgerySurgeon")
+  surgeriesAsAnesthetist Surgery[] @relation("SurgeryAnesthetist")
+  labRequests LabRequest[] @relation("LabRequestTechnician")
+  labRequestsAsDoctor LabRequest[] @relation("LabRequestDoctor")
+  imagingRequests ImagingRequest[]
+  cardioExams CardioExam[]
+  pathologyRequests PathologyRequest[]
+  endoscopyProcedures EndoscopyProcedure[]
+  attendances EmployeeAttendance[]
+  contracts EmployeeContract[]
+  performanceReviews EmployeePerformanceReview[]
+  trainings EmployeeTraining[]
+  payrollEntries PayrollEntry[]
+  documents EmployeeDocument[]
+
+  @@map("employee")
+}
+
+// --- RH — item 12 : 6 sous-modules jusque-là "à spécifier" (Présences & Absences, Contrats,
+// Performances, Formations, Paie, Documents). Chacun est un historique propre à un employé (pas
+// des champs agrégés sur Employee comme presentDays/absentDays, qui restent des compteurs
+// globaux affichés sur l'onglet "Vue d'ensemble").
+
+model EmployeeAttendance {
+  id         String              @id @default(uuid())
+  employeeId String
+  employee   Employee            @relation(fields: [employeeId], references: [id])
+  date       DateTime
+  status     EmployeeDailyStatus
+  checkIn    DateTime?
+  checkOut   DateTime?
+  // Position captée automatiquement à la connexion (item 14 PETITES MODIFS) — informatif
+  // uniquement, aucun blocage/refus si absent ou éloigné de l'établissement.
+  latitude   Float?
+  longitude  Float?
+  note       String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  deletedAt  DateTime?
+
+  @@map("employee_attendance")
+}
+
+enum EmployeeContractStatus {
+  ACTIF
+  TERMINE
+  RESILIE
+}
+
+// Historique des contrats d'un employé — distinct des champs contractType/contractNumber/
+// hireDate/contractEndDate sur Employee, qui restent un instantané "contrat actuel" affiché sur
+// la fiche employé (pas dupliqué ici, uniquement le nouveau contrat créé y est reflété si besoin).
+model EmployeeContract {
+  id             String                 @id @default(uuid())
+  employeeId     String
+  employee       Employee               @relation(fields: [employeeId], references: [id])
+  type           EmployeeContractType
+  contractNumber String
+  position       String
+  startDate      DateTime
+  endDate        DateTime?
+  salary         Float?
+  status         EmployeeContractStatus @default(ACTIF)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  deletedAt      DateTime?
+
+  @@map("employee_contract")
+}
+
+enum PerformanceRating {
+  INSUFFISANT
+  A_AMELIORER
+  SATISFAISANT
+  BON
+  EXCELLENT
+}
+
+model EmployeePerformanceReview {
+  id             String            @id @default(uuid())
+  employeeId     String
+  employee       Employee          @relation(fields: [employeeId], references: [id])
+  reviewDate     DateTime
+  reviewerName   String
+  rating         PerformanceRating
+  comments       String?           @db.Text
+  nextReviewDate DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  @@map("employee_performance_review")
+}
+
+enum TrainingStatus {
+  PLANIFIEE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+model EmployeeTraining {
+  id         String         @id @default(uuid())
+  employeeId String
+  employee   Employee       @relation(fields: [employeeId], references: [id])
+  title      String
+  provider   String?
+  startDate  DateTime
+  endDate    DateTime?
+  status     TrainingStatus @default(PLANIFIEE)
+  certified  Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+
+  @@map("employee_training")
+}
+
+enum PayrollStatus {
+  EN_PREPARATION
+  VALIDEE
+  PAYEE
+}
+
+// `netPay` n'est volontairement pas stocké — calculé à l'affichage (baseSalary + bonuses -
+// deductions) pour ne jamais désynchroniser un total avec ses composants (voir hr.service.ts).
+model PayrollEntry {
+  id         String        @id @default(uuid())
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+  period     String
+  baseSalary Float
+  bonuses    Float         @default(0)
+  deductions Float         @default(0)
+  status     PayrollStatus @default(EN_PREPARATION)
+  paidAt     DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+
+  @@map("payroll_entry")
+}
+
+// Fichier en BLOB — même choix que ProtocolDocument (item 11) et pour la même raison
+// (l'hébergement cible efface le disque local à chaque redéploiement).
+model EmployeeDocument {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  title      String
+  category   String?
+  fileName   String?
+  mimeType   String?
+  fileSize   Int?
+  content    Bytes?
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@map("employee_document")
+}
+
+// Compteur par établissement et par type de document (patients, dossiers, factures...) pour
+// générer des codes lisibles (ex. P-2025-0001245) sans dériver l'ID technique.
+model DocumentCounter {
+  id    String @id @default(uuid())
+  type  String
+  year  Int
+  value Int    @default(0)
+
+  @@unique([type, year])
+  @@map("document_counter")
+}
+
+enum Gender {
+  M
+  F
+}
+
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// NON_ADMIS/AMBULATOIRE : choisis dans la fiche patient. HOSPITALISE/URGENCE : posés
+// automatiquement par les pages Hospitalisation et Urgences (voir patient-admission.service.ts).
+enum AdmissionType {
+  NON_ADMIS
+  AMBULATOIRE
+  HOSPITALISE
+  URGENCE
+}
+
+// Données propres au patient (identité, contact, assurance, antécédents). Les vues agrégées
+// (consultations, résultats, ordonnances...) ne sont PAS des colonnes ici : ce seront des
+// requêtes filtrées par patientId sur les tables des domaines correspondants, une fois ceux-ci
+// raccordés (voir Proposition-Architecture-Backend.md §2).
+model Patient {
+  id                    String        @id @default(uuid())
+  code                  String        @unique
+  firstName             String
+  lastName              String
+  gender                Gender
+  birthDate             DateTime
+  phone                 String?
+  email                 String?
+  bloodType             String?
+  allergies             String?       @db.Text
+  status                PatientStatus @default(ACTIVE)
+  admissionType         AdmissionType @default(NON_ADMIS)
+  service               String?
+  insuranceProvider     String?
+  insuranceNumber       String?
+  insuranceExpiry       DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  medicalHistory        Json?
+  familyHistory         Json?
+  lifestyle             Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  deletedAt             DateTime?
+  appointments          Appointment[]
+  consultations         Consultation[]
+  hospitalizations      Hospitalization[]
+  emergencyVisits       EmergencyVisit[]
+  surgeries             Surgery[]
+  labRequests           LabRequest[]
+  imagingRequests       ImagingRequest[]
+  cardioExams           CardioExam[]
+  pathologyRequests     PathologyRequest[]
+  endoscopyProcedures   EndoscopyProcedure[]
+  bloodPouches          BloodPouch[]
+  bloodDonations        BloodDonation[]
+  vitals                Vitals[]
+  prescriptions         Prescription[]
+  transfusionRequests   TransfusionRequest[]
+  transfusions          Transfusion[]
+  receipts              Receipt[]
+  documents             PatientDocument[]
+
+  @@map("patient")
+}
+
+// Fichier en BLOB — même choix que EmployeeDocument (item 12) et ProtocolDocument (item 11), pour
+// la même raison (l'hébergement cible efface le disque local à chaque redéploiement).
+model PatientDocument {
+  id         String    @id @default(uuid())
+  patientId  String
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  title      String
+  category   String?
+  fileName   String?
+  mimeType   String?
+  fileSize   Int?
+  content    Bytes?
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@map("patient_document")
+}
+
+// Un enregistrement = une prise de constantes (plusieurs mesures au même instant), pas une ligne
+// par mesure — reflète la réalité clinique (une infirmière prend tension/pouls/température/poids
+// en une fois) et évite d'avoir à recorréler des lignes éparses par date. Champs volontairement en
+// texte libre (ex. "120/80 mmHg") comme le reste du dossier patient (pas de validation d'unité
+// pour l'instant) — voir Audit-Fonctionnalites-Manquantes.md item 8.
+// Contexte de prise des constantes (item 2 PETITES MODIFS) — choix obligatoire à la saisie, pas de
+// lien vers une fiche précise (analyse/rdv/consultation), juste la catégorie.
+enum VitalsSource {
+  ANALYSE
+  RDV
+  CONSULTATION
+}
+
+model Vitals {
+  id               String       @id @default(uuid())
+  patientId        String
+  patient          Patient      @relation(fields: [patientId], references: [id])
+  recordedAt       DateTime     @default(now())
+  source           VitalsSource @default(CONSULTATION)
+  bloodPressure    String?
+  temperature      String?
+  heartRate        String?
+  weight           String?
+  oxygenSaturation String?
+  // Alternative à la saisie manuelle (item 2 PETITES MODIFS) — un seul fichier, même mécanisme
+  // BLOB que PatientDocument/le document de consultation.
+  documentFileName String?
+  documentMimeType String?
+  documentFileSize Int?
+  documentContent  Bytes?       @db.LongBlob
+  createdAt        DateTime     @default(now())
+  deletedAt        DateTime?
+
+  @@map("vitals")
+}
+
+// Ordonnance en cours ou passée. `active` est la source de vérité affichée (badge vert/gris dans
+// le dossier patient) ; `endDate` sert uniquement à calculer le nombre de jours restants, les deux
+// ne sont pas recalculés l'un depuis l'autre pour laisser le médecin arrêter un traitement en
+// avance sans devoir changer la date de fin.
+model Prescription {
+  id        String    @id @default(uuid())
+  patientId String
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  name      String
+  dosage    String
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("prescription")
+}
+
+enum AppointmentType {
+  CONSULTATION
+  SUIVI
+  EXAMEN
+  RESULTAT
+  CHIRURGIE
+  CAMPAGNE
+  AUTRE
+}
+
+enum AppointmentStatus {
+  CONFIRME
+  EN_ATTENTE
+  ANNULE
+  TERMINE
+}
+
+// patientName/patientAge ne sont renseignés que pour les rendez-vous sans patient identifié en
+// base (ex. campagne de dépistage, walk-in non encore créé) — sinon le nom/âge affiché vient du
+// Patient lié. Idem pour doctorId : nullable (créneau non assigné, ex. "Résultat" labo).
+model Appointment {
+  id          String            @id @default(uuid())
+  // Créé automatiquement en même temps qu'une Consultation (item 1 PETITES MODIFS — une
+  // consultation EST aussi un rendez-vous) — `null` pour un rendez-vous pris directement, sans
+  // passer par une consultation. `@unique` : au plus un rendez-vous "miroir" par consultation,
+  // pour que la synchro hors-ligne (id rejoué) ne puisse jamais en créer un second.
+  consultationId String?         @unique
+  consultation   Consultation?   @relation(fields: [consultationId], references: [id])
+  patientId   String?
+  patient     Patient?          @relation(fields: [patientId], references: [id])
+  patientName String?
+  patientAge  Int?
+  doctorId    String?
+  doctor      Employee?         @relation(fields: [doctorId], references: [id])
+  date        DateTime
+  durationMin Int               @default(30)
+  service     String?
+  room        String?
+  type        AppointmentType   @default(CONSULTATION)
+  motive      String?
+  status      AppointmentStatus @default(CONFIRME)
+  reminder    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  @@map("appointment")
+}
+
+enum ConsultationStatus {
+  TERMINEE
+  EN_COURS
+  EN_ATTENTE
+  ANNULEE
+}
+
+// Comme pour Appointment, patientName/patientCode/patientAge/patientGender ne sont renseignés
+// que pour un patient walk-in sans dossier Patient encore créé — sinon l'identité affichée vient
+// du Patient lié. `dossier` est un code lisible généré via counter.service (voir §5.3).
+model Consultation {
+  id            String             @id @default(uuid())
+  dossier       String             @unique
+  patientId     String?
+  patient       Patient?           @relation(fields: [patientId], references: [id])
+  patientName   String?
+  patientCode   String?
+  patientAge    Int?
+  patientGender Gender?
+  doctorId      String?
+  doctor        Employee?          @relation(fields: [doctorId], references: [id])
+  date          DateTime
+  service       String?
+  motive        String?
+  status        ConsultationStatus @default(EN_ATTENTE)
+  // Document regroupant diagnostic/infos de la consultation (item 1 PETITES MODIFS) — un seul
+  // fichier, même mécanisme BLOB que PatientDocument/le résultat d'Imagerie.
+  documentFileName String?
+  documentMimeType String?
+  documentFileSize Int?
+  documentContent  Bytes?          @db.LongBlob
+  appointment   Appointment?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
+
+  @@map("consultation")
+}
+
+enum BedStatus {
+  AVAILABLE
+  CLEANING
+  MAINTENANCE
+}
+
+// Le statut stocké n'a de sens que si le lit n'est pas actuellement occupé : un lit lié à une
+// Hospitalization active (status HOSPITALISE) est occupé quel que soit ce champ — c'est le
+// service (beds.service.ts) qui calcule le statut effectif, pour éviter un état dupliqué qui
+// pourrait se désynchroniser (lit marqué occupé alors que le patient est déjà sorti, etc.).
+model Bed {
+  id               String            @id @default(uuid())
+  room             String
+  label            String
+  service          String?
+  status           BedStatus         @default(AVAILABLE)
+  hospitalizations Hospitalization[]
+
+  @@unique([room, label])
+  @@map("bed")
+}
+
+enum HospitalizationStatus {
+  HOSPITALISE
+  EN_ATTENTE
+  SORTI
+}
+
+// patientName/patientCode ne sont renseignés que pour un patient walk-in sans dossier Patient
+// (comme pour Appointment/Consultation). bedId est nullable : un patient EN_ATTENTE n'a pas
+// encore de lit affecté.
+model Hospitalization {
+  id            String                 @id @default(uuid())
+  patientId     String?
+  patient       Patient?               @relation(fields: [patientId], references: [id])
+  patientName   String?
+  patientCode   String?
+  bedId         String?
+  bed           Bed?                   @relation(fields: [bedId], references: [id])
+  doctorId      String?
+  doctor        Employee?              @relation(fields: [doctorId], references: [id])
+  admissionDate DateTime
+  dischargeDate DateTime?
+  service       String?
+  motive        String?
+  status        HospitalizationStatus  @default(EN_ATTENTE)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  deletedAt     DateTime?
+
+  @@map("hospitalization")
+}
+
+enum Severity {
+  CRITIQUE
+  ELEVE
+  MOYEN
+  FAIBLE
+}
+
+enum EmergencyStatus {
+  EN_COURS
+  EN_OBSERVATION
+  EN_ATTENTE_TRIAGE
+  SORTI
+  TRANSFERE
+  ANNULE
+}
+
+// patientName/patientCode/patientAge/patientGender ne sont renseignés que pour un patient
+// walk-in sans dossier Patient (comme les autres domaines). `outcome` est un texte libre
+// ("Amélioré", "Transféré"...) renseigné à la sortie, distinct du statut qui reste la source de
+// vérité pour les calculs (KPIs, flux).
+model EmergencyVisit {
+  id            String          @id @default(uuid())
+  patientId     String?
+  patient       Patient?        @relation(fields: [patientId], references: [id])
+  patientName   String?
+  patientCode   String?
+  patientAge    Int?
+  patientGender Gender?
+  arrivalTime   DateTime
+  dischargeTime DateTime?
+  motive        String?
+  detail        String?
+  severity      Severity
+  zone          String?
+  doctorId      String?
+  doctor        Employee?       @relation(fields: [doctorId], references: [id])
+  status        EmergencyStatus @default(EN_ATTENTE_TRIAGE)
+  outcome       String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+
+  @@map("emergency_visit")
+}
+
+enum OperatingRoomStatus {
+  AVAILABLE
+  MAINTENANCE
+}
+
+// Comme pour Bed : le statut stocké n'a de sens que si la salle n'est pas occupée par une
+// intervention en cours — c'est le service (operating-rooms.service.ts) qui calcule le statut
+// effectif (voir beds.service.ts pour le même principe côté Hospitalisation).
+model OperatingRoom {
+  id       String              @id @default(uuid())
+  name     String              @unique
+  status   OperatingRoomStatus @default(AVAILABLE)
+  surgeries Surgery[]
+
+  @@map("operating_room")
+}
+
+enum SurgeryStatus {
+  TERMINEE
+  EN_COURS
+  EN_ATTENTE
+  ANNULEE
+}
+
+// patientName/patientCode/patientAge/patientGender ne sont renseignés que pour un patient
+// walk-in (comme les autres domaines). `specialty` est stocké directement (plutôt que dérivé du
+// nom de l'intervention par correspondance de texte, fragile) pour alimenter la répartition par
+// spécialité de façon fiable.
+model Surgery {
+  id                  String        @id @default(uuid())
+  patientId           String?
+  patient             Patient?      @relation(fields: [patientId], references: [id])
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       Gender?
+  scheduledAt         DateTime
+  procedure           String
+  procedureDetail     String?
+  specialty           String?
+  surgeonId           String?
+  surgeon             Employee?     @relation("SurgerySurgeon", fields: [surgeonId], references: [id])
+  anesthetistId       String?
+  anesthetist         Employee?     @relation("SurgeryAnesthetist", fields: [anesthetistId], references: [id])
+  roomId              String?
+  room                OperatingRoom? @relation(fields: [roomId], references: [id])
+  status              SurgeryStatus @default(EN_ATTENTE)
+  expectedDurationMin Int?
+  createdAt           DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt           DateTime?
+
+  @@map("surgery")
+}
+
+enum LabStatus {
+  RESULTAT_VALIDE
+  EN_COURS
+  EN_ATTENTE_PRELEVEMENT
+  ANNULEE
+}
+
+enum LabPriority {
+  NORMALE
+  ELEVEE
+  CRITIQUE
+}
+
+// patientName/patientCode/patientAge/patientGender ne sont renseignés que pour un patient
+// walk-in (comme les autres domaines). `resultAt` n'est renseigné qu'à la validation du
+// résultat — sert à calculer le délai de rendu réel (voir laboratory.service.ts), pas de champ
+// dupliqué "durée" stocké séparément.
+model LabRequest {
+  id            String      @id @default(uuid())
+  requestNumber String      @unique
+  patientId     String?
+  patient       Patient?    @relation(fields: [patientId], references: [id])
+  patientName   String?
+  patientCode   String?
+  patientAge    Int?
+  patientGender Gender?
+  requestedAt   DateTime
+  resultAt      DateTime?
+  service       String?
+  analysisType  String
+  status        LabStatus   @default(EN_ATTENTE_PRELEVEMENT)
+  priority      LabPriority @default(NORMALE)
+  sample        String?
+  technicianId  String?
+  technician    Employee?   @relation("LabRequestTechnician", fields: [technicianId], references: [id])
+  // Médecin demandeur (item 11 PETITES MODIFS) — facultatif, purement informatif (pas de contrôle
+  // d'accès ni de workflow basé dessus).
+  requestingDoctorId String?
+  requestingDoctor   Employee? @relation("LabRequestDoctor", fields: [requestingDoctorId], references: [id])
+  // Fichier de résultat — même mécanisme qu'Imagerie/Cardiologie (un seul fichier par demande).
+  resultFileName     String?
+  resultMimeType     String?
+  resultFileSize     Int?
+  resultContent      Bytes?    @db.LongBlob
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  @@map("lab_request")
+}
+
+enum ImagingStatus {
+  RESULTAT_VALIDE
+  EN_COURS
+  EN_ATTENTE_LECTURE
+  ANNULE
+}
+
+enum ImagingPriority {
+  NORMAL
+  URGENT
+}
+
+// `expectedDurationMin` est le délai cible affiché par ligne (ex. "IRM ~3h") — statique, propre
+// à la modalité, comme Surgery.expectedDurationMin. `resultAt` n'est renseigné qu'à la
+// validation et sert au calcul du délai RÉEL moyen (panneaux "Délai moyen") — les deux
+// coexistent volontairement, l'un est un objectif, l'autre une mesure.
+model ImagingRequest {
+  id                  String          @id @default(uuid())
+  patientId           String?
+  patient             Patient?        @relation(fields: [patientId], references: [id])
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       Gender?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  examType            String
+  region              String?
+  service             String?
+  doctorId            String?
+  doctor              Employee?       @relation(fields: [doctorId], references: [id])
+  status              ImagingStatus   @default(EN_ATTENTE_LECTURE)
+  priority            ImagingPriority @default(NORMAL)
+  expectedDurationMin Int?
+  // Fichier de résultat (item 9 PETITES MODIFS) — un seul fichier par examen (png/pdf/doc...), même
+  // mécanisme BLOB que PatientDocument (l'hébergement cible efface le disque à chaque redéploiement).
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  resultContent       Bytes?          @db.LongBlob
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  deletedAt           DateTime?
+
+  @@map("imaging_request")
+}
+
+enum CardioStatus {
+  RESULTAT_VALIDE
+  EN_COURS
+  EN_ATTENTE
+  PROGRAMME
+  ANNULE
+}
+
+enum CardioPriority {
+  NORMALE
+  URGENT
+}
+
+// Même structure qu'ImagingRequest (expectedDurationMin = délai cible, resultAt = mesure
+// réelle). `room` reste un champ texte libre (salle/appareil) — pas d'entité de réservation
+// dédiée pour l'instant, comme pour le champ sample de LabRequest.
+model CardioExam {
+  id                  String         @id @default(uuid())
+  patientId           String?
+  patient             Patient?       @relation(fields: [patientId], references: [id])
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       Gender?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  examType            String
+  indication          String?
+  doctorId            String?
+  doctor              Employee?      @relation(fields: [doctorId], references: [id])
+  status              CardioStatus   @default(EN_ATTENTE)
+  priority            CardioPriority @default(NORMALE)
+  expectedDurationMin Int?
+  room                String?
+  // Fichier de résultat (item 10 PETITES MODIFS) — même mécanisme qu'Imagerie.
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  resultContent       Bytes?         @db.LongBlob
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+
+  @@map("cardio_exam")
+}
+
+enum PathologyStatus {
+  RESULTAT_VALIDE
+  EN_COURS
+  EN_ATTENTE_PRELEVEMENT
+  ANNULEE
+}
+
+enum PathologyPriority {
+  NORMALE
+  URGENT
+}
+
+// Même structure que LabRequest/ImagingRequest/CardioExam.
+model PathologyRequest {
+  id                  String            @id @default(uuid())
+  patientId           String?
+  patient             Patient?          @relation(fields: [patientId], references: [id])
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       Gender?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  sampleType          String
+  location            String?
+  service             String?
+  doctorId            String?
+  doctor              Employee?         @relation(fields: [doctorId], references: [id])
+  status              PathologyStatus   @default(EN_ATTENTE_PRELEVEMENT)
+  priority            PathologyPriority @default(NORMALE)
+  expectedDurationMin Int?
+  // Fichier de résultat — même mécanisme qu'Imagerie/Cardiologie/Laboratoire.
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  resultContent       Bytes?            @db.LongBlob
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  @@map("pathology_request")
+}
+
+enum EndoscopyStatus {
+  REALISE
+  EN_COURS
+  EN_ATTENTE
+  PROGRAMME
+  ANNULE
+}
+
+enum EndoscopyPriority {
+  NORMALE
+  URGENT
+}
+
+// Même structure que CardioExam (endoscopistId = Employee, room = texte libre).
+model EndoscopyProcedure {
+  id                  String            @id @default(uuid())
+  patientId           String?
+  patient             Patient?          @relation(fields: [patientId], references: [id])
+  patientName         String?
+  patientCode         String?
+  patientAge          Int?
+  patientGender       Gender?
+  requestedAt         DateTime
+  resultAt            DateTime?
+  procedureType       String
+  indication          String?
+  service             String?
+  endoscopistId       String?
+  endoscopist         Employee?         @relation(fields: [endoscopistId], references: [id])
+  status              EndoscopyStatus   @default(EN_ATTENTE)
+  priority            EndoscopyPriority @default(NORMALE)
+  expectedDurationMin Int?
+  room                String?
+  // Fichier de résultat — même mécanisme qu'Imagerie/Cardiologie/Laboratoire.
+  resultFileName      String?
+  resultMimeType      String?
+  resultFileSize      Int?
+  resultContent       Bytes?            @db.LongBlob
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  @@map("endoscopy_procedure")
+}
+
+// Catalogue + stock combinés (comme le mock features/pharmacy : une ligne = un médicament à un
+// emplacement donné, pas de séparation catalogue/stock côté écran). `location` reste un champ
+// texte libre (ex. "Pharmacie Centrale", "Dépôt Pédiatrie") plutôt qu'une FK Depot — la
+// pharmacie et les dépôts généraux (modèle Depot ci-dessous) sont deux inventaires distincts
+// par nature, mais tous deux alimentent le même Approvisionnement (ProcurementRequest).
+model Medication {
+  id            String    @id @default(uuid())
+  name          String
+  category      String
+  location      String
+  available     Int
+  minThreshold  Int
+  nearestExpiry DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@map("medication")
+}
+
+model Depot {
+  id        String          @id @default(uuid())
+  name      String          @unique
+  items     DepotItem[]
+  transfers StockTransfer[]
+
+  @@map("depot")
+}
+
+model DepotItem {
+  id             String    @id @default(uuid())
+  name           String
+  category       String
+  depotId        String
+  depot          Depot     @relation(fields: [depotId], references: [id])
+  available      Int
+  minThreshold   Int
+  lastMovementAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@map("depot_item")
+  movements      StockMovement[]
+  fromTransfers  StockTransfer[] @relation("TransferFromItem")
+  inventoryCounts InventoryCount[]
+  losses         StockLoss[]
+}
+
+// --- Stocks — item 16 : Mouvements, Transferts, Inventaires, Pertes/Retour, jusque-là "à
+// spécifier" ("Vue d'ensemble" ci-dessus était déjà réelle). "Analyse" reste un onglet 100%
+// lecture (agrégations sur ces 4 modèles), sans modèle dédié. Chaque mouvement/transfert/perte
+// met à jour `DepotItem.available` en direct (effet de bord), pour que le stock affiché reste
+// toujours la somme réelle des mouvements plutôt qu'un nombre saisi à la main en parallèle.
+
+enum StockMovementType {
+  ENTREE
+  SORTIE
+}
+
+model StockMovement {
+  id           String            @id @default(uuid())
+  reference    String            @unique
+  itemId       String
+  item         DepotItem         @relation(fields: [itemId], references: [id])
+  type         StockMovementType
+  quantity     Int
+  movementDate DateTime
+  reason       String?
+  performedBy  String
+  note         String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+
+  @@map("stock_movement")
+}
+
+// Un transfert débite l'article source et crédite (ou crée) l'article de même nom dans le dépôt
+// de destination — pas de modèle DepotItem dupliqué par transfert, l'article de destination est
+// retrouvé ou créé à la volée avec les mêmes name/category que la source.
+model StockTransfer {
+  id           String    @id @default(uuid())
+  reference    String    @unique
+  fromItemId   String
+  fromItem     DepotItem @relation("TransferFromItem", fields: [fromItemId], references: [id])
+  toDepotId    String
+  toDepot      Depot     @relation(fields: [toDepotId], references: [id])
+  quantity     Int
+  transferDate DateTime
+  performedBy  String
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@map("stock_transfer")
+}
+
+// `discrepancy` n'est pas stocké — calculé à l'affichage (countedQuantity - expectedQuantity).
+// À la création, si un écart existe, `DepotItem.available` est corrigé sur la quantité comptée
+// (l'inventaire physique fait foi), même logique de resynchronisation que les mouvements/transferts.
+model InventoryCount {
+  id                String    @id @default(uuid())
+  reference         String    @unique
+  itemId            String
+  item              DepotItem @relation(fields: [itemId], references: [id])
+  expectedQuantity  Int
+  countedQuantity   Int
+  conductedBy       String
+  conductedAt       DateTime
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@map("inventory_count")
+}
+
+enum StockLossType {
+  PERTE
+  RETOUR
+}
+
+model StockLoss {
+  id          String        @id @default(uuid())
+  reference   String        @unique
+  itemId      String
+  item        DepotItem     @relation(fields: [itemId], references: [id])
+  type        StockLossType
+  quantity    Int
+  reason      String
+  occurredAt  DateTime
+  reportedBy  String
+  note        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  @@map("stock_loss")
+}
+
+enum ProcurementPriority {
+  NORMALE
+  URGENTE
+}
+
+enum ProcurementStatus {
+  A_VALIDER
+  VALIDE
+  COMMANDE
+  RECU
+  RETARD
+}
+
+// Le flux réel Pharmacie/Stocks → Achats : un besoin de réapprovisionnement créé depuis l'un ou
+// l'autre inventaire crée une ligne ici (article/category en texte libre plutôt qu'une FK vers
+// Medication/DepotItem, pour accepter aussi des besoins venant de domaines qui n'ont pas encore
+// leur propre inventaire structuré, ex. "Réactifs biochimie" demandé par le Laboratoire).
+model ProcurementRequest {
+  id          String              @id @default(uuid())
+  reference   String              @unique
+  requestedAt DateTime
+  article     String
+  category    String
+  quantity    Int
+  priority    ProcurementPriority @default(NORMALE)
+  status      ProcurementStatus   @default(A_VALIDER)
+  requester   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+  orders      PurchaseOrder[]
+
+  @@map("procurement_request")
+}
+
+model Supplier {
+  id            String          @id @default(uuid())
+  name          String          @unique
+  orders        Int             @default(0)
+  onTimePercent Int             @default(0)
+  quality       Int             @default(0)
+  rating        Int             @default(0)
+  purchaseOrders PurchaseOrder[]
+  invoices      SupplierInvoice[]
+
+  @@map("supplier")
+}
+
+// --- Approvisionnement — item 13 : Commandes et Réceptions, jusque-là "à spécifier". "Besoins
+// exprimés" et "Demandes d'achat" restent les deux faces du même ProcurementRequest ci-dessus
+// (un besoin devient une demande d'achat formelle une fois son statut passé à VALIDE) — pas de
+// modèle dupliqué pour ça, seulement un filtre côté UI (voir ProcurementPage.tsx).
+
+enum PurchaseOrderStatus {
+  EN_PREPARATION
+  ENVOYEE
+  CONFIRMEE
+  LIVREE
+  ANNULEE
+}
+
+// `totalAmount` n'est pas stocké — calculé à l'affichage (quantity * unitPrice), même choix que
+// PayrollEntry.netPay (item 12) pour ne jamais désynchroniser un total de ses composants.
+model PurchaseOrder {
+  id                 String              @id @default(uuid())
+  reference          String              @unique
+  requestId          String?
+  request            ProcurementRequest? @relation(fields: [requestId], references: [id])
+  supplierId         String?
+  supplier           Supplier?           @relation(fields: [supplierId], references: [id])
+  article            String
+  quantity           Int
+  unitPrice          Float?
+  orderedAt          DateTime
+  expectedDeliveryAt DateTime?
+  status             PurchaseOrderStatus @default(EN_PREPARATION)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  receptions         GoodsReception[]
+  invoices           SupplierInvoice[]
+
+  @@map("purchase_order")
+}
+
+enum ReceptionCondition {
+  CONFORME
+  PARTIELLE
+  ENDOMMAGEE
+}
+
+model GoodsReception {
+  id          String              @id @default(uuid())
+  orderId     String
+  order       PurchaseOrder       @relation(fields: [orderId], references: [id])
+  receivedAt  DateTime
+  receivedQty Int
+  condition   ReceptionCondition  @default(CONFORME)
+  receivedBy  String
+  note        String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+
+  @@map("goods_reception")
+}
+
+// `ECARTEE` (item 15) : poche écartée suite à une analyse positive — distincte de PERIMEE
+// (expiration) mais regroupée avec elle dans l'onglet "Périmées / Retirées" (filtre UI, pas un
+// nouveau modèle — même principe que Besoins/Demandes d'achat, item 13).
+enum BloodPouchStatus {
+  DISPONIBLE
+  EN_ATTENTE_ANALYSE
+  RESERVEE
+  TRANSFUSEE
+  PERIMEE
+  ECARTEE
+}
+
+model BloodPouch {
+  id             String           @id @default(uuid())
+  pouchNumber    String           @unique
+  bloodGroup     String
+  component      String
+  volumeMl       Int?
+  status         BloodPouchStatus @default(DISPONIBLE)
+  collectionDate DateTime
+  expiryDate     DateTime
+  donorName      String
+  patientId      String?
+  patient        Patient?         @relation(fields: [patientId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  donations      BloodDonation[]
+  transfusions   Transfusion[]
+  analyses       BloodAnalysis[]
+
+  @@map("blood_pouch")
+}
+
+// --- Banque de sang — item 15 : Dons, Demandes transfusionnelles, Transfusions, Analyses,
+// jusque-là "à spécifier" ("Poches de sang" ci-dessus était déjà réelle). "Périmées / Retirées"
+// reste un filtre côté UI sur BloodPouch.status (PERIMEE / ECARTEE), pas un modèle dédié. Des
+// effets de bord relient ces modèles à BloodPouch, comme la réception → commande de l'item 13 :
+// une analyse positive écarte la poche, une analyse négative sur une poche en attente la rend
+// disponible, une transfusion marque la poche transfusée et honore la demande liée le cas échéant.
+
+enum DonationStatus {
+  PLANIFIE
+  COLLECTE
+  AJOURNE
+}
+
+model BloodDonation {
+  id           String         @id @default(uuid())
+  reference    String         @unique
+  // Donneur patient existant OU personne externe (item 13 PETITES MODIFS) — `donorName`/
+  // `donorPhone` restent la source de vérité pour un donneur externe (pas de patientId), et un
+  // instantané au moment du don pour un donneur lié à un patient (le nom d'un patient peut changer
+  // après coup, on garde ce qui était vrai lors du don, comme `patientName` ailleurs dans l'appli).
+  patientId    String?
+  patient      Patient?       @relation(fields: [patientId], references: [id])
+  donorName    String
+  donorPhone   String?
+  bloodGroup   String
+  donationDate DateTime
+  volumeMl     Int?
+  status       DonationStatus @default(PLANIFIE)
+  pouchId      String?
+  pouch        BloodPouch?    @relation(fields: [pouchId], references: [id])
+  note         String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  @@map("blood_donation")
+}
+
+enum TransfusionRequestUrgency {
+  NORMALE
+  URGENTE
+}
+
+enum TransfusionRequestStatus {
+  EN_ATTENTE
+  VALIDEE
+  REFUSEE
+  HONOREE
+}
+
+model TransfusionRequest {
+  id            String                    @id @default(uuid())
+  reference     String                    @unique
+  patientId     String
+  patient       Patient                   @relation(fields: [patientId], references: [id])
+  bloodGroup    String
+  component     String
+  quantityUnits Int
+  urgency       TransfusionRequestUrgency @default(NORMALE)
+  status        TransfusionRequestStatus  @default(EN_ATTENTE)
+  requestedBy   String
+  requestedAt   DateTime
+  note          String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  deletedAt     DateTime?
+  transfusions  Transfusion[]
+
+  @@map("transfusion_request")
+}
+
+model Transfusion {
+  id             String               @id @default(uuid())
+  reference      String               @unique
+  patientId      String
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  pouchId        String
+  pouch          BloodPouch           @relation(fields: [pouchId], references: [id])
+  requestId      String?
+  request        TransfusionRequest?  @relation(fields: [requestId], references: [id])
+  transfusedAt   DateTime
+  administeredBy String
+  reaction       String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deletedAt      DateTime?
+
+  @@map("transfusion")
+}
+
+enum BloodAnalysisResult {
+  EN_ATTENTE
+  NEGATIF
+  POSITIF
+}
+
+model BloodAnalysis {
+  id          String              @id @default(uuid())
+  reference   String              @unique
+  pouchId     String
+  pouch       BloodPouch          @relation(fields: [pouchId], references: [id])
+  testType    String
+  result      BloodAnalysisResult @default(EN_ATTENTE)
+  performedBy String
+  performedAt DateTime
+  note        String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+
+  @@map("blood_analysis")
+}
+
+enum TransactionType {
+  RECETTE
+  DEPENSE
+}
+
+enum TransactionStatus {
+  PAYE
+  EN_ATTENTE
+  EN_RETARD
+  // Recette d'un reçu de caisse annulé (Plan-Module-Caisse.md étape 7) : gardée pour la traçabilité.
+  ANNULE
+}
+
+model FinanceTransaction {
+  id          String             @id @default(uuid())
+  reference   String             @unique
+  occurredAt  DateTime
+  type        TransactionType
+  party       String
+  category    String
+  amount      Int
+  status      TransactionStatus  @default(PAYE)
+  paymentMode String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+  // Remontée automatique des caisses : recette créée par un reçu, ou sortie créée par son
+  // remboursement.
+  receipt         Receipt?       @relation("ReceiptTransaction")
+  refundedReceipt Receipt?       @relation("ReceiptRefundTransaction")
+
+  @@map("finance_transaction")
+}
+
+// --- Module Caisse (Plan-Module-Caisse.md) ------------------------------------------------------
+// Nombre de caisses illimité ; chaque encaissement produit un reçu numéroté et une recette en
+// Comptabilité (FinanceTransaction), sans double saisie.
+
+enum ReceiptFormat {
+  TICKET_80MM
+  A6
+}
+
+enum ReceiptStatus {
+  PAYE
+  ANNULE
+  REMBOURSE
+}
+
+enum PaymentMode {
+  ESPECES
+  MOBILE_MONEY
+  CARTE
+  PRISE_EN_CHARGE
+}
+
+model CashRegister {
+  id            String                @id @default(uuid())
+  name          String
+  location      String?
+  receiptFormat ReceiptFormat         @default(TICKET_80MM)
+  isActive      Boolean               @default(true)
+  cashiers      CashRegisterCashier[]
+  sessions      CashSession[]
+  receipts      Receipt[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@map("cash_register")
+}
+
+// Caissiers autorisés à ouvrir une caisse (le DIRIGEANT peut toujours ouvrir n'importe laquelle).
+model CashRegisterCashier {
+  registerId String
+  register   CashRegister @relation(fields: [registerId], references: [id])
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+
+  @@id([registerId, userId])
+  @@map("cash_register_cashier")
+}
+
+// Une session = une caisse ouverte par un caissier, du fond de caisse à la clôture. Montants
+// attendus/comptés à la clôture stockés par mode de paiement (JSON { ESPECES: n, ... }).
+model CashSession {
+  id              String       @id @default(uuid())
+  registerId      String
+  register        CashRegister @relation(fields: [registerId], references: [id])
+  cashierId       String
+  cashier         User         @relation(fields: [cashierId], references: [id])
+  openedAt        DateTime     @default(now())
+  openingFloat    Int          @default(0)
+  closedAt        DateTime?
+  expectedAmounts Json?
+  countedAmounts  Json?
+  difference      Int?
+  closingNote     String?      @db.Text
+  receipts        Receipt[]
+
+  @@index([registerId, closedAt])
+  @@map("cash_session")
+}
+
+// Catalogue de tarifs affiché en tuiles sur l'écran d'encaissement. `service` regroupe les tuiles
+// et porte le n° de passage (un compteur par service et par jour).
+model TariffItem {
+  id        String   @id @default(uuid())
+  label     String
+  service   String
+  price     Int
+  color     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tariff_item")
+}
+
+// Un reçu = un service (le patient repasse à la caisse pour chaque nouveau service). Les
+// informations patient sont figées au moment de la vente (le reçu reste lisible même si le dossier
+// change ensuite).
+model Receipt {
+  id                    String              @id @default(uuid())
+  number                String              @unique
+  registerId            String
+  register              CashRegister        @relation(fields: [registerId], references: [id])
+  sessionId             String
+  session               CashSession         @relation(fields: [sessionId], references: [id])
+  cashierId             String
+  cashier               User                @relation("ReceiptCashier", fields: [cashierId], references: [id])
+  patientId             String?
+  patient               Patient?            @relation(fields: [patientId], references: [id])
+  patientName           String
+  patientCode           String?
+  service               String
+  amount                Int
+  paymentMode           PaymentMode
+  paymentReference      String?
+  queueNumber           Int?
+  status                ReceiptStatus       @default(PAYE)
+  issuedAt              DateTime            @default(now())
+  cancelledAt           DateTime?
+  cancelledById         String?
+  cancelReason          String?             @db.Text
+  refundedAt            DateTime?
+  refundedById          String?
+  refundReason          String?             @db.Text
+  financeTransactionId  String?             @unique
+  financeTransaction    FinanceTransaction? @relation("ReceiptTransaction", fields: [financeTransactionId], references: [id])
+  refundTransactionId   String?             @unique
+  refundTransaction     FinanceTransaction? @relation("ReceiptRefundTransaction", fields: [refundTransactionId], references: [id])
+  lines                 ReceiptLine[]
+
+  @@index([sessionId])
+  @@index([issuedAt])
+  @@map("receipt")
+}
+
+// Ligne de reçu : élément du catalogue, ou examen prescrit (examType + examId) — prix figé.
+// `examType` : LAB | IMAGING | CARDIO | PATHOLOGY | ENDOSCOPY.
+model ReceiptLine {
+  id           String  @id @default(uuid())
+  receiptId    String
+  receipt      Receipt @relation(fields: [receiptId], references: [id])
+  label        String
+  unitPrice    Int
+  quantity     Int     @default(1)
+  tariffItemId String?
+  examType     String?
+  examId       String?
+
+  @@index([examType, examId])
+  @@map("receipt_line")
+}
+
+// --- Finance — item 14 : Factures fournisseurs, Paiements reçus, Dépenses par service, Budgets,
+// Comptes bancaires, jusque-là "à spécifier" (seule "Opérations récentes" ci-dessus était réelle).
+// `SupplierInvoice` réutilise `Supplier` (déjà utilisé par Approvisionnement) plutôt qu'un nouveau
+// tiers dupliqué, et réutilise l'enum `TransactionStatus` déjà en place plutôt qu'un second enum
+// PAYE/EN_ATTENTE/EN_RETARD redondant. `BankAccount.balance` reste un champ stocké mis à jour
+// manuellement (comme les champs agrégés d'Employee, item 12) — volontairement pas de FK depuis
+// `FinanceTransaction` (déjà fonctionnelle, `paymentMode` en texte libre) pour ne pas risquer une
+// migration sur un modèle en production pour ce chantier.
+
+model SupplierInvoice {
+  id         String             @id @default(uuid())
+  reference  String             @unique
+  supplierId String?
+  supplier   Supplier?          @relation(fields: [supplierId], references: [id])
+  orderId    String?
+  order      PurchaseOrder?     @relation(fields: [orderId], references: [id])
+  amount     Int
+  issuedAt   DateTime
+  dueAt      DateTime?
+  status     TransactionStatus  @default(EN_ATTENTE)
+  note       String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  deletedAt  DateTime?
+
+  @@map("supplier_invoice")
+}
+
+model PaymentReceived {
+  id          String   @id @default(uuid())
+  reference   String   @unique
+  payer       String
+  category    String
+  amount      Int
+  receivedAt  DateTime
+  paymentMode String
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@map("payment_received")
+}
+
+model ServiceExpense {
+  id        String   @id @default(uuid())
+  reference String   @unique
+  service   String
+  category  String
+  amount    Int
+  spentAt   DateTime
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@map("service_expense")
+}
+
+// `consumedAmount` n'est pas stocké — calculé à l'affichage en sommant ServiceExpense du même
+// `service` sur la même année (`spentAt`), même logique que PurchaseOrder.totalAmount (item 13).
+model Budget {
+  id              String   @id @default(uuid())
+  reference       String   @unique
+  service         String
+  year            Int
+  allocatedAmount Int
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@map("budget")
+}
+
+model BankAccount {
+  id            String   @id @default(uuid())
+  reference     String   @unique
+  name          String
+  bankName      String
+  accountNumber String
+  balance       Int      @default(0)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@map("bank_account")
+}
+
+// Phase 5 — Gouvernance (Qualité, Risques, Audit, Documents) : modules sans maquette source,
+// conçus en cohérence visuelle avec le reste de l'application (voir demande utilisateur).
+
+enum QualityIndicatorStatus {
+  CONFORME
+  A_SURVEILLER
+  NON_CONFORME
+}
+
+model QualityIndicator {
+  id             String                 @id @default(uuid())
+  name           String
+  category       String
+  currentValue   String
+  target         String
+  status         QualityIndicatorStatus @default(CONFORME)
+  lastMeasuredAt DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  deletedAt      DateTime?
+
+  @@map("quality_indicator")
+}
+
+model QualityCertification {
+  id         String   @id @default(uuid())
+  name       String
+  issuer     String
+  expiryDate DateTime
+  deletedAt  DateTime?
+
+  @@map("quality_certification")
+}
+
+model QualityAction {
+  id        String @id @default(uuid())
+  label     String
+  owner     String
+  progress  Int
+  deletedAt DateTime?
+
+  @@map("quality_action")
+}
+
+enum RiskStatus {
+  OUVERT
+  EN_TRAITEMENT
+  CLOS
+}
+
+// `level` (Faible/Modéré/Élevé/Critique) n'est pas stocké : calculé par le service depuis
+// probability × impact (voir risk-management/status.ts::levelFromScore côté front, repris côté
+// back) pour ne jamais désynchroniser le niveau affiché des deux facteurs qui le déterminent.
+model Risk {
+  id           String     @id @default(uuid())
+  title        String
+  category     String
+  probability  Int
+  impact       Int
+  status       RiskStatus @default(OUVERT)
+  owner        String
+  identifiedAt DateTime
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  @@map("risk")
+}
+
+enum AuditType {
+  INTERNE
+  EXTERNE
+}
+
+enum GovernanceAuditStatus {
+  PLANIFIE
+  EN_COURS
+  TERMINE
+}
+
+model Audit {
+  id          String                @id @default(uuid())
+  title       String
+  type        AuditType
+  service     String
+  scheduledAt DateTime
+  status      GovernanceAuditStatus @default(PLANIFIE)
+  score       Int?
+  findings    AuditFinding[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  deletedAt   DateTime?
+
+  @@map("audit")
+}
+
+// Constats rattachés à un audit terminé — remplace l'agrégat "FINDINGS_BY_CATEGORY" fabriqué du
+// mock par de vraies lignes individuelles, agrégées par le service au moment de l'affichage.
+model AuditFinding {
+  id          String   @id @default(uuid())
+  auditId     String
+  audit       Audit    @relation(fields: [auditId], references: [id])
+  category    String
+  description String
+
+  @@map("audit_finding")
+}
+
+model ComplianceFramework {
+  id                String @id @default(uuid())
+  name              String @unique
+  compliancePercent Int
+
+  @@map("compliance_framework")
+}
+
+enum ProtocolDocumentStatus {
+  PUBLIE
+  EN_VALIDATION
+  A_REVISER
+}
+
+// Le fichier est stocké en BLOB dans la base (colonne `content`) plutôt que sur le disque du
+// serveur — item 11 : l'hébergement cible (Render) efface le disque local à chaque
+// redéploiement, alors que la base MySQL est persistante. `fileName`/`mimeType`/`fileSize`
+// restent nullable : un document peut exister avec seulement ses métadonnées, le temps qu'un
+// fichier soit téléversé (voir POST /documents/:id/file).
+model ProtocolDocument {
+  id        String                  @id @default(uuid())
+  title     String
+  category  String
+  version   String
+  status    ProtocolDocumentStatus  @default(PUBLIE)
+  revisedAt DateTime
+  owner     String
+  fileName  String?
+  mimeType  String?
+  fileSize  Int?
+  content   Bytes?
+  deletedAt DateTime?
+  signatureRequests SignatureRequest[]
+
+  @@map("protocol_document")
+}
+
+// Demande de signature électronique d'un document (Documents & signature électronique) : tout
+// utilisateur peut la demander, le dirigeant signe (sa signature est apposée sur le PDF) ou refuse.
+// `originalContent` garde le PDF avant signature, pour la traçabilité.
+enum SignatureStatus {
+  EN_ATTENTE
+  SIGNE
+  REFUSE
+}
+
+model SignatureRequest {
+  id              String           @id @default(uuid())
+  documentId      String
+  document        ProtocolDocument @relation(fields: [documentId], references: [id])
+  requestedById   String
+  requestedBy     User             @relation("SignatureRequester", fields: [requestedById], references: [id])
+  message         String?          @db.Text
+  status          SignatureStatus  @default(EN_ATTENTE)
+  createdAt       DateTime         @default(now())
+  decidedById     String?
+  decidedBy       User?            @relation("SignatureDecider", fields: [decidedById], references: [id])
+  decidedAt       DateTime?
+  refusalReason   String?          @db.Text
+  originalContent Bytes?           @db.LongBlob
+
+  @@index([status])
+  @@map("signature_request")
+}
+
+// Phase 6 — Automation Studio : vrai moteur (setInterval côté app-server, voir index.ts), pas
+// une simulation d'UI. Chaque règle a une condition évaluée en dur côté service
+// (automation.service.ts) sur les vraies tables des autres domaines — pas de DSL générique,
+// volontairement, pour 7 règles ça ajouterait de la complexité sans bénéfice réel.
+enum AutomationCategory {
+  RENDEZ_VOUS
+  STOCKS
+  LABORATOIRE
+  FINANCES
+  RH
+  SOINS_PATIENTS
+}
+
+model AutomationRule {
+  id        String             @id @default(uuid())
+  name      String
+  trigger   String
+  action    String
+  category  AutomationCategory
+  active    Boolean            @default(true)
+  logs      AutomationLog[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@map("automation_rule")
+}
+
+// Une ligne = une exécution de règle qui a réellement déclenché (pas de log "vérifié, rien à
+// signaler" à chaque tick — ça noierait le journal). `success` reflète l'exécution de l'action ;
+// tant qu'aucune action n'a de vraie intégration externe (SMS, email — voir §3.3 du plan Phase 6),
+// elle est toujours vraie, mais le champ existe pour le jour où une vraie intégration l'utilisera.
+model AutomationLog {
+  id      String         @id @default(uuid())
+  ruleId  String
+  rule    AutomationRule @relation(fields: [ruleId], references: [id])
+  runAt   DateTime       @default(now())
+  success Boolean
+  detail  String         @db.Text
+
+  @@map("automation_log")
+}
+
+// Rapports & Analyse (Phase 6) : un export CSV réel généré depuis les vraies tables du domaine
+// choisi (voir reports.service.ts), stocké en base comme Company.logo, plutôt qu'un PDF stylé —
+// hors de portée raisonnable ici (voir §3.2 du plan Phase 6). `count` par catégorie côté UI vient
+// d'un vrai count() sur cette table, pas d'un catalogue de templates inventé.
+enum ReportCategory {
+  ACTIVITE_MEDICALE
+  FINANCES
+  RESSOURCES_HUMAINES
+  QUALITE_CONFORMITE
+  STOCKS_ACHATS
+}
+
+model GeneratedReport {
+  id          String         @id @default(uuid())
+  category    ReportCategory
+  title       String
+  format      String
+  generatedAt DateTime       @default(now())
+  content     Bytes          @db.LongBlob
+
+  @@map("generated_report")
+}
+
+// Journal append-only (§3.8) : pas de méthode update/delete exposée par les services.
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  before     String?  @db.Text
+  after      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("auditlog")
+}
+
+// Assistant "IA & Prédictions" — conversationnel, avec function-calling vers les données
+// réelles de l'établissement (voir ai-assistant.service.ts pour les outils exposés). Les
+// outils s'enrichissent au fur et à mesure que chaque domaine (Patients, Rendez-vous...)
+// obtient son propre schéma/backend.
+model AiConversation {
+  id        String      @id @default(uuid())
+  title     String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+
+  @@map("ai_conversation")
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+}
+
+model AiMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AiMessageRole
+  text           String         @db.Text
+  createdAt      DateTime       @default(now())
+
+  @@map("ai_message")
+}
+
+// Abonnement Pandora (Plan-Site-Pandora.md §6) — écrit UNIQUEMENT par le site Pandora, qui crée
+// aussi ces tables au besoin (même définition, d'où le CREATE TABLE IF NOT EXISTS de la migration).
+// `payload` est le JSON de l'abonnement, `signature` sa signature Ed25519 par Pandora : l'application
+// vérifie la signature avec la clé publique qu'elle embarque, une modification à la main est donc
+// détectée (voir src/main/services/subscription.service.ts).
+model Subscription {
+  id        String   @id
+  payload   String   @db.Text
+  signature String   @db.Text
+  updatedAt DateTime
+
+  @@map("subscription")
+}
+
+// Liaison avec le site Pandora : adresse du site et secret partagé qui signe (HMAC) les appels de
+// l'application au site (devis, paiement MoneyFusion, historique).
+model PandoraLink {
+  id         String   @id
+  hospitalId String
+  siteUrl    String   @db.VarChar(500)
+  secret     String   @db.VarChar(255)
+  updatedAt  DateTime
+
+  @@map("pandora_link")
+}

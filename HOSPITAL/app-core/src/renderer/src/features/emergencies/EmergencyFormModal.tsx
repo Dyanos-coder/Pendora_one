@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
+import { PicklistInput } from '@renderer/components/PicklistInput'
+import { PICKLIST_KEYS } from '@shared/picklist-types'
 import type { ApiEmergencyStatus, ApiEmergencyVisit, ApiSeverity, CreateEmergencyVisitInput } from '@shared/emergency-types'
 import type { ApiEmployee } from '@shared/appointment-types'
 import type { PatientSummary } from '@shared/patient-types'
@@ -147,7 +149,7 @@ export function EmergencyFormModal({ onClose, onCreated, editing }: EmergencyFor
           </div>
           <div>
             <label className={labelClass}>Zone</label>
-            <input value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass} />
+            <PicklistInput listKey={PICKLIST_KEYS.EMERGENCY_ZONE} value={zone} onChange={setZone} className={inputClass} />
           </div>
           <div className="col-span-2">
             <label className={labelClass}>Motif</label>
