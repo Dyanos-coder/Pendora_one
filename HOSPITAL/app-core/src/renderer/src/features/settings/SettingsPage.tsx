@@ -10,6 +10,8 @@ import { ModuleTree } from '@renderer/components/ModuleTree'
 import { ALL_MODULE_SCREEN_IDS, applyModuleDependencies, type DbAccessPrefill } from '@shared/setup-types'
 import { DbAccessForm } from '@renderer/features/setup/DbAccessForm'
 import { CompanyLogoCard } from './CompanyLogoCard'
+import { ActivationSettingsCard } from './ActivationSettingsCard'
+import { ULTRA_ADMIN_PASSWORD } from './ultra-admin'
 import { UpdateSettingsCard } from '@renderer/features/updater/UpdateSettingsCard'
 import { SubscriptionSettingsCard } from '@renderer/features/subscription/SubscriptionSettingsCard'
 import { UserFormModal } from './UserFormModal'
@@ -21,9 +23,6 @@ import type { ApiUser } from '@shared/user-types'
 import type { ApiCompany } from '@shared/company-types'
 import type { LocalBackupInfo } from '@shared/backup-types'
 
-// Mot de passe partagé « Ultra Admin » — gate client uniquement, en dur pour le moment (voir
-// demande du 2026-09-21). À faire évoluer côté serveur si un vrai contrôle d'accès est nécessaire.
-const ULTRA_ADMIN_PASSWORD = 'ultraadmin2026sinsin'
 
 const ROLE_LABEL: Record<string, string> = {
   DIRIGEANT: 'Directeur Général',
@@ -369,6 +368,7 @@ export function SettingsPage({ session, onLogout, initialSection }: SettingsPage
           {section === 'Établissement' && (
             <div className="space-y-6">
               <CompanyLogoCard canEdit={canManageModules} />
+              <ActivationSettingsCard canEdit={session.user.role === 'DIRIGEANT'} onReactivated={onLogout} />
               <Card>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Informations de l&apos;établissement</h3>
                 {companyLoading ? (

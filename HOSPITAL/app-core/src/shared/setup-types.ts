@@ -146,14 +146,24 @@ export type DbAccessPrefill = Omit<DbAccessInput, 'password'>
 
 export type DbStartupStatus =
   | { state: 'CHECKING' }
+  /** Poste jamais activé : saisie du code d'activation (Plan-Code-Activation.md). */
   | { state: 'NOT_CONFIGURED' }
+  /** Le site Pandora a refusé ce poste (révoqué, hôpital supprimé) : nouveau code demandé. */
+  | { state: 'NEEDS_ACTIVATION'; message: string }
   | { state: 'READY' }
   /** Base injoignable ET pas d'Internet : mode hors connexion habituel, sans rien demander. */
   | { state: 'OFFLINE' }
-  /** Base injoignable alors qu'Internet fonctionne : les accès sont redemandés. */
+  /** Base injoignable alors qu'Internet fonctionne, même avec les accès à jour du site Pandora. */
   | { state: 'NEEDS_ACCESS'; message: string; prefill: DbAccessPrefill | null }
   /** La base a été mise à jour par une version plus récente de l'app. */
   | { state: 'APP_OUTDATED'; message: string }
   | { state: 'MIGRATION_FAILED'; message: string }
 
 export type SaveDbAccessResult = { ok: true } | { ok: false; message: string }
+
+/** Activation du poste (Plan-Code-Activation.md), affichée dans Paramètres. */
+export interface ActivationInfo {
+  /** Le poste a un jeton du site Pandora (activé par code, ou inscrit automatiquement). */
+  activated: boolean
+  hospitalName: string | null
+}

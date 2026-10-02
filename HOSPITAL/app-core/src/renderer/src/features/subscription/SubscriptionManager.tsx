@@ -9,6 +9,7 @@ import type {
   SubscriptionPayment,
   SubscriptionQuote
 } from '@shared/subscription-types'
+import { MODULE_GROUPS } from '@shared/setup-types'
 import { STATE_LABEL, formatFcfa, formatYmd, usePendingPayment } from './useSubscription'
 
 const STATE_TONE: Record<SubscriptionInfo['state'], StatusTone> = {
@@ -58,8 +59,26 @@ export function SubscriptionSummary({ info }: { info: SubscriptionInfo }): JSX.E
         </p>
         {!info.enforced && <p className="text-xs text-gray-400">Mode développement : non bloquant</p>}
       </div>
+      {info.periods.length > 0 && (
+        <div className="space-y-2 sm:col-span-3">
+          {info.periods.map((period, index) => (
+            <div key={period.until}>
+              <p className="text-xs text-gray-500">
+                {index === 0 ? 'Modules en cours' : 'Ensuite'}, jusqu&apos;au {formatYmd(period.until)}
+              </p>
+              <p className="text-sm text-gray-700">{moduleLabels(period.modules)}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+const MODULE_LABEL = new Map(MODULE_GROUPS.flatMap((g) => g.screens.map((m) => [m.id, m.label] as const)))
+
+function moduleLabels(ids: string[]): string {
+  return ids.map((id) => MODULE_LABEL.get(id) ?? id).join(' · ') || '—'
 }
 
 interface SubscriptionManagerProps {
@@ -152,7 +171,7 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
     return (
       <p className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
         {info.state === 'UNVERIFIED' || info.source === 'LOCAL'
-          ? 'Connectez-vous à Internet pour gérer l’abonnement.'
+          ? 'La base de l’établissement ne répond pas pour le moment : réessayez dans un instant.'
           : 'Cet établissement n’est pas encore relié au site Pandora. Contactez Pandora pour activer votre abonnement.'}
       </p>
     )
@@ -278,6 +297,17 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
                   Total : {formatFcfa(quote.total)} {quoting && <Loader2 className="ml-1 inline h-3.5 w-3.5 animate-spin text-gray-400" />}
                 </p>
                 <p className="text-xs text-gray-500">Nouvelle échéance : {formatYmd(quote.newEndDate)}</p>
+                {quote.periods.length > 1 && (
+                  <div className="mt-2 space-y-0.5 border-t border-gray-200 pt-2 text-xs text-gray-500">
+                    <p>Ce qui est déjà acquis reste actif ; votre sélection s&apos;applique à la suite :</p>
+                    {quote.periods.map((period) => (
+                      <p key={period.until}>
+                        jusqu&apos;au {formatYmd(period.until)} :{' '}
+                        {period.items.map((k) => catalog.find((i) => i.key === k)?.label ?? k).join(', ')}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

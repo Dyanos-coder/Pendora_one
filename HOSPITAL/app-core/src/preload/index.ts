@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { LoginResult, Session } from '../shared/auth-types'
 import type { ConnectivityStatus, SyncConflictNotification, SyncOutboxEntry } from '../shared/sync-types'
-import type { AppConfig, DbAccessInput, DbAccessPrefill, DbStartupStatus, SaveDbAccessResult } from '../shared/setup-types'
+import type { ActivationInfo, AppConfig, DbAccessInput, DbAccessPrefill, DbStartupStatus, SaveDbAccessResult } from '../shared/setup-types'
 import type { UpdateInfo, UpdateStatus } from '../shared/update-types'
 import type {
   CheckoutInput,
@@ -820,7 +820,9 @@ const api = {
     getDbPrefill: (): Promise<DbAccessPrefill | null> => ipcRenderer.invoke('setup:getDbPrefill'),
     saveDbAccess: (input: DbAccessInput): Promise<SaveDbAccessResult> => ipcRenderer.invoke('setup:saveDbAccess', input),
     retryDb: (): Promise<DbStartupStatus> => ipcRenderer.invoke('setup:retryDb'),
-    continueOffline: (): Promise<DbStartupStatus> => ipcRenderer.invoke('setup:continueOffline')
+    continueOffline: (): Promise<DbStartupStatus> => ipcRenderer.invoke('setup:continueOffline'),
+    activate: (code: string): Promise<SaveDbAccessResult> => ipcRenderer.invoke('setup:activate', code),
+    getActivation: (): Promise<ActivationInfo> => ipcRenderer.invoke('setup:getActivation')
   },
   connectivity: {
     status: (): Promise<ConnectivityStatus> => ipcRenderer.invoke('connectivity:status'),

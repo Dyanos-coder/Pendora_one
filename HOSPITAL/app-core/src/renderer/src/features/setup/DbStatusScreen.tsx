@@ -3,13 +3,13 @@ import { AlertTriangle, Download, Loader2, RefreshCw, WifiOff } from 'lucide-rea
 import { BrandMark } from '@renderer/components/BrandMark'
 import { Button } from '@renderer/components/Button'
 import { useUpdateInfo } from '@renderer/features/updater/useUpdateInfo'
-import { DbAccessForm } from './DbAccessForm'
+import { ActivationCodeForm } from './ActivationCodeForm'
 import type { DbStartupStatus } from '@shared/setup-types'
 
 type BlockingStatus = Extract<
   DbStartupStatus,
   {
-    state: 'NOT_CONFIGURED' | 'NEEDS_ACCESS' | 'APP_OUTDATED' | 'MIGRATION_FAILED'
+    state: 'NOT_CONFIGURED' | 'NEEDS_ACTIVATION' | 'NEEDS_ACCESS' | 'APP_OUTDATED' | 'MIGRATION_FAILED'
   }
 >
 
@@ -29,6 +29,8 @@ interface DbStatusScreenProps {
  * - MIGRATION_FAILED : la mise à jour de la base a échoué → message, réessai ou hors connexion. */
 export function DbStatusScreen({ status, onResolved, onAccessSaved }: DbStatusScreenProps): JSX.Element {
   const [retrying, setRetrying] = useState(false)
+  const [newCode, setNewCode] = useState(false)
+  const needsCode = status.state === 'NOT_CONFIGURED' || status.state === 'NEEDS_ACTIVATION'
 
   async function handleRetry(): Promise<void> {
     setRetrying(true)
@@ -49,18 +51,17 @@ export function DbStatusScreen({ status, onResolved, onAccessSaved }: DbStatusSc
           <span className="text-lg font-semibold tracking-tight text-gray-900">Pandora Health</span>
         </div>
 
-        {status.state === 'NOT_CONFIGURED' ? (
+        {needsCode ? (
           <>
-            <h2 className="text-xl font-semibold text-gray-900">Connexion à la base de données</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Activation du poste</h2>
+            {status.state === 'NEEDS_ACTIVATION' && (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{status.message}</p>
+            )}
             <p className="mt-1.5 mb-6 text-sm text-gray-500">
-              L&apos;application se connecte désormais directement à la base de données de l&apos;établissement.
-              Indiquez ses accès (fournis par l&apos;hébergeur MySQL) — ils sont enregistrés chiffrés sur ce poste.
+              Saisissez le code d&apos;activation fourni par Pandora : l&apos;application se relie seule à la base de
+              données de votre établissement.
             </p>
-            <DbAccessForm
-              prefill={null}
-              submitLabel="Tester la connexion et continuer"
-              onSaved={onAccessSaved}
-            />
+            <ActivationCodeForm onActivated={onAccessSaved} />
           </>
         ) : (
           <div className="mb-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -81,22 +82,24 @@ export function DbStatusScreen({ status, onResolved, onAccessSaved }: DbStatusSc
         {status.state === 'NEEDS_ACCESS' && (
           <>
             <p className="mb-4 text-sm text-gray-500">
-              Internet fonctionne, mais la base ne répond pas avec les accès enregistrés. Vérifiez-les ou saisissez les
-              nouveaux accès.
+              Internet fonctionne, mais la base de données de l&apos;établissement ne répond pas. Réessayez dans un instant,
+              continuez hors connexion, ou contactez Pandora si le problème dure.
             </p>
-            <DbAccessForm
-              prefill={status.prefill}
-              submitLabel="Enregistrer et se connecter"
-              onSaved={onAccessSaved}
-            />
+            {newCode ? (
+              <ActivationCodeForm submitLabel="Activer avec ce code" onActivated={onAccessSaved} />
+            ) : (
+              <button type="button" onClick={() => setNewCode(true)} className="text-sm font-medium text-accent-600 hover:text-accent-700">
+                Saisir un nouveau code d&apos;activation
+              </button>
+            )}
           </>
         )}
 
         {status.state === 'APP_OUTDATED' && <UpdateNowPanel />}
 
-        {status.state !== 'APP_OUTDATED' && (
+        {status.state !== 'APP_OUTDATED' && !needsCode && (
           <div className="mt-4 flex gap-3">
-            {status.state !== 'NOT_CONFIGURED' && (
+            {!needsCode && (
               <Button variant="secondary" onClick={handleRetry} disabled={retrying} className="flex-1 py-2.5">
                 {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Réessayer

@@ -74,6 +74,7 @@ function AppContent(): JSX.Element {
   // aucun accès à la base enregistré) : on les demande sans repasser par tout l'assistant.
   if (
     dbStatus.state === 'NOT_CONFIGURED' ||
+    dbStatus.state === 'NEEDS_ACTIVATION' ||
     dbStatus.state === 'NEEDS_ACCESS' ||
     dbStatus.state === 'APP_OUTDATED' ||
     dbStatus.state === 'MIGRATION_FAILED'

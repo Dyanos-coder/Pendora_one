@@ -23,14 +23,23 @@ export type SubscriptionState =
   /** Pas encore contrôlé (démarrage) : rien n'est bloqué tant que le premier contrôle n'est pas fait. */
   | 'UNKNOWN'
 
+/** Période d'abonnement : du lendemain de la précédente jusqu'à `until` inclus. */
+export interface SubscriptionPeriod {
+  until: string
+  items: string[]
+  modules: string[]
+}
+
 export interface SubscriptionInfo {
   state: SubscriptionState
   /** Dernier jour couvert, inclus (AAAA-MM-JJ). */
   endDate: string | null
   /** Jours restants jusqu'à l'échéance incluse (0 = dernier jour), null sans abonnement. */
   daysLeft: number | null
-  /** Clés de la grille Pandora payées (pour proposer le même renouvellement). */
+  /** Clés de la grille de la dernière période (proposées par défaut au renouvellement). */
   items: string[]
+  /** Périodes en cours et à venir (la première est celle en cours). */
+  periods: SubscriptionPeriod[]
   /** Modules autorisés (payés + gratuits) ; null = pas de restriction (contrôle désactivé). */
   allowedModules: string[] | null
   /** Contrôle appliqué (application installée) — en développement, l'état est affiché sans bloquer. */
@@ -41,6 +50,8 @@ export interface SubscriptionInfo {
   blocked: boolean
   /** Paiement en ligne possible (établissement relié au site Pandora). */
   canPayOnline: boolean
+  /** Cause de l'échec de lecture de la base (état « Non vérifié »), sinon null. */
+  error: string | null
   checkedAt: string
 }
 
@@ -63,6 +74,8 @@ export interface SubscriptionQuote {
   total: number
   previousEndDate: string | null
   newEndDate: string
+  /** Découpage de l'abonnement après ce paiement. */
+  periods: SubscriptionPeriod[]
 }
 
 export type SubscriptionPaymentStatus = 'EN_ATTENTE' | 'PAYE' | 'APPLIQUE' | 'ECHEC' | 'ANNULE'

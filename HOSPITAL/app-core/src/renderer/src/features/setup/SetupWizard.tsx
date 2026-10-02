@@ -4,7 +4,7 @@ import { BrandMark } from '@renderer/components/BrandMark'
 import { Button } from '@renderer/components/Button'
 import { ModuleTree } from '@renderer/components/ModuleTree'
 import { LoginScreen } from '@renderer/features/auth/LoginScreen'
-import { DbAccessForm } from './DbAccessForm'
+import { ActivationCodeForm } from './ActivationCodeForm'
 import { ALL_MODULE_SCREEN_IDS, applyModuleDependencies } from '@shared/setup-types'
 import type { Session } from '@shared/auth-types'
 
@@ -66,12 +66,12 @@ export function SetupWizard({ session, error, onLogin, dbReady, onComplete }: Se
 
         {step === 'db' && (
           <>
-            <h2 className="text-xl font-semibold text-gray-900">Configuration initiale</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Activation du poste</h2>
             <p className="mt-1.5 mb-6 text-sm text-gray-500">
-              Indiquez les accès à la base de données de votre établissement (fournis par l&apos;hébergeur
-              MySQL). Ils sont enregistrés chiffrés sur ce poste.
+              Saisissez le code d&apos;activation fourni par Pandora. L&apos;application se relie alors seule à la base de
+              données de votre établissement.
             </p>
-            <DbAccessForm prefill={null} submitLabel="Tester la connexion et continuer" onSaved={() => setStep('login')} />
+            <ActivationCodeForm submitLabel="Activer et continuer" onActivated={() => setStep('login')} />
           </>
         )}
 

@@ -7,10 +7,20 @@ import { setDbReachable } from '../server/db/db-status'
 import { migrateRemoteDatabase } from '../server/db/migrate-remote-db'
 import { testDbConnection } from '../server/db/test-connection'
 import type { DbConnectionConfig } from '../server/db/connection-config'
-import { getOrCreateJwtSecret, getStoredDbAccess, saveDbAccess, toPrefill } from './app-config.service'
+import {
+  getOrCreateJwtSecret,
+  getStoredDbAccess,
+  getStoredDevice,
+  isDeviceRevoked,
+  markDeviceRevoked,
+  saveDbAccess,
+  saveDevice,
+  toPrefill
+} from './app-config.service'
+import { requestActivation, requestCredentials, siteUrl, type SiteDbAccess } from './pandora-site.client'
 import { checkConnectivityNow } from './connectivity.service'
 import { setApiUrl } from './remote-api.client'
-import type { DbAccessInput, DbStartupStatus, SaveDbAccessResult } from '../../shared/setup-types'
+import type { ActivationInfo, DbAccessInput, DbStartupStatus, SaveDbAccessResult } from '../../shared/setup-types'
 
 // Orchestration du backend embarqué (voir Plan-Backend-Embarque-Travaux.md §2) : démarrage du
 // serveur local, contrôle de la base au lancement, et (re)saisie des accès.
@@ -68,6 +78,10 @@ async function runStartupCheck(): Promise<DbStartupStatus> {
     setDbReachable(false)
     return { state: 'NOT_CONFIGURED' }
   }
+  if (isDeviceRevoked()) {
+    setDbReachable(false)
+    return { state: 'NEEDS_ACTIVATION', message: 'Ce poste n’est plus autorisé par Pandora. Saisissez un code d’activation.' }
+  }
   await configureRemoteDatabase(stored)
 
   const test = await testDbConnection(stored)
@@ -75,7 +89,93 @@ async function runStartupCheck(): Promise<DbStartupStatus> {
 
   setDbReachable(false)
   if (!(await hasInternet())) return { state: 'OFFLINE' }
+
+  // Internet fonctionne mais pas la base : les accès ont peut-être changé (mot de passe modifié,
+  // base déplacée) — on demande les accès à jour au site Pandora avant de bloquer le poste.
+  const refreshed = await refreshAccessFromSite(stored)
+  if (refreshed) return refreshed
   return { state: 'NEEDS_ACCESS', message: test.message, prefill: toPrefill(stored) }
+}
+
+function sameAccess(a: DbConnectionConfig, b: SiteDbAccess): boolean {
+  return a.host === b.host && Number(a.port) === Number(b.port) && a.database === b.database && a.user === b.user && a.password === b.password && a.ssl === b.ssl
+}
+
+function toConfig(db: SiteDbAccess): DbConnectionConfig {
+  return { host: db.host, port: Number(db.port) || 3306, database: db.database, user: db.user, password: db.password, ssl: Boolean(db.ssl) }
+}
+
+/** Accès à jour du site pour un poste activé. Renvoie le nouveau statut si la situation est
+ * réglée (nouveaux accès qui marchent → READY ; poste révoqué → NEEDS_ACTIVATION), sinon null. */
+async function refreshAccessFromSite(current: DbConnectionConfig): Promise<DbStartupStatus | null> {
+  const device = getStoredDevice()
+  if (!device) return null
+  const result = await requestCredentials(device.token)
+  if (result.kind === 'refused' && (result.reason === 'REVOKED' || result.reason === 'INVALID')) {
+    markDeviceRevoked()
+    return { state: 'NEEDS_ACTIVATION', message: result.message }
+  }
+  if (result.kind !== 'ok' || sameAccess(current, result.data.db)) return null
+  const config = toConfig(result.data.db)
+  const test = await testDbConnection(config)
+  if (!test.ok) return null
+  const next = await activate(config)
+  if (next.state === 'READY') {
+    saveDbAccess(config)
+    saveDevice({ ...device, hospitalId: result.data.hospital.id, hospitalName: result.data.hospital.name })
+    console.log('[activation] nouveaux accès récupérés auprès du site Pandora')
+  }
+  return next
+}
+
+/** Poste en marche : vérification discrète auprès du site (dernière connexion, version, accès
+ * changés, révocation) — sans jamais interrompre la session en cours. */
+async function backgroundSiteCheck(): Promise<void> {
+  const device = getStoredDevice()
+  const current = getStoredDbAccess()
+  if (!device || !current) return
+  const result = await requestCredentials(device.token)
+  if (result.kind === 'refused' && result.reason === 'REVOKED') {
+    // Poste révoqué : la session en cours n'est pas coupée, le code sera redemandé au prochain lancement.
+    markDeviceRevoked()
+    console.log('[activation] poste révoqué par Pandora')
+    return
+  }
+  if (result.kind !== 'ok') return
+  saveDevice({ ...device, hospitalId: result.data.hospital.id, hospitalName: result.data.hospital.name })
+  // Nouveaux accès qui fonctionnent : enregistrés pour le prochain lancement.
+  if (!sameAccess(current, result.data.db)) {
+    const config = toConfig(result.data.db)
+    if ((await testDbConnection(config)).ok) saveDbAccess(config)
+  }
+}
+
+/** Activation du poste avec le code de son hôpital : le site renvoie les accès à la base (déjà
+ * testés de son côté), on les vérifie, on prépare la base, puis on enregistre tout chiffré. */
+export async function activateWithCode(code: string): Promise<SaveDbAccessResult> {
+  if (!code.trim()) return { ok: false, message: 'Saisissez le code d’activation.' }
+  const result = await requestActivation(code.trim())
+  if (result.kind !== 'ok') return { ok: false, message: result.message }
+
+  const config = toConfig(result.data.db)
+  const test = await testDbConnection(config)
+  if (!test.ok) return { ok: false, message: `Le site a fourni les accès, mais ce poste n'arrive pas à joindre la base : ${test.message}` }
+
+  const previous = getStoredDbAccess()
+  const next = await activate(config)
+  if (next.state !== 'READY') {
+    await configureRemoteDatabase(previous)
+    return { ok: false, message: 'message' in next ? next.message : 'Base inutilisable.' }
+  }
+  saveDbAccess(config)
+  saveDevice({ token: result.data.deviceToken, hospitalId: result.data.hospital.id, hospitalName: result.data.hospital.name, siteUrl: siteUrl() })
+  status = next
+  return { ok: true }
+}
+
+export function getActivationInfo(): ActivationInfo {
+  const device = getStoredDevice()
+  return { activated: device !== null, hospitalName: device?.hospitalName ?? null }
 }
 
 /** À appeler une fois au démarrage, avant le moniteur de connectivité : démarre le backend local
@@ -86,6 +186,7 @@ export async function initEmbeddedBackend(): Promise<void> {
   setApiUrl(url)
   startupCheck = runStartupCheck().then((result) => {
     status = result
+    if (result.state === 'READY') void backgroundSiteCheck().catch(() => undefined)
     return result
   })
 }

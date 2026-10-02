@@ -11,7 +11,7 @@ const LOCK_MESSAGE: Partial<Record<SubscriptionInfo['state'], string>> = {
   EXPIRED: 'L’abonnement Pandora Health de votre établissement est arrivé à échéance. Renouvelez-le pour continuer à utiliser l’application.',
   NONE: 'Aucun abonnement Pandora Health n’est actif pour votre établissement.',
   INVALID: 'L’abonnement enregistré pour votre établissement n’est pas valide. Contactez Pandora.',
-  UNVERIFIED: 'Impossible de vérifier l’abonnement : ce poste est hors connexion et n’a encore jamais pu le contrôler. Connectez-vous à Internet.'
+  UNVERIFIED: 'Impossible de vérifier l’abonnement pour le moment : la base de données de l’établissement n’a pas pu être lue, et ce poste n’a pas encore de copie de l’abonnement. Nouvel essai automatique toutes les 30 secondes.'
 }
 
 /** Fenêtre de renouvellement plein écran, impossible à fermer tant que l'abonnement n'est pas
@@ -38,6 +38,7 @@ export function SubscriptionLock({ info, session, onLogout }: { info: Subscripti
                 {info.state === 'EXPIRED' ? `Abonnement expiré depuis le ${formatYmd(info.endDate)}` : 'Abonnement requis'}
               </h2>
               <p className="mt-1 text-sm text-gray-600">{LOCK_MESSAGE[info.state] ?? LOCK_MESSAGE.NONE}</p>
+              {info.state === 'UNVERIFIED' && info.error && <p className="mt-1 text-xs text-red-600">{info.error}</p>}
               {session.user.role !== 'DIRIGEANT' && (
                 <p className="mt-2 text-sm font-medium text-gray-800">
                   Contactez le dirigeant de votre établissement pour renouveler l&apos;abonnement.

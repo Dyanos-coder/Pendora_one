@@ -18,6 +18,10 @@ interface StoredConfig {
   db?: string
   /** Secret JWT du backend embarqué, chiffré puis encodé en base64. */
   jwtSecret?: string
+  /** Poste activé auprès du site Pandora (jeton, hôpital), JSON chiffré puis encodé en base64. */
+  device?: string | null
+  /** Poste révoqué par Pandora : le code d'activation est redemandé au prochain lancement. */
+  deviceRevoked?: boolean
   /** Imprimante des reçus de caisse sur ce poste (nom système) — vide = boîte d'impression. */
   receiptPrinter?: string | null
 }
@@ -83,6 +87,38 @@ export function saveDbAccess(config: DbConnectionConfig): void {
 export function toPrefill(config: DbConnectionConfig | null): DbAccessPrefill | null {
   if (!config) return null
   return { host: config.host, port: config.port, database: config.database, user: config.user, ssl: config.ssl }
+}
+
+/** Poste activé auprès du site Pandora (Plan-Code-Activation.md). `hospitalId` = identifiant de
+ * l'hôpital sur le site (sert aussi à vérifier l'abonnement). */
+export interface StoredDevice {
+  token: string
+  hospitalId: string
+  hospitalName: string
+  siteUrl: string
+}
+
+export function getStoredDevice(): StoredDevice | null {
+  const stored = readStored()
+  if (!stored.device) return null
+  try {
+    return JSON.parse(decrypt(stored.device)) as StoredDevice
+  } catch {
+    return null
+  }
+}
+
+/** Enregistre le poste activé (et lève une éventuelle révocation précédente). */
+export function saveDevice(device: StoredDevice): void {
+  writeStored({ device: encrypt(JSON.stringify(device)), deviceRevoked: false })
+}
+
+export function markDeviceRevoked(): void {
+  writeStored({ device: null, deviceRevoked: true })
+}
+
+export function isDeviceRevoked(): boolean {
+  return readStored().deviceRevoked === true
 }
 
 export function getReceiptPrinter(): string | null {
