@@ -5,8 +5,7 @@ import { join } from 'path'
 import { getPrismaClient as getLocalPrisma } from '../db/client'
 import { getPrismaClient as getRemotePrisma } from '../server/db/client'
 import { hasDbConnectionConfig } from '../server/db/connection-config'
-import { getStoredDbAccess, getStoredDevice, isDeviceRevoked, saveDevice } from './app-config.service'
-import { deviceName } from './pandora-site.client'
+import { getStoredDbAccess, getStoredDevice } from './app-config.service'
 import { onConnectivityChange } from './connectivity.service'
 import { getDbStatus } from './embedded-backend.service'
 import { getCurrentSession } from './session.store'
@@ -289,7 +288,6 @@ export function refreshSubscription(): Promise<SubscriptionInfo> {
       .then((next) => {
         info = next
         broadcast('subscription:status', info)
-        if (next.canPayOnline) void enrollDeviceIfNeeded()
         return info
       })
       .catch((error) => {
@@ -450,29 +448,4 @@ export function dismissPendingPayment(): void {
   pollTimer = null
   pending = null
   broadcast('subscription:payment', null)
-}
-
-// --- Postes installés avant les codes d'activation (Plan-Code-Activation.md §5, étape 10) --------
-
-let enrolling = false
-
-/** Un poste configuré à la main (sans jeton) s'inscrit lui-même auprès du site, authentifié par le
- * secret de liaison de sa base : il bénéficie ensuite de la récupération automatique des accès.
- * Jamais pour un poste révoqué (il doit saisir un nouveau code). */
-async function enrollDeviceIfNeeded(): Promise<void> {
-  if (enrolling || getStoredDevice() || isDeviceRevoked()) return
-  enrolling = true
-  try {
-    const link = await readLink()
-    const data = await siteCall<{ deviceToken: string; hospital: { id: string; name: string } }>('POST', '/api/public/device/enroll', {
-      deviceName: deviceName(),
-      appVersion: app.getVersion()
-    })
-    saveDevice({ token: data.deviceToken, hospitalId: data.hospital.id, hospitalName: data.hospital.name, siteUrl: link.siteUrl })
-    log(`poste inscrit auprès du site Pandora (${data.hospital.name})`)
-  } catch (error) {
-    log(`inscription du poste impossible : ${(error as Error)?.message ?? String(error)}`)
-  } finally {
-    enrolling = false
-  }
 }

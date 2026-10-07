@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ShieldAlert, TriangleAlert, ClipboardCheck, CheckCircle2, Search, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ShieldAlert, TriangleAlert, ClipboardCheck, CheckCircle2, Search, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
@@ -10,6 +10,7 @@ import { riskLevelTone, riskStatusTone, LEVEL_CELL_COLOR, levelFromScore } from 
 import type { Risk, RiskLevel, RiskStatus } from './types'
 import { RiskFormModal } from './RiskFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const PROBABILITY_LABELS = ['Rare', 'Possible', 'Probable', 'Fréquent']
 const IMPACT_LABELS = ['Mineur', 'Modéré', 'Majeur', 'Critique']
@@ -27,7 +28,7 @@ const STATUS_LABEL: Record<ApiRiskStatus, RiskStatus> = {
   CLOS: 'Clos'
 }
 
-const CATEGORY_PALETTE = ['#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6', '#ec4899', '#9ca3af', '#10b981', '#06b6d4']
+const CATEGORY_PALETTE = ['#ef4444', '#dea127', '#12a04a', '#3b82f6', '#ec4899', '#9ca3af', '#14b8a6', '#06b6d4']
 
 function toRisk(r: ApiRisk): Risk {
   return {
@@ -152,75 +153,72 @@ export function RiskManagementPage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement du registre des risques…
-        </div>
+        <PulseLoader label="Chargement du registre des risques…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="riskManagement.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <ShieldAlert className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <ShieldAlert className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Risques identifiés</p>
-              <p className="text-xl font-bold text-gray-900">{risks.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{risks.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Risques critiques</p>
               <p className="text-xl font-bold text-red-600">{criticalCount}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <ClipboardCheck className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Actions en cours</p>
-              <p className="text-xl font-bold text-gray-900">{openCount}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{openCount}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Risques clos</p>
-              <p className="text-xl font-bold text-gray-900">{closedCount}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{closedCount}</p>
             </Card>
           </SortableGroup>
 
           <SortableGroup id="riskManagement.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Registre des risques</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Registre des risques</h3>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher un risque..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                      <th className="px-6 py-2.5 font-medium">Risque</th>
-                      <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                      <th className="px-6 py-2.5 font-medium">Niveau</th>
-                      <th className="px-6 py-2.5 font-medium">Statut</th>
-                      <th className="px-6 py-2.5 font-medium">Responsable</th>
-                      <th className="px-6 py-2.5 font-medium" />
+                    <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                      <th className="px-6 py-3 font-semibold">Risque</th>
+                      <th className="px-6 py-3 font-semibold">Catégorie</th>
+                      <th className="px-6 py-3 font-semibold">Niveau</th>
+                      <th className="px-6 py-3 font-semibold">Statut</th>
+                      <th className="px-6 py-3 font-semibold">Responsable</th>
+                      <th className="px-6 py-3 font-semibold" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                         <td className="px-6 py-3 font-medium text-gray-900">{r.title}</td>
                         <td className="px-6 py-3 text-gray-600">{r.category}</td>
                         <td className="px-6 py-3">
@@ -257,12 +255,15 @@ export function RiskManagementPage(): JSX.Element {
 
             <SortableGroup id="riskManagement.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
                   <div className="flex items-center gap-4">
-                    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: donutBackground }}>
+                    <div
+                      className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: donutBackground }}
+                    >
                       <div className="h-11 w-11 rounded-full bg-white" />
                     </div>
                     <div className="space-y-1 text-[11px]">
@@ -280,7 +281,7 @@ export function RiskManagementPage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Alertes</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Alertes</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {criticalCount === 0 && highOpenCount === 0 ? (
@@ -291,7 +292,8 @@ export function RiskManagementPage(): JSX.Element {
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
                           <span className="text-gray-600">
-                            {criticalCount} risque{criticalCount > 1 ? 's' : ''} critique{criticalCount > 1 ? 's' : ''} nécessitant une action immédiate
+                            {criticalCount} risque{criticalCount > 1 ? 's' : ''} critique{criticalCount > 1 ? 's' : ''} nécessitant une
+                            action immédiate
                           </span>
                         </div>
                       )}
@@ -299,7 +301,8 @@ export function RiskManagementPage(): JSX.Element {
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500" />
                           <span className="text-gray-600">
-                            {highOpenCount} risque{highOpenCount > 1 ? 's' : ''} élevé{highOpenCount > 1 ? 's' : ''} en attente de traitement
+                            {highOpenCount} risque{highOpenCount > 1 ? 's' : ''} élevé{highOpenCount > 1 ? 's' : ''} en attente de
+                            traitement
                           </span>
                         </div>
                       )}
@@ -311,7 +314,7 @@ export function RiskManagementPage(): JSX.Element {
           </SortableGroup>
 
           <Card>
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">Matrice des risques (probabilité × impact)</h3>
+            <h3 className="mb-4 text-[15px] font-bold text-gray-900">Matrice des risques (probabilité × impact)</h3>
             <div className="flex gap-4">
               <div className="flex flex-col justify-between py-2 text-right text-[11px] text-gray-500">
                 {[...PROBABILITY_LABELS].reverse().map((l) => (

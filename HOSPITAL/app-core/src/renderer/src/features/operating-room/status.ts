@@ -9,10 +9,10 @@ export function surgeryStatusTone(status: SurgeryStatus): StatusTone {
 }
 
 export const SPECIALTY_CHART_COLOR: Record<string, string> = {
-  'Chirurgie générale': '#10b981',
+  'Chirurgie générale': '#14b8a6',
   Gynécologie: '#3b82f6',
-  Orthopédie: '#8b5cf6',
-  Urologie: '#f59e0b',
+  Orthopédie: '#12a04a',
+  Urologie: '#dea127',
   ORL: '#ef4444',
   Autres: '#9ca3af'
 }

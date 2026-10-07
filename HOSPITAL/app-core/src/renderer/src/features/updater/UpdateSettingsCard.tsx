@@ -20,10 +20,10 @@ export function UpdateSettingsCard(): JSX.Element {
 
   return (
     <Card>
-      <h3 className="mb-1 text-sm font-semibold text-gray-900">Mises à jour</h3>
+      <h3 className="mb-1 text-[15px] font-bold text-gray-900">Mises à jour</h3>
       <p className="mb-4 text-xs text-gray-500">
-        L&apos;application vérifie automatiquement les nouvelles versions dès son lancement puis toutes les 30 minutes,
-        les télécharge en arrière-plan et les installe au redémarrage. Les données de ce poste sont conservées.
+        L&apos;application vérifie automatiquement les nouvelles versions dès son lancement puis toutes les 30 minutes, les télécharge en
+        arrière-plan et les installe au redémarrage. Les données de ce poste sont conservées.
       </p>
 
       <p className="text-sm text-gray-700">
@@ -31,11 +31,9 @@ export function UpdateSettingsCard(): JSX.Element {
       </p>
 
       <div className="mt-2 min-h-[20px] text-xs">
-        {status?.state === 'DISABLED' && (
-          <p className="text-gray-400">Mise à jour automatique inactive en mode développement.</p>
-        )}
+        {status?.state === 'DISABLED' && <p className="text-gray-400">Mise à jour automatique inactive en mode développement.</p>}
         {status?.state === 'UP_TO_DATE' && (
-          <p className="flex items-center gap-1.5 text-emerald-600">
+          <p className="flex items-center gap-1.5 text-teal-600">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Application à jour (vérifié à {new Date(status.checkedAt).toLocaleTimeString('fr-FR')}).
           </p>

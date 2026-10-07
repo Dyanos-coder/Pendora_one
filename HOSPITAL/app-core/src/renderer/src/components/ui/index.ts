@@ -1,0 +1,17 @@
+// Bibliothèque de composants « Néon clinique » (HOSPITAL/Plan-Refonte-Graphique.md §4). Les écrans
+// métier y sont migrés lot par lot à l'étape 4.
+export { Button } from '../Button'
+export { Card } from '../Card'
+export { Modal } from '../Modal'
+export { ConfirmDialog } from '../ConfirmDialog'
+export { PageHeader } from '../PageHeader'
+export { StatusBadge, type StatusTone } from '../StatusBadge'
+export { ProgressRing } from '../ProgressRing'
+export { DataTable, type Column } from './DataTable'
+export { Drawer } from './Drawer'
+export { EcgLine } from './EcgLine'
+export { EmptyState, PulseLoader, Skeleton } from './Feedback'
+export { Field, Input, MoneyInput, Select, Textarea, inputClass } from './Field'
+export { KpiCard } from './KpiCard'
+export { Tabs, type TabItem } from './Tabs'
+export { ToastProvider, useToast } from './Toast'

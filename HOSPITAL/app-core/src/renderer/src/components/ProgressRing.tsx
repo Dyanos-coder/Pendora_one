@@ -11,8 +11,8 @@ export function ProgressRing({
   value,
   size = 80,
   strokeWidth = 8,
-  color = '#4F46E5',
-  trackColor = '#E5E7EB',
+  color = 'var(--color-accent-500)',
+  trackColor = 'var(--color-gray-200)',
   label
 }: ProgressRingProps): JSX.Element {
   const radius = (size - strokeWidth) / 2
@@ -23,13 +23,13 @@ export function ProgressRing({
   return (
     <div className="relative flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
+        <circle cx={center} cy={center} r={radius} fill="none" style={{ stroke: trackColor }} strokeWidth={strokeWidth} />
         <circle
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke={color}
+          style={{ stroke: color }}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}

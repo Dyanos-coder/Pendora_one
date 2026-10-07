@@ -20,6 +20,9 @@ interface StoredConfig {
   jwtSecret?: string
   /** Poste activé auprès du site Pandora (jeton, hôpital), JSON chiffré puis encodé en base64. */
   device?: string | null
+  /** Développement uniquement : dernière connexion réussie (JSON chiffré), réutilisée quand on clique
+   * « Se connecter » avec les champs vides. Jamais écrit par l'application installée. */
+  devLogin?: string | null
   /** Poste révoqué par Pandora : le code d'activation est redemandé au prochain lancement. */
   deviceRevoked?: boolean
   /** Imprimante des reçus de caisse sur ce poste (nom système) — vide = boîte d'impression. */
@@ -62,7 +65,7 @@ function decrypt(value: string): string {
 
 export function getConfig(): AppConfig {
   const stored = readStored()
-  return { setupComplete: stored.setupComplete === true, dbConfigured: getStoredDbAccess() !== null }
+  return { setupComplete: stored.setupComplete === true, dbConfigured: getStoredDbAccess() !== null, devMode: !app.isPackaged }
 }
 
 export function markSetupComplete(): AppConfig {
@@ -93,6 +96,8 @@ export function toPrefill(config: DbConnectionConfig | null): DbAccessPrefill | 
  * l'hôpital sur le site (sert aussi à vérifier l'abonnement). */
 export interface StoredDevice {
   token: string
+  /** Code d'activation saisi : vérifié auprès du site à chaque lancement, affiché dans Paramètres › Établissement. */
+  code: string
   hospitalId: string
   hospitalName: string
   siteUrl: string
@@ -119,6 +124,23 @@ export function markDeviceRevoked(): void {
 
 export function isDeviceRevoked(): boolean {
   return readStored().deviceRevoked === true
+}
+
+/** Développement uniquement (voir `devLogin`) : identifiants de la dernière connexion réussie. */
+export function getDevLogin(): { email: string; password: string } | null {
+  if (app.isPackaged) return null
+  const stored = readStored().devLogin
+  if (!stored) return null
+  try {
+    return JSON.parse(decrypt(stored)) as { email: string; password: string }
+  } catch {
+    return null
+  }
+}
+
+export function saveDevLogin(email: string, password: string): void {
+  if (app.isPackaged) return
+  writeStored({ devLogin: encrypt(JSON.stringify({ email, password })) })
 }
 
 export function getReceiptPrinter(): string | null {

@@ -1,13 +1,18 @@
 import { Router } from 'express'
+import multer from 'multer'
 import { requireAccess, requireAuth } from '../middleware/auth.middleware'
 import {
   countDistinctEndoscopyPatients,
   createEndoscopyProcedure,
   deleteEndoscopyProcedure,
+  getEndoscopyResultFile,
   listEndoscopyProcedures,
-  updateEndoscopyProcedure
+  updateEndoscopyProcedure,
+  uploadEndoscopyResultFile
 } from '../services/endoscopy.service'
 import { logAudit } from '../services/audit.service'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 export const endoscopyRouter = Router()
 
@@ -46,4 +51,30 @@ endoscopyRouter.delete('/:id', requireAccess('endoscopy', 'full'), async (req, r
   await deleteEndoscopyProcedure(req.params.id)
   await logAudit(req.auth!.userId, 'endoscopy_procedure.delete', 'EndoscopyProcedure', req.params.id)
   res.json({ ok: true })
+})
+
+// --- Fichier de résultat ------------------------------------------------------------------------
+
+endoscopyRouter.get('/:id/file', async (req, res) => {
+  const file = await getEndoscopyResultFile(req.params.id)
+  if (!file) {
+    res.status(404).json({ ok: false, error: 'Aucun fichier pour cet examen.' })
+    return
+  }
+  res.json({ ok: true, document: file })
+})
+
+endoscopyRouter.post('/:id/file', requireAccess('endoscopy', 'write'), upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ ok: false, error: 'Aucun fichier reçu.' })
+    return
+  }
+
+  const procedure = await uploadEndoscopyResultFile(req.params.id, {
+    fileName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    content: req.file.buffer
+  })
+  await logAudit(req.auth!.userId, 'endoscopy_procedure.uploadFile', 'EndoscopyProcedure', req.params.id)
+  res.json({ ok: true, procedure })
 })

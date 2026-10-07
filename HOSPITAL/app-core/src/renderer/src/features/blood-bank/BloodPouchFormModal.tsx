@@ -12,8 +12,8 @@ interface BloodPouchFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
 const COMPONENTS = ['Concentré de globules rouges', 'Plasma frais congelé', 'Plasma thérapeutique', 'Plaquettes']
@@ -40,9 +40,7 @@ export function BloodPouchFormModal({ onClose, onCreated, editing }: BloodPouchF
   const [volumeMl, setVolumeMl] = useState<number | ''>(editing?.volumeMl ?? 450)
   const [donorName, setDonorName] = useState(editing?.donorName ?? '')
   const [patientId, setPatientId] = useState(editing?.patientId ?? '')
-  const [collectionDate, setCollectionDate] = useState(
-    editing ? editing.collectionDate.slice(0, 10) : todayLocal()
-  )
+  const [collectionDate, setCollectionDate] = useState(editing ? editing.collectionDate.slice(0, 10) : todayLocal())
   const [expiryDate, setExpiryDate] = useState(editing ? editing.expiryDate.slice(0, 10) : '')
   const [status, setStatus] = useState<ApiBloodPouchStatus>(editing?.status ?? 'EN_ATTENTE_ANALYSE')
   const [submitting, setSubmitting] = useState(false)

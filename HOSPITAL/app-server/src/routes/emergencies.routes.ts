@@ -3,6 +3,7 @@ import { requireAccess, requireAuth } from '../middleware/auth.middleware'
 import {
   createEmergencyVisit,
   deleteEmergencyVisit,
+  exportEmergencyVisits,
   listEmergencyVisits,
   updateEmergencyVisit
 } from '../services/emergencies.service'
@@ -12,6 +13,13 @@ export const emergenciesRouter = Router()
 
 emergenciesRouter.use(requireAuth)
 emergenciesRouter.use(requireAccess('emergencies', 'read'))
+
+// Doit rester avant toute route GET /:id du même routeur (aucune ici, mais gardé en tête par
+// précaution, item 10).
+emergenciesRouter.get('/export', async (_req, res) => {
+  const document = await exportEmergencyVisits()
+  res.json({ ok: true, document })
+})
 
 emergenciesRouter.get('/', async (_req, res) => {
   const visits = await listEmergencyVisits()

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiDepotItem, ApiInventoryCount } from '@shared/stocks-types'
 import { InventoryCountFormModal } from './InventoryCountFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR')
@@ -31,12 +32,7 @@ export function InventoryTab({ items }: { items: ApiDepotItem[] }): JSX.Element 
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -84,29 +80,31 @@ export function InventoryTab({ items }: { items: ApiDepotItem[] }): JSX.Element 
       )}
 
       {counts.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun comptage enregistré.</p>
+        <EmptyState title="Aucun comptage enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Article</th>
-                <th className="px-6 py-2.5 font-medium">Attendu</th>
-                <th className="px-6 py-2.5 font-medium">Compté</th>
-                <th className="px-6 py-2.5 font-medium">Écart</th>
-                <th className="px-6 py-2.5 font-medium">Date</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Article</th>
+                <th className="px-6 py-3 font-semibold">Attendu</th>
+                <th className="px-6 py-3 font-semibold">Compté</th>
+                <th className="px-6 py-3 font-semibold">Écart</th>
+                <th className="px-6 py-3 font-semibold">Date</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {counts.map((c) => (
-                <tr key={c.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={c.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{c.reference}</td>
                   <td className="px-6 py-3 text-gray-600">{c.itemName}</td>
                   <td className="px-6 py-3 text-gray-600">{c.expectedQuantity}</td>
                   <td className="px-6 py-3 text-gray-600">{c.countedQuantity}</td>
-                  <td className={`px-6 py-3 font-medium ${c.discrepancy === 0 ? 'text-gray-500' : c.discrepancy > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <td
+                    className={`px-6 py-3 font-medium ${c.discrepancy === 0 ? 'text-gray-500' : c.discrepancy > 0 ? 'text-teal-600' : 'text-red-600'}`}
+                  >
                     {c.discrepancy > 0 ? '+' : ''}
                     {c.discrepancy}
                   </td>

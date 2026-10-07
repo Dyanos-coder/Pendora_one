@@ -21,7 +21,6 @@ import {
   Search,
   Tags,
   Info,
-  Loader2,
   Plus,
   Trash2
 } from 'lucide-react'
@@ -36,22 +35,58 @@ import { stockStateTone, CATEGORY_CHART_COLOR } from './status'
 import type { MedicationStock, StockState } from './types'
 import { MedicationFormModal } from './MedicationFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 interface PharmacyPageProps {
   onNavigate: (page: PageId) => void
 }
 
 const FEATURE_CARDS = [
-  { icon: Pill, color: 'violet', title: 'Médicaments', description: 'Consulter le catalogue des médicaments, catégories, formes et lots.', cta: 'Voir les médicaments', page: null },
-  { icon: Boxes, color: 'emerald', title: 'Stock', description: 'Voir les quantités disponibles, niveaux, emplacements et mouvements.', cta: 'Voir le stock', page: 'stocks' as PageId },
-  { icon: ClipboardList, color: 'blue', title: 'Délivrances', description: 'Voir les délivrances aux patients et aux services de l’hôpital.', cta: 'Voir les délivrances', page: null },
-  { icon: Bell, color: 'amber', title: 'À surveiller', description: 'Alertes, ruptures, stocks faibles et produits bientôt périmés.', cta: 'Voir les alertes', page: null },
-  { icon: ShoppingCart, color: 'blue', title: 'Besoin de réapprovisionnement', description: 'Créer un besoin qui sera transmis à Achats & Fournisseurs.', cta: 'Créer un besoin', page: 'procurement' as PageId }
+  {
+    icon: Pill,
+    color: 'violet',
+    title: 'Médicaments',
+    description: 'Consulter le catalogue des médicaments, catégories, formes et lots.',
+    cta: 'Voir les médicaments',
+    page: null
+  },
+  {
+    icon: Boxes,
+    color: 'emerald',
+    title: 'Stock',
+    description: 'Voir les quantités disponibles, niveaux, emplacements et mouvements.',
+    cta: 'Voir le stock',
+    page: 'stocks' as PageId
+  },
+  {
+    icon: ClipboardList,
+    color: 'blue',
+    title: 'Délivrances',
+    description: 'Voir les délivrances aux patients et aux services de l’hôpital.',
+    cta: 'Voir les délivrances',
+    page: null
+  },
+  {
+    icon: Bell,
+    color: 'amber',
+    title: 'À surveiller',
+    description: 'Alertes, ruptures, stocks faibles et produits bientôt périmés.',
+    cta: 'Voir les alertes',
+    page: null
+  },
+  {
+    icon: ShoppingCart,
+    color: 'blue',
+    title: 'Besoin de réapprovisionnement',
+    description: 'Créer un besoin qui sera transmis à Achats & Fournisseurs.',
+    cta: 'Créer un besoin',
+    page: 'procurement' as PageId
+  }
 ]
 
 const COLOR_CLASSES: Record<string, string> = {
-  violet: 'bg-violet-50 text-violet-600',
-  emerald: 'bg-emerald-50 text-emerald-600',
+  violet: 'bg-accent-50 text-accent-600',
+  emerald: 'bg-teal-50 text-teal-600',
   blue: 'bg-blue-50 text-blue-600',
   amber: 'bg-amber-50 text-amber-600'
 }
@@ -100,9 +135,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
         setError(medResult.error)
       }
       if (procResult.ok) {
-        setPharmacyNeeds(
-          procResult.data.requests.filter((r) => r.category === 'Pharmacie' && r.status === 'A_VALIDER').length
-        )
+        setPharmacyNeeds(procResult.data.requests.filter((r) => r.category === 'Pharmacie' && r.status === 'A_VALIDER').length)
       }
       setLoading(false)
     })
@@ -230,10 +263,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement de la pharmacie…
-        </div>
+        <PulseLoader label="Chargement de la pharmacie…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
@@ -242,43 +272,43 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
           <div className="space-y-6 lg:col-span-2">
             {/* KPI row */}
             <SortableGroup id="pharmacy.grid2" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <Card className="border-t-4 border-t-violet-400 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                  <Boxes className="h-5 w-5 text-violet-600" />
+              <Card className="p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                  <Boxes className="h-5 w-5 text-accent-600" />
                 </div>
                 <p className="mt-3 text-xs font-medium text-gray-500">Unités en stock</p>
-                <p className="text-xl font-bold text-gray-900">{totalUnits.toLocaleString('fr-FR')}</p>
+                <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{totalUnits.toLocaleString('fr-FR')}</p>
               </Card>
-              <Card className="border-t-4 border-t-emerald-400 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                  <Package className="h-5 w-5 text-emerald-600" />
+              <Card className="p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                  <Package className="h-5 w-5 text-teal-600" />
                 </div>
                 <p className="mt-3 text-xs font-medium text-gray-500">Médicaments disponibles</p>
-                <p className="text-xl font-bold text-gray-900">{medications.length}</p>
+                <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{medications.length}</p>
                 <p className="text-xs text-gray-400">Références</p>
               </Card>
-              <Card className="border-t-4 border-t-amber-400 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+              <Card className="p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                   <TriangleAlert className="h-5 w-5 text-amber-600" />
                 </div>
                 <p className="mt-3 text-xs font-medium text-gray-500">Stocks faibles</p>
-                <p className="text-xl font-bold text-gray-900">{stockFaible.length}</p>
+                <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{stockFaible.length}</p>
                 <p className="text-xs text-gray-400">Références</p>
               </Card>
-              <Card className="border-t-4 border-t-red-400 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+              <Card className="p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                   <PackageX className="h-5 w-5 text-red-600" />
                 </div>
                 <p className="mt-3 text-xs font-medium text-gray-500">Ruptures de stock</p>
-                <p className="text-xl font-bold text-gray-900">{ruptures.length}</p>
+                <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{ruptures.length}</p>
                 <p className="text-xs text-gray-400">Références</p>
               </Card>
-              <Card className="border-t-4 border-t-orange-400 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+              <Card className="p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-orange-50">
                   <Clock className="h-5 w-5 text-orange-600" />
                 </div>
                 <p className="mt-3 text-xs font-medium text-gray-500">Péremptions &lt; 30 jours</p>
-                <p className="text-xl font-bold text-gray-900">{expiringSoon.length}</p>
+                <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{expiringSoon.length}</p>
                 <p className="text-xs text-gray-400">Références</p>
               </Card>
             </SortableGroup>
@@ -305,7 +335,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
 
             {/* À surveiller aujourd'hui */}
             <div>
-              <h3 className="mb-3 text-sm font-semibold text-gray-900">À surveiller aujourd&apos;hui</h3>
+              <h3 className="mb-3 text-[15px] font-bold text-gray-900">À surveiller aujourd&apos;hui</h3>
               <SortableGroup id="pharmacy.grid4" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {WATCH_STRIP.map((w) => (
                   <Card key={w.label} className={`${w.bg} p-4`}>
@@ -320,7 +350,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
             <SortableGroup id="pharmacy.grid5" className="grid grid-cols-1 gap-6 xl:grid-cols-5">
               <Card className="p-0 xl:col-span-3">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Stocks critiques</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Stocks critiques</h3>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                     <input
@@ -328,30 +358,30 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Rechercher un médicament, une catégorie..."
-                      className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                      className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     />
                   </div>
                 </div>
                 {medications.length === 0 ? (
-                  <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun médicament enregistré.</p>
+                  <EmptyState title="Aucun médicament enregistré." />
                 ) : filteredMedications.length === 0 ? (
-                  <p className="px-6 py-8 text-center text-sm text-gray-400">Aucun médicament ne correspond à cette recherche.</p>
+                  <EmptyState title="Aucun médicament ne correspond à cette recherche." />
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                       <thead>
-                        <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                          <th className="px-6 py-2.5 font-medium">Médicament</th>
-                          <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                          <th className="px-6 py-2.5 font-medium">Disponible</th>
-                          <th className="px-6 py-2.5 font-medium">État</th>
-                          <th className="px-6 py-2.5 font-medium">Emplacement</th>
-                          <th className="px-6 py-2.5 font-medium" />
+                        <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                          <th className="px-6 py-3 font-semibold">Médicament</th>
+                          <th className="px-6 py-3 font-semibold">Catégorie</th>
+                          <th className="px-6 py-3 font-semibold">Disponible</th>
+                          <th className="px-6 py-3 font-semibold">État</th>
+                          <th className="px-6 py-3 font-semibold">Emplacement</th>
+                          <th className="px-6 py-3 font-semibold" />
                         </tr>
                       </thead>
                       <tbody>
                         {filteredMedications.map((m) => (
-                          <tr key={m.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                          <tr key={m.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                             <td className="px-6 py-3 font-medium text-gray-900">{m.name}</td>
                             <td className="px-6 py-3 text-gray-600">{m.category}</td>
                             <td className="px-6 py-3 text-gray-600">
@@ -393,7 +423,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
               <div className="space-y-6 xl:col-span-2">
                 <Card>
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
+                    <h3 className="text-[15px] font-bold text-gray-900">Répartition par catégorie</h3>
                   </div>
                   {categoryBreakdown.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune donnée.</p>
@@ -430,7 +460,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
             {/* Actions rapides */}
             <Card className="p-0">
               <div className="border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
               </div>
               <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4">
                 {QUICK_ACTIONS.map((action) => (
@@ -455,7 +485,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
           <SortableGroup id="pharmacy.side1" className="space-y-6">
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Stock par emplacement</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Stock par emplacement</h3>
               </div>
               {stockByLocation.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune donnée.</p>
@@ -468,10 +498,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
                         <span className="font-medium text-gray-900">{loc.units.toLocaleString('fr-FR')} unités</span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className="h-full rounded-full bg-accent-500"
-                          style={{ width: `${(loc.units / maxLocationUnits) * 100}%` }}
-                        />
+                        <div className="h-full rounded-full bg-accent-500" style={{ width: `${(loc.units / maxLocationUnits) * 100}%` }} />
                       </div>
                     </div>
                   ))}
@@ -481,7 +508,7 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
 
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Besoin de réapprovisionnement</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Besoin de réapprovisionnement</h3>
               </div>
               {reorderNeeds.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucun besoin identifié.</p>
@@ -502,14 +529,13 @@ export function PharmacyPage({ onNavigate }: PharmacyPageProps): JSX.Element {
               </Button>
             </Card>
 
-            <Card className="bg-gradient-to-br from-white to-accent-50/40">
+            <Card className="bg-gradient-to-br from-surface to-accent-50/40">
               <div className="flex items-start gap-2.5">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent-500" />
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Bon à savoir</p>
                   <p className="mt-1 text-xs text-gray-600">
-                    La gestion des fournisseurs, commandes et réceptions se fait dans le module Achats &amp;
-                    Fournisseurs.
+                    La gestion des fournisseurs, commandes et réceptions se fait dans le module Achats &amp; Fournisseurs.
                   </p>
                 </div>
               </div>

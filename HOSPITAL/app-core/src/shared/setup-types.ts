@@ -127,6 +127,8 @@ export interface AppConfig {
   setupComplete: boolean
   /** Des accès à la base distante sont enregistrés sur ce poste. */
   dbConfigured: boolean
+  /** Application non installée (développement) : connexion rapide avec les champs vides. */
+  devMode: boolean
 }
 
 // --- Accès à la base MariaDB distante (backend embarqué, voir Plan-Backend-Embarque-Travaux.md) ---
@@ -166,4 +168,6 @@ export interface ActivationInfo {
   /** Le poste a un jeton du site Pandora (activé par code, ou inscrit automatiquement). */
   activated: boolean
   hospitalName: string | null
+  /** Code d'activation de ce poste (affiché dans Paramètres › Établissement). */
+  code: string | null
 }

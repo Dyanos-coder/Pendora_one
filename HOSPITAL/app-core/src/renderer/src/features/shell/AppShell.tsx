@@ -30,13 +30,16 @@ import {
   LogOut,
   Bell,
   Search,
-  ChevronDown
+  ChevronDown,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react'
 import type { Session } from '@shared/auth-types'
 import { applyModuleDependencies } from '@shared/setup-types'
 import type { ConnectivityStatus } from '@shared/sync-types'
 import type { PageId } from './nav-types'
-import { IMPLEMENTED_PAGES, PAGE_DOMAIN } from './nav-types'
+import { PAGE_DOMAIN } from './nav-types'
 import { accessLevel } from '@shared/permissions'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
@@ -74,6 +77,7 @@ import { AIPredictionsPage } from '@renderer/features/ai-predictions/AIPredictio
 import { AnalyticsPage } from '@renderer/features/analytics/AnalyticsPage'
 import { AutomationStudioPage } from '@renderer/features/automation-studio/AutomationStudioPage'
 import { ComingSoonPage } from '@renderer/features/shell/ComingSoonPage'
+import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { SubscriptionBanner, SubscriptionLock } from '@renderer/features/subscription/SubscriptionLock'
 import { useSubscription } from '@renderer/features/subscription/useSubscription'
 
@@ -178,8 +182,44 @@ const ROLE_LABEL: Record<string, string> = {
   CAISSIER: 'Caissier(ère)'
 }
 
+interface RailItemProps {
+  icon: ComponentType<{ className?: string }>
+  label: string
+  active: boolean
+  collapsed: boolean
+  onClick: () => void
+}
+
+/** Entrée de la barre latérale : l'écran actif porte une barre verte lumineuse à gauche. */
+function RailItem({ icon: Icon, label, active, collapsed, onClick }: RailItemProps): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      aria-current={active ? 'page' : undefined}
+      className={
+        'relative flex w-full items-center gap-3 rounded-[10px] py-2 text-[13.5px] transition-colors ' +
+        (collapsed ? 'justify-center px-0 ' : 'px-2.5 ') +
+        (active
+          ? 'bg-gradient-to-r from-[#34cc6b]/[0.16] to-transparent font-semibold text-white'
+          : 'text-[#c3d1c9] hover:bg-white/[0.05] hover:text-white')
+      }
+    >
+      {active && (
+        <span
+          className={
+            'absolute top-1.5 bottom-1.5 w-[3px] rounded-full bg-[#34cc6b] shadow-[0_0_10px_#34cc6b] left-0'
+          }
+        />
+      )}
+      <Icon className={'h-[17px] w-[17px] shrink-0 ' + (active ? 'text-[#34cc6b]' : 'opacity-80')} />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </button>
+  )
+}
+
 export function AppShell({ session, enabledModules, onLogout }: AppShellProps): JSX.Element {
-  // `settings` toujours visible (sinon impossible de rouvrir Paramètres → Ultra Admin pour
+  // `settings` toujours visible (sinon impossible de rouvrir Paramètres → Établissement pour
   // réactiver un module décoché par erreur) — voir ModuleTree.tsx pour l'édition de ce réglage.
   // Deux filtres cumulés : modules activés pour l'établissement ET droits du rôle (un écran sans
   // aucun accès pour ce rôle est masqué — ex. un caissier ne voit que Caisse, Patients et Paramètres).
@@ -204,7 +244,26 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   // Ouverture de Paramètres directement sur « Abonnement » (bandeau d'échéance) ; `settingsKey`
   // remonte la page pour appliquer la section même si Paramètres est déjà affiché.
-  const [settingsSection, setSettingsSection] = useState<'Abonnement' | undefined>(undefined)
+  const [settingsSection, setSettingsSection] = useState<'Abonnement' | 'Apparence' | undefined>(undefined)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('pandora-sidebar-collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  function toggleCollapsed(): void {
+    setCollapsed((value) => {
+      try {
+        localStorage.setItem('pandora-sidebar-collapsed', value ? '0' : '1')
+      } catch {
+        // Préférence non mémorisée : sans conséquence.
+      }
+      return !value
+    })
+  }
   const [settingsKey, setSettingsKey] = useState(0)
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(
     () => new Set([visibleNav[0]?.label ?? NAV[0].label, ...(showDashboard || !cashierVisible ? [] : ['Finance'])])
@@ -243,6 +302,41 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Recherche universelle : Ctrl+K (ou Cmd+K) depuis n'importe quel écran.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent): void {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((open) => !open)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  function openSettingsSection(sectionName: 'Abonnement' | 'Apparence'): void {
+    navigate('settings')
+    setSettingsSection(sectionName)
+    setSettingsKey((k) => k + 1)
+  }
+
+  const paletteCommands: PaletteCommand[] = [
+    ...(showDashboard ? [{ id: 'page:dashboard', group: 'Écrans' as const, label: 'Tableau de bord', icon: LayoutDashboard, run: () => navigate('dashboard') }] : []),
+    ...visibleNav.flatMap((group) =>
+      group.items.map((item) => ({
+        id: `page:${item.id}`,
+        group: 'Écrans' as const,
+        label: item.label,
+        hint: group.label,
+        icon: item.icon,
+        run: () => navigate(item.id)
+      }))
+    ),
+    { id: 'action:subscription', group: 'Actions', label: 'Voir mon abonnement', hint: 'Paramètres', keywords: 'abonnement payer renouveler', icon: Settings, run: () => openSettingsSection('Abonnement') },
+    { id: 'action:theme', group: 'Actions', label: 'Changer le thème (clair / sombre)', hint: 'Apparence', keywords: 'mode sombre clair nuit', icon: Moon, run: () => openSettingsSection('Apparence') },
+    { id: 'action:logout', group: 'Actions', label: 'Se déconnecter', icon: LogOut, run: () => setShowLogoutConfirm(true) }
+  ]
 
   function toggleGroup(label: string): void {
     setOpenGroups((prev) => {
@@ -369,90 +463,106 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
     <LayoutProvider userId={session.user.id}>
     <div className="flex h-screen bg-gray-50 text-gray-900">
       <SyncConflictToast />
-      {/* Sidebar */}
-      <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
-        <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-5">
-          <BrandMark />
-          <div className="leading-tight">
-            <p className="text-sm font-bold tracking-tight text-gray-900">PANDORA</p>
-            <p className="text-xs font-semibold tracking-wide text-accent-600">HEALTH</p>
-          </div>
+      {/* Barre latérale « encre » (Plan-Refonte-Graphique.md §5) : toujours sombre, élément actif
+          signalé par une barre verte lumineuse ; réductible en icônes seules (mémorisé sur le poste). */}
+      <aside
+        className={
+          'flex shrink-0 flex-col border-r border-white/[0.04] bg-ink-950 text-[#d3e0d8] transition-[width] duration-200 ' +
+          (collapsed ? 'w-[72px]' : 'w-64')
+        }
+      >
+        <div className={'flex items-center gap-2.5 border-b border-white/[0.06] py-4 ' + (collapsed ? 'justify-center px-2' : 'px-4')}>
+          <BrandMark className="h-9 w-9 shadow-[0_0_18px_rgba(52,204,107,0.25)]" />
+          {!collapsed && (
+            <div className="leading-none">
+              <p className="font-display text-[14px] font-extrabold tracking-[0.04em] text-white">PANDORA</p>
+              <p className="mt-1 text-[10px] font-semibold tracking-[0.24em] text-gold-400">HEALTH</p>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pt-4 pb-4">
+        <nav className={'rail-scroll flex-1 overflow-y-auto pt-4 pb-4 ' + (collapsed ? 'space-y-1 px-2' : 'space-y-4 px-3')}>
           {showDashboard && (
-            <button
+            <RailItem
+              icon={LayoutDashboard}
+              label="Tableau de bord"
+              active={activePage === 'dashboard'}
+              collapsed={collapsed}
               onClick={() => navigate('dashboard')}
-              className={
-                'flex w-full items-center gap-3 rounded-lg border-l-2 py-2 pl-2.5 pr-3 text-sm font-medium transition-colors ' +
-                (activePage === 'dashboard'
-                  ? 'border-accent-500 bg-accent-50 font-semibold text-accent-700'
-                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900')
-              }
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Tableau de bord
-            </button>
+            />
           )}
 
           {visibleNav.map((group) => {
-            const open = openGroups.has(group.label)
+            const open = collapsed || openGroups.has(group.label)
             return (
-              <div key={group.label}>
-                <button
-                  onClick={() => toggleGroup(group.label)}
-                  className="flex w-full items-center justify-between px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600"
-                >
-                  {group.label}
-                  <ChevronDown className={'h-3 w-3 transition-transform ' + (open ? 'rotate-0' : '-rotate-90')} />
-                </button>
-                <div
-                  className={
-                    'grid transition-all duration-200 ease-out ' +
-                    (open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')
-                  }
-                >
+              <div key={group.label} className={collapsed ? 'space-y-1 border-t border-white/[0.06] pt-1' : ''}>
+                {!collapsed && (
+                  <button
+                    onClick={() => toggleGroup(group.label)}
+                    className="flex w-full items-center justify-between gap-2 px-2.5 pb-1.5 text-left text-[10px] font-semibold tracking-[0.12em] text-[#74877c] uppercase hover:text-[#b8c7bf]"
+                  >
+                    <span className="truncate">{group.label}</span>
+                    <ChevronDown className={'h-3 w-3 shrink-0 transition-transform ' + (open ? 'rotate-0' : '-rotate-90')} />
+                  </button>
+                )}
+                <div className={'grid transition-all duration-200 ease-out ' + (open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
                   <div className="space-y-0.5 overflow-hidden">
-                    {group.items.map((item) => {
-                      const Icon = item.icon
-                      const active = item.id === activePage
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => navigate(item.id)}
-                          className={
-                            'flex w-full items-center gap-3 rounded-lg border-l-2 py-2 pl-2.5 pr-3 text-sm font-medium transition-colors ' +
-                            (active
-                              ? 'border-accent-500 bg-accent-50 font-semibold text-accent-700'
-                              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900')
-                          }
-                        >
-                          <Icon className="h-4 w-4" />
-                          {item.label}
-                          {!IMPLEMENTED_PAGES.has(item.id) && (
-                            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gray-300" />
-                          )}
-                        </button>
-                      )
-                    })}
+                    {group.items.map((item) => (
+                      <RailItem
+                        key={item.id}
+                        icon={item.icon}
+                        label={item.label}
+                        active={item.id === activePage}
+                        collapsed={collapsed}
+                        onClick={() => navigate(item.id)}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
             )
           })}
         </nav>
+
+        {subscription && (subscription.state === 'ACTIVE' || subscription.state === 'EXPIRING') && subscription.endDate && !collapsed && (
+          <button
+            onClick={() => openSettingsSection('Abonnement')}
+            className={
+              'mx-3 mb-2 rounded-xl border px-3 py-2.5 text-left text-xs transition-colors ' +
+              (subscription.state === 'EXPIRING'
+                ? 'border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/15'
+                : 'border-gold-400/30 bg-gradient-to-br from-gold-400/[0.12] to-transparent hover:border-gold-400/50')
+            }
+          >
+            <span className={'block font-semibold ' + (subscription.state === 'EXPIRING' ? 'text-amber-300' : 'text-gold-400')}>
+              {subscription.state === 'EXPIRING' ? 'Abonnement à renouveler' : 'Abonnement à jour'}
+            </span>
+            <span className="text-[#8fa398]">Jusqu&apos;au {subscription.endDate.split('-').reverse().join('/')}</span>
+          </button>
+        )}
+
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+          className={'flex items-center gap-2 border-t border-white/[0.06] py-3 text-xs text-[#74877c] hover:text-white ' + (collapsed ? 'justify-center' : 'px-5')}
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          {!collapsed && 'Réduire le menu'}
+        </button>
       </aside>
 
       {/* Colonne principale */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex items-center justify-between gap-4 border-b border-gray-100 bg-white px-6 py-3 shadow-sm">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              placeholder="Rechercher un patient, dossier, acte, médicament..."
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:bg-white focus:outline-none"
-            />
-          </div>
+        <header className="z-10 flex items-center justify-between gap-4 border-b border-gray-200/80 bg-white px-6 py-3">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="flex w-full max-w-md items-center gap-2.5 rounded-[10px] border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm text-gray-400 transition-colors hover:border-accent-500/50 hover:bg-white"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">Rechercher un patient, un dossier, un écran…</span>
+            <kbd className="shrink-0 rounded-md border border-gray-300 bg-white px-1.5 py-0.5 font-mono text-[11px] text-gray-500">Ctrl K</kbd>
+          </button>
 
           <div className="flex shrink-0 items-center gap-3">
             <LayoutToggle />
@@ -466,7 +576,7 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
             </button>
 
             <div className="flex items-center gap-2.5 rounded-full border border-gray-200 py-1 pl-1 pr-3 transition-colors hover:border-gray-300">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-accent-500 text-xs font-semibold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#34cc6b] to-gold-400 font-display text-xs font-bold text-ink-950">
                 {initials}
               </span>
               <div className="text-left leading-tight">
@@ -484,10 +594,10 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-8">
+        <main className="flex-1 overflow-auto px-8 py-7">
           {connectivityStatus === 'OFFLINE' && (
-            <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
-              <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-100 px-4 py-2.5 text-xs text-gray-600">
+              <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-gray-400" />
               Hors ligne — certains écrans affichent uniquement les données déjà consultées en ligne
               auparavant ; d&apos;autres nécessitent une connexion pour fonctionner.
             </div>
@@ -510,17 +620,20 @@ export function AppShell({ session, enabledModules, onLogout }: AppShellProps): 
           {subscription && (
             <SubscriptionBanner
               info={subscription}
-              onOpen={() => {
-                navigate('settings')
-                setSettingsSection('Abonnement')
-                setSettingsKey((k) => k + 1)
-              }}
+              onOpen={() => openSettingsSection('Abonnement')}
             />
           )}
           <LayoutEditBanner pageKey={`${activePage}:${selectedPatientId ?? ''}`} />
           {renderPage()}
         </main>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={paletteCommands}
+        onOpenPatient={canSee('patients') && enabledSet.has('patients') ? openPatient : undefined}
+      />
 
       {subscription?.blocked && <SubscriptionLock info={subscription} session={session} onLogout={onLogout} />}
 

@@ -15,9 +15,9 @@ export function cardioPriorityTone(priority: CardioPriority): StatusTone {
 
 export const EXAM_TYPE_CHART_COLOR: Record<string, string> = {
   Échocardiographie: '#3b82f6',
-  ECG: '#10b981',
-  'Holter ECG 24h': '#f59e0b',
-  "Épreuve d'effort": '#8b5cf6',
+  ECG: '#14b8a6',
+  'Holter ECG 24h': '#dea127',
+  "Épreuve d'effort": '#12a04a',
   Coronarographie: '#ef4444',
   Autres: '#9ca3af'
 }

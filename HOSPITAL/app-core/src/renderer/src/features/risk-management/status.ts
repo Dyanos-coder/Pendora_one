@@ -15,7 +15,7 @@ export function riskStatusTone(status: RiskStatus): StatusTone {
 }
 
 export const LEVEL_CELL_COLOR: Record<RiskLevel, string> = {
-  Faible: 'bg-emerald-100 text-emerald-700',
+  Faible: 'bg-teal-100 text-teal-700',
   Modéré: 'bg-amber-100 text-amber-700',
   Élevé: 'bg-orange-100 text-orange-700',
   Critique: 'bg-red-100 text-red-700'

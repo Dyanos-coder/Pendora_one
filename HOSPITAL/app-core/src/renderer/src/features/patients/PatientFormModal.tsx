@@ -11,8 +11,8 @@ interface PatientFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 export function PatientFormModal({ onClose, onCreated, editing }: PatientFormModalProps): JSX.Element {
   const [firstName, setFirstName] = useState(editing?.firstName ?? '')

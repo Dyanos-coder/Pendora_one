@@ -19,16 +19,23 @@ export function Modal({ title, onClose, children, widthClassName = 'max-w-lg' }:
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/50 p-4 backdrop-blur-[3px]"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${widthClassName} rounded-xl bg-white p-6 shadow-xl`}
+        className={`animate-pop-in max-h-[calc(100vh-2rem)] w-full overflow-y-auto ${widthClassName} rounded-[20px] border border-gray-200 bg-white p-6 shadow-[0_24px_60px_rgba(5,20,12,0.28)]`}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 className="text-base font-bold text-gray-900">{title}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Fermer"
+            className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>

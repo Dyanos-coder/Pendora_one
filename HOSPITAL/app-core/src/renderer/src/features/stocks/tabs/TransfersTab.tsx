@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiDepot, ApiDepotItem, ApiStockTransfer } from '@shared/stocks-types'
 import { TransferFormModal } from './TransferFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR')
@@ -31,12 +32,7 @@ export function TransfersTab({ items, depots }: { items: ApiDepotItem[]; depots:
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -86,24 +82,24 @@ export function TransfersTab({ items, depots }: { items: ApiDepotItem[]; depots:
       )}
 
       {transfers.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun transfert enregistré.</p>
+        <EmptyState title="Aucun transfert enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Article source</th>
-                <th className="px-6 py-2.5 font-medium">Vers</th>
-                <th className="px-6 py-2.5 font-medium">Quantité</th>
-                <th className="px-6 py-2.5 font-medium">Date</th>
-                <th className="px-6 py-2.5 font-medium">Responsable</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Article source</th>
+                <th className="px-6 py-3 font-semibold">Vers</th>
+                <th className="px-6 py-3 font-semibold">Quantité</th>
+                <th className="px-6 py-3 font-semibold">Date</th>
+                <th className="px-6 py-3 font-semibold">Responsable</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {transfers.map((t) => (
-                <tr key={t.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={t.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{t.reference}</td>
                   <td className="px-6 py-3 text-gray-600">{t.fromItemName}</td>
                   <td className="px-6 py-3 text-gray-600">{t.toDepotName}</td>

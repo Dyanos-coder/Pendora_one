@@ -26,6 +26,7 @@ import { SortableGroup } from '@renderer/components/SortableGroup'
 import type { Session } from '@shared/auth-types'
 import { accessLevel, hasAccess } from '@shared/permissions'
 import { RequestSignatureModal, SignaturePanel } from './SignaturePanel'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiProtocolDocumentStatus, DocumentStatus> = {
   PUBLIE: 'Publié',
@@ -87,9 +88,7 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
   function applyUpdatedDocument(document: ApiProtocolDocument): void {
     setRawDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)))
     setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d
-      )
+      prev.map((d) => (d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d))
     )
   }
 
@@ -188,9 +187,7 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
           onCreated={(document) => {
             setRawDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)))
             setDocuments((prev) =>
-              prev.map((d) =>
-                d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d
-              )
+              prev.map((d) => (d.id === document.id ? { ...toDocument(document), revisedAtMs: new Date(document.revisedAt).getTime() } : d))
             )
             setEditingDocument(null)
           }}
@@ -234,43 +231,40 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des documents…
-        </div>
+        <PulseLoader label="Chargement des documents…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="documents.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <FileText className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <FileText className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Documents actifs</p>
-              <p className="text-xl font-bold text-gray-900">{documents.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{documents.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Publiés</p>
-              <p className="text-xl font-bold text-gray-900">{published}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{published}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Hourglass className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En validation</p>
-              <p className="text-xl font-bold text-gray-900">{pending}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{pending}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <TriangleAlert className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">À réviser</p>
-              <p className="text-xl font-bold text-gray-900">{toReview}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{toReview}</p>
             </Card>
           </SortableGroup>
 
@@ -284,32 +278,32 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
           <SortableGroup id="documents.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Documents</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Documents</h3>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher un document..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                      <th className="px-6 py-2.5 font-medium">Document</th>
-                      <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                      <th className="px-6 py-2.5 font-medium">Version</th>
-                      <th className="px-6 py-2.5 font-medium">Statut</th>
-                      <th className="px-6 py-2.5 font-medium">Mis à jour</th>
-                      <th className="px-6 py-2.5 font-medium" />
+                    <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                      <th className="px-6 py-3 font-semibold">Document</th>
+                      <th className="px-6 py-3 font-semibold">Catégorie</th>
+                      <th className="px-6 py-3 font-semibold">Version</th>
+                      <th className="px-6 py-3 font-semibold">Statut</th>
+                      <th className="px-6 py-3 font-semibold">Mis à jour</th>
+                      <th className="px-6 py-3 font-semibold" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((d) => (
-                      <tr key={d.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <tr key={d.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                         <td className="px-6 py-3">
                           <p className="font-medium text-gray-900">{d.title}</p>
                           <p className="text-xs text-gray-400">{d.owner}</p>
@@ -346,11 +340,7 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
                                 title={d.fileName ? 'Remplacer le fichier' : 'Téléverser un fichier'}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                               >
-                                {uploadingId === d.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Upload className="h-4 w-4" />
-                                )}
+                                {uploadingId === d.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                               </button>
                             )}
                             {canWrite && (
@@ -382,7 +372,7 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
 
             <SortableGroup id="documents.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
@@ -411,7 +401,7 @@ export function DocumentsPage({ session }: { session: Session }): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Récemment modifiés</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Récemment modifiés</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {recentlyUpdated.map((r) => (

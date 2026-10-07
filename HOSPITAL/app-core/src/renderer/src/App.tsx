@@ -6,15 +6,16 @@ import { AppShell } from './features/shell/AppShell'
 import { SetupWizard } from './features/setup/SetupWizard'
 import { DbStatusScreen } from './features/setup/DbStatusScreen'
 import { UpdateBanner } from './features/updater/UpdateBanner'
+import { ToastProvider } from './components/ui/Toast'
 import { ALL_MODULE_SCREEN_IDS, type AppConfig, type DbStartupStatus } from '@shared/setup-types'
 
 function App(): JSX.Element {
   // Encart de mise à jour visible sur tous les écrans (connexion, assistant, application).
   return (
-    <>
+    <ToastProvider>
       <AppContent />
       <UpdateBanner />
-    </>
+    </ToastProvider>
   )
 }
 
@@ -62,9 +63,12 @@ function AppContent(): JSX.Element {
         error={error}
         onLogin={login}
         dbReady={dbStatus.state === 'READY'}
-        onComplete={(modules) => {
+        onComplete={() => {
+          // Modules affichés : ceux de l'établissement, déjà chargés dès la connexion (tous par défaut).
           setConfig({ ...config, setupComplete: true })
-          setEnabledModules(modules)
+          // Le poste a été activé pendant l'assistant : l'état lu au démarrage (« non configuré »)
+          // est périmé, sinon l'écran d'activation se réafficherait.
+          window.api.setup.getDbStatus().then(setDbStatus)
         }}
       />
     )

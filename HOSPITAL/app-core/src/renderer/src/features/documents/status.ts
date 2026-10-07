@@ -9,7 +9,7 @@ export function documentStatusTone(status: DocumentStatus): StatusTone {
 
 export const CATEGORY_CHART_COLOR: Record<string, string> = {
   'Protocoles cliniques': '#3b82f6',
-  'Procédures qualité': '#10b981',
-  'Hygiène & sécurité': '#f59e0b',
+  'Procédures qualité': '#14b8a6',
+  'Hygiène & sécurité': '#dea127',
   Administratif: '#9ca3af'
 }

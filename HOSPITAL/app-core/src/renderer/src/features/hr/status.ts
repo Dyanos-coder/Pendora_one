@@ -9,8 +9,8 @@ export function employeeStatusTone(status: EmployeeStatus): StatusTone {
 }
 
 export const DAY_STATUS_COLOR: Record<EmployeeStatus, string> = {
-  Présent: '#10b981',
+  Présent: '#14b8a6',
   Absent: '#ef4444',
   Congé: '#3b82f6',
-  Retard: '#f59e0b'
+  Retard: '#dea127'
 }

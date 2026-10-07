@@ -15,9 +15,9 @@ export function labPriorityTone(priority: LabPriority): StatusTone {
 }
 
 export const SAMPLE_CHART_COLOR: Record<string, string> = {
-  'Sang (EDTA)': '#8b5cf6',
+  'Sang (EDTA)': '#12a04a',
   'Sang (Sérum)': '#3b82f6',
-  'Sang (Héparine)': '#10b981',
-  Urines: '#f59e0b',
+  'Sang (Héparine)': '#14b8a6',
+  Urines: '#dea127',
   Autres: '#9ca3af'
 }

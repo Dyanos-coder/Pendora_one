@@ -52,6 +52,7 @@ import type {
   PatientDetail as ApiPatientDetail
 } from '@shared/patient-types'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 interface PatientDetailPageProps {
   patientId: string
@@ -218,10 +219,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement du dossier…
-      </div>
+      <PulseLoader label="Chargement du dossier…" />
     )
   }
 
@@ -327,7 +325,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
       )}
 
       {/* Identité */}
-      <Card className="bg-gradient-to-br from-white to-accent-50/40">
+      <Card className="bg-gradient-to-br from-surface to-accent-50/40">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex items-start gap-4">
             <div className="rounded-full ring-4 ring-white">
@@ -391,7 +389,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
         <div className="space-y-6 lg:col-span-2">
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Informations médicales clés</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Informations médicales clés</h3>
             </div>
             <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2">
               <div>
@@ -429,18 +427,18 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
           <Card className="p-0">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Dernières consultations</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Dernières consultations</h3>
             </div>
             {consultations.length === 0 ? (
-              <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune consultation enregistrée.</p>
+              <EmptyState title="Aucune consultation enregistrée." />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                    <th className="px-6 py-2.5 font-medium">Date</th>
-                    <th className="px-6 py-2.5 font-medium">Service / Motif</th>
-                    <th className="px-6 py-2.5 font-medium">Médecin</th>
-                    <th className="px-6 py-2.5 font-medium">Statut</th>
+                  <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                    <th className="px-6 py-3 font-semibold">Date</th>
+                    <th className="px-6 py-3 font-semibold">Service / Motif</th>
+                    <th className="px-6 py-3 font-semibold">Médecin</th>
+                    <th className="px-6 py-3 font-semibold">Statut</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -467,7 +465,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Ordonnances en cours</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Ordonnances en cours</h3>
                 <button
                   onClick={() => setShowAddPrescriptionModal(true)}
                   title="Ajouter une ordonnance"
@@ -482,7 +480,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
                 keyFn={(p) => p.id}
                 renderRow={(p) => (
                   <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-3.5 last:border-0">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${p.active ? 'bg-teal-500' : 'bg-gray-300'}`} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-900">{p.name}</p>
                       <p className="text-xs text-gray-500">{p.dosage}</p>
@@ -510,7 +508,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Résultats récents</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Résultats récents</h3>
               </div>
               <RecordList
                 items={results}
@@ -531,7 +529,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
           {timeline.length > 0 && (
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Historique médical (Chronologie)</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Historique médical (Chronologie)</h3>
               <div className="flex gap-6 overflow-x-auto pb-2">
                 {timeline.map((event) => {
                   const Icon = TIMELINE_ICON[event.type]
@@ -554,7 +552,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
         {/* Colonne latérale */}
         <SortableGroup id="patientDetail.side1" className="space-y-6">
           <Card>
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">Résumé du dossier</h3>
+            <h3 className="mb-4 text-[15px] font-bold text-gray-900">Résumé du dossier</h3>
             <div className="flex items-center gap-4">
               <ProgressRing value={patient.recordCompleteness} />
               <div className="space-y-1 text-xs text-gray-500">
@@ -568,7 +566,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
           <Card className="p-0">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Signes vitaux récents</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Signes vitaux récents</h3>
               <button
                 onClick={() => setShowAddVitalsModal(true)}
                 title="Enregistrer des constantes"
@@ -592,7 +590,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Prochains rendez-vous</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Prochains rendez-vous</h3>
             </div>
             <RecordList
               items={upcomingAppointments}
@@ -616,7 +614,7 @@ export function PatientDetailPage({ patientId, onBack }: PatientDetailPageProps)
 
           <Card className="p-0">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Documents récents</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Documents récents</h3>
               <button
                 onClick={() => setShowAddDocumentModal(true)}
                 title="Ajouter un document"
@@ -696,7 +694,7 @@ function InfoTile({
         <Icon className="h-3 w-3" />
         {label}
       </div>
-      <p className={`mt-1 text-sm font-semibold ${tone === 'success' ? 'text-emerald-600' : 'text-gray-900'}`}>{value}</p>
+      <p className={`mt-1 text-sm font-semibold ${tone === 'success' ? 'text-teal-600' : 'text-gray-900'}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
     </div>
   )

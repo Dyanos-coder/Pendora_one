@@ -11,7 +11,10 @@ export function dateTime(iso: string): string {
 }
 
 export function time(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 export const RECEIPT_STATUS: Record<ApiReceiptStatus, { label: string; tone: StatusTone }> = {
@@ -22,12 +25,36 @@ export const RECEIPT_STATUS: Record<ApiReceiptStatus, { label: string; tone: Sta
 
 /** Couleurs de tuiles du catalogue — classes écrites en entier pour que Tailwind les détecte. */
 export const TILE_COLORS: Record<string, { label: string; tile: string; swatch: string }> = {
-  emerald: { label: 'Vert', tile: 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900', swatch: 'bg-emerald-400' },
-  sky: { label: 'Bleu', tile: 'border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-900', swatch: 'bg-sky-400' },
-  violet: { label: 'Violet', tile: 'border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-900', swatch: 'bg-violet-400' },
-  amber: { label: 'Orange', tile: 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900', swatch: 'bg-amber-400' },
-  rose: { label: 'Rose', tile: 'border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-900', swatch: 'bg-rose-400' },
-  slate: { label: 'Gris', tile: 'border-gray-200 bg-white hover:bg-gray-50 text-gray-900', swatch: 'bg-gray-400' }
+  emerald: {
+    label: 'Vert',
+    tile: 'border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900',
+    swatch: 'bg-teal-400'
+  },
+  sky: {
+    label: 'Bleu',
+    tile: 'border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-900',
+    swatch: 'bg-sky-400'
+  },
+  violet: {
+    label: 'Violet',
+    tile: 'border-accent-200 bg-accent-50 hover:bg-accent-100 text-accent-900',
+    swatch: 'bg-accent-400'
+  },
+  amber: {
+    label: 'Orange',
+    tile: 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900',
+    swatch: 'bg-amber-400'
+  },
+  rose: {
+    label: 'Rose',
+    tile: 'border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-900',
+    swatch: 'bg-rose-400'
+  },
+  slate: {
+    label: 'Gris',
+    tile: 'border-gray-200 bg-white hover:bg-gray-50 text-gray-900',
+    swatch: 'bg-gray-400'
+  }
 }
 
 export function tileClass(color: string | null): string {

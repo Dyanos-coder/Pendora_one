@@ -14,9 +14,9 @@ export function imagingPriorityTone(priority: ImagingPriority): StatusTone {
 
 export const MODALITY_CHART_COLOR: Record<string, string> = {
   Échographie: '#3b82f6',
-  Radiographie: '#f59e0b',
-  'TDM / Scanner': '#8b5cf6',
-  IRM: '#10b981',
+  Radiographie: '#dea127',
+  'TDM / Scanner': '#12a04a',
+  IRM: '#14b8a6',
   Mammographie: '#ec4899',
   Autres: '#9ca3af'
 }

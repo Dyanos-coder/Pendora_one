@@ -23,7 +23,7 @@ const MARKDOWN_COMPONENTS = {
   ),
   table: ({ children }: { children?: ReactNode }) => (
     <div className="mb-2 overflow-x-auto last:mb-0">
-      <table className="w-full text-left text-xs">{children}</table>
+      <table className="w-full text-left text-xs [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">{children}</table>
     </div>
   ),
   th: ({ children }: { children?: ReactNode }) => <th className="border-b border-gray-200 px-2 py-1 font-medium">{children}</th>,
@@ -96,7 +96,13 @@ export function AiChatPanel(): JSX.Element {
     setAsking(true)
     setMessages((prev) => [
       ...prev,
-      { id: `tmp-${Date.now()}`, conversationId: conversationId as string, role: 'USER', text: question, createdAt: new Date().toISOString() }
+      {
+        id: `tmp-${Date.now()}`,
+        conversationId: conversationId as string,
+        role: 'USER',
+        text: question,
+        createdAt: new Date().toISOString()
+      }
     ])
 
     const result = await window.api.ai.ask(conversationId, question)
@@ -207,9 +213,7 @@ export function AiChatPanel(): JSX.Element {
               {messages.map((message) =>
                 message.role === 'USER' ? (
                   <div key={message.id} className="flex justify-end">
-                    <div className="max-w-lg rounded-2xl rounded-tr-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-800">
-                      {message.text}
-                    </div>
+                    <div className="max-w-lg rounded-2xl rounded-tr-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-800">{message.text}</div>
                   </div>
                 ) : (
                   <div key={message.id} className="flex gap-3">
@@ -273,9 +277,8 @@ export function AiChatPanel(): JSX.Element {
             </button>
           </form>
           <p className="mt-2 text-center text-[11px] text-gray-400">
-            L&apos;assistant répond à partir des données réelles de l&apos;établissement (patients, soins,
-            stocks, finances, RH, gouvernance...) — il ne devine jamais un chiffre et ne fait pas de
-            prédiction.
+            L&apos;assistant répond à partir des données réelles de l&apos;établissement (patients, soins, stocks, finances, RH,
+            gouvernance...) — il ne devine jamais un chiffre et ne fait pas de prédiction.
           </p>
         </div>
       </div>

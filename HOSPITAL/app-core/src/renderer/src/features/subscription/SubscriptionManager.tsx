@@ -3,12 +3,7 @@ import { CheckCircle2, ExternalLink, Loader2, RefreshCw, XCircle } from 'lucide-
 import { Button } from '@renderer/components/Button'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import type { Session } from '@shared/auth-types'
-import type {
-  SubscriptionCatalogItem,
-  SubscriptionInfo,
-  SubscriptionPayment,
-  SubscriptionQuote
-} from '@shared/subscription-types'
+import type { SubscriptionCatalogItem, SubscriptionInfo, SubscriptionPayment, SubscriptionQuote } from '@shared/subscription-types'
 import { MODULE_GROUPS } from '@shared/setup-types'
 import { STATE_LABEL, formatFcfa, formatYmd, usePendingPayment } from './useSubscription'
 
@@ -31,7 +26,7 @@ const PAYMENT_LABEL: Record<SubscriptionPayment['status'], { label: string; tone
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
 
 /** Résumé de l'abonnement : statut, échéance, source. */
 export function SubscriptionSummary({ info }: { info: SubscriptionInfo }): JSX.Element {
@@ -182,7 +177,7 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
       {pending && (
         <div className="rounded-xl border border-accent-200 bg-accent-50 p-4 text-sm">
           {pending.status === 'APPLIQUE' ? (
-            <p className="flex items-center gap-2 font-medium text-emerald-700">
+            <p className="flex items-center gap-2 font-medium text-teal-700">
               <CheckCircle2 className="h-4 w-4" /> Paiement reçu : abonnement renouvelé. Merci !
             </p>
           ) : pending.status === 'ECHEC' || pending.status === 'ANNULE' ? (
@@ -195,8 +190,8 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
                 <Loader2 className="h-4 w-4 animate-spin" /> Paiement de {formatFcfa(pending.total)} en cours…
               </p>
               <p className="mt-1 text-xs text-gray-600">
-                La page de paiement MoneyFusion s&apos;est ouverte dans votre navigateur. Une fois le paiement validé,
-                l&apos;abonnement est mis à jour automatiquement ici.
+                La page de paiement MoneyFusion s&apos;est ouverte dans votre navigateur. Une fois le paiement validé, l&apos;abonnement est
+                mis à jour automatiquement ici.
               </p>
             </>
           )}
@@ -235,7 +230,10 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
                   {catalog
                     .filter((i) => i.offer === offer)
                     .map((i) => (
-                      <label key={i.key} className={'flex items-center gap-2 py-0.5 text-sm ' + (i.comingSoon ? 'text-gray-400' : 'text-gray-700')}>
+                      <label
+                        key={i.key}
+                        className={'flex items-center gap-2 py-0.5 text-sm ' + (i.comingSoon ? 'text-gray-400' : 'text-gray-700')}
+                      >
                         <input
                           type="checkbox"
                           checked={selected.includes(i.key)}
@@ -313,7 +311,10 @@ export function SubscriptionManager({ info, session }: SubscriptionManagerProps)
           </div>
 
           {payError && <p className="text-sm text-red-600">{payError}</p>}
-          <Button onClick={handlePay} disabled={paying || !quote || quoting || quote.total <= 0 || phone.trim().length < 8 || !payerName.trim()}>
+          <Button
+            onClick={handlePay}
+            disabled={paying || !quote || quoting || quote.total <= 0 || phone.trim().length < 8 || !payerName.trim()}
+          >
             {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
             Payer
           </Button>

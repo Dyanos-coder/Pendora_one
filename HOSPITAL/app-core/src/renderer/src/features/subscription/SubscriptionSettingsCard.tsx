@@ -19,10 +19,10 @@ export function SubscriptionSettingsCard({ session }: { session: Session }): JSX
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-gold-300/70 bg-gradient-to-br from-gold-50 via-surface to-surface">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Abonnement Pandora Health</h3>
+            <h3 className="text-[15px] font-bold text-gray-900">Abonnement Pandora Health</h3>
             <p className="mt-0.5 text-xs text-gray-500">
               Renouvelable chaque mois (échéance le 28), de 1 à 24 mois à la fois, avec les modules de votre choix. Le paiement se fait
               par MoneyFusion (Mobile Money).

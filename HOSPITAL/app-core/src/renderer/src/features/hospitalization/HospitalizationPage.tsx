@@ -33,6 +33,7 @@ import type { HospitalizationRecord, HospitalizationStatus } from './types'
 import { isSameDay } from '@renderer/features/appointments/week'
 import { HospitalizationFormModal } from './HospitalizationFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface HospitalizationPageProps {
   onOpenPatient: (patientId: string) => void
@@ -65,7 +66,7 @@ function toRecord(h: ApiHospitalization): HospitalizationRecord {
   }
 }
 
-const EXTRA_TABS = ['Sorties aujourd\'hui', 'Transferts', 'Sorties prévues', 'Sorties récentes']
+const EXTRA_TABS = ["Sorties aujourd'hui", 'Transferts', 'Sorties prévues', 'Sorties récentes']
 
 const ALL_FILTER = '__all__'
 
@@ -101,18 +102,16 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([window.api.hospitalizations.list(), window.api.hospitalizations.occupancy()]).then(
-      ([hospResult, occResult]) => {
-        if (cancelled) return
-        if (hospResult.ok) {
-          setHospitalizations(hospResult.data.hospitalizations.map(toRecord))
-        } else {
-          setError(hospResult.error)
-        }
-        if (occResult.ok) setOccupancy(occResult.data.occupancy)
-        setLoading(false)
+    Promise.all([window.api.hospitalizations.list(), window.api.hospitalizations.occupancy()]).then(([hospResult, occResult]) => {
+      if (cancelled) return
+      if (hospResult.ok) {
+        setHospitalizations(hospResult.data.hospitalizations.map(toRecord))
+      } else {
+        setError(hospResult.error)
       }
-    )
+      if (occResult.ok) setOccupancy(occResult.data.occupancy)
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -126,7 +125,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
   const TABS: { id: Tab; label: string; count: number }[] = [
     { id: 'all', label: 'Tous', count: hospitalizations.length },
     { id: 'hospitalized', label: 'Hospitalisés', count: hospitalized.length },
-    { id: 'waiting', label: "En attente de lit", count: waiting.length }
+    { id: 'waiting', label: 'En attente de lit', count: waiting.length }
   ]
 
   const TAB_ROWS: Record<Tab, HospitalizationRecord[]> = { all: hospitalizations, hospitalized, waiting }
@@ -257,59 +256,60 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des hospitalisations…
-        </div>
+        <PulseLoader label="Chargement des hospitalisations…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="hospitalization.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <BedDouble className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <BedDouble className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Patients hospitalisés</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{hospitalized.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{hospitalized.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <CalendarPlus className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Entrées aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{admittedToday.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{admittedToday.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <LogOut className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Sorties aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
                 {hospitalizations.filter((h) => h.status === 'Sorti' && isSameDay(h.admissionDate, today)).length}
               </p>
             </Card>
-            <Card className="border-t-4 border-t-cyan-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-cyan-50">
                 <Clock className="h-5 w-5 text-cyan-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Durée moyenne de séjour</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{averageStayDays === null ? '—' : `${averageStayDays} j`}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {averageStayDays === null ? '—' : `${averageStayDays} j`}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <Gauge className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <Gauge className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Taux d&apos;occupation</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{occupancyRate === null ? '—' : `${occupancyRate}%`}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {occupancyRate === null ? '—' : `${occupancyRate}%`}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <BedSingle className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Lits disponibles</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
                 {occupancy?.AVAILABLE ?? '—'} / {occupancy?.total ?? '—'}
               </p>
             </Card>
@@ -325,9 +325,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
@@ -347,7 +345,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher dans la liste..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -368,28 +366,30 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
 
               {filteredRows.length === 0 ? (
                 <p className="px-6 py-8 text-center text-sm text-gray-400">
-                  {tabRows.length === 0 ? 'Aucune hospitalisation dans cette catégorie.' : 'Aucune hospitalisation ne correspond aux filtres.'}
+                  {tabRows.length === 0
+                    ? 'Aucune hospitalisation dans cette catégorie.'
+                    : 'Aucune hospitalisation ne correspond aux filtres.'}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
                         <th className="w-10 px-6 py-2.5" />
-                        <th className="px-6 py-2.5 font-medium">Patient</th>
-                        <th className="px-6 py-2.5 font-medium">Admission</th>
-                        <th className="px-6 py-2.5 font-medium">Service</th>
-                        <th className="px-6 py-2.5 font-medium">Chambre / Lit</th>
-                        <th className="px-6 py-2.5 font-medium">Médecin responsable</th>
-                        <th className="px-6 py-2.5 font-medium">Motif</th>
-                        <th className="px-6 py-2.5 font-medium">Statut</th>
-                        <th className="px-6 py-2.5 font-medium">Durée</th>
-                        <th className="px-6 py-2.5 font-medium" />
+                        <th className="px-6 py-3 font-semibold">Patient</th>
+                        <th className="px-6 py-3 font-semibold">Admission</th>
+                        <th className="px-6 py-3 font-semibold">Service</th>
+                        <th className="px-6 py-3 font-semibold">Chambre / Lit</th>
+                        <th className="px-6 py-3 font-semibold">Médecin responsable</th>
+                        <th className="px-6 py-3 font-semibold">Motif</th>
+                        <th className="px-6 py-3 font-semibold">Statut</th>
+                        <th className="px-6 py-3 font-semibold">Durée</th>
+                        <th className="px-6 py-3 font-semibold" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredRows.map((h) => (
-                        <tr key={h.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={h.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3">
                             <input
                               type="checkbox"
@@ -467,14 +467,14 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
             {/* Colonne latérale */}
             <SortableGroup id="hospitalization.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Filtres</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Filtres</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {serviceOptions.map((s) => (
@@ -485,11 +485,11 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin responsable</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Médecin responsable</label>
                     <select
                       value={filterDoctor}
                       onChange={(e) => setFilterDoctor(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les médecins</option>
                       {doctorOptions.map((d) => (
@@ -500,11 +500,11 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -515,11 +515,11 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;hospitalisation</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type d&apos;hospitalisation</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {motiveOptions.map((m) => (
@@ -537,7 +537,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
 
               <Card>
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Occupation des lits</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Occupation des lits</h3>
                 </div>
                 <div className="flex items-center gap-5">
                   <div
@@ -564,7 +564,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
                   <QuickAction icon={Plus} label="Nouvelle hospitalisation" onClick={() => setShowCreateModal(true)} />
@@ -578,7 +578,7 @@ export function HospitalizationPage({ onOpenPatient }: HospitalizationPageProps)
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Alertes & Notifications</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Alertes & Notifications</h3>
                 </div>
                 <div className="p-5">
                   {waiting.length > 0 ? (
@@ -611,15 +611,7 @@ function BedLegendRow({ label, count, color }: { label: string; count: number; c
   )
 }
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick
-}: {
-  icon: typeof Plus
-  label: string
-  onClick?: () => void
-}): JSX.Element {
+function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick?: () => void }): JSX.Element {
   return (
     <button
       onClick={onClick}

@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge } from '@renderer/components/StatusBadge'
-import {
-  PAYMENT_MODE_LABEL,
-  PAYMENT_MODES,
-  type ApiCashRegister,
-  type ApiCashSession,
-  type ApiReceipt
-} from '@shared/cashier-types'
+import { PAYMENT_MODE_LABEL, PAYMENT_MODES, type ApiCashRegister, type ApiCashSession, type ApiReceipt } from '@shared/cashier-types'
 import { RECEIPT_STATUS, dateTime, dayRange, fcfa, todayInput } from '@renderer/features/cashier/format'
+import { EmptyState } from '@renderer/components/ui/Feedback'
 
 /** Comptabilité › Caisses : tout ce que les caisses envoient — journal des reçus, sessions et
  * clôtures (avec écarts), totaux par caisse et par mode (Plan-Module-Caisse.md étape 8). */
@@ -31,7 +26,10 @@ export function CashRegistersTab(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false
-    const filters = { ...dayRange(from, to), registerId: registerId || undefined }
+    const filters = {
+      ...dayRange(from, to),
+      registerId: registerId || undefined
+    }
     setReceipts(null)
     Promise.all([window.api.cashier.receipts(filters), window.api.cashier.sessions(filters)]).then(([r, s]) => {
       if (cancelled) return
@@ -60,13 +58,17 @@ export function CashRegistersTab(): JSX.Element {
   async function handleExport(): Promise<void> {
     setExporting(true)
     try {
-      await window.api.cashier.exportJournal({ ...dayRange(from, to), registerId: registerId || undefined })
+      await window.api.cashier.exportJournal({
+        ...dayRange(from, to),
+        registerId: registerId || undefined
+      })
     } finally {
       setExporting(false)
     }
   }
 
-  const fieldClass = 'rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none'
+  const fieldClass =
+    'rounded-[10px] border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
 
   return (
     <div>
@@ -106,7 +108,7 @@ export function CashRegistersTab(): JSX.Element {
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${view === v ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${view === v ? 'bg-accent-600 text-white shadow-sm shadow-accent-600/25' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             {v === 'receipts' ? 'Journal des reçus' : 'Sessions et clôtures'}
           </button>
@@ -122,7 +124,7 @@ export function CashRegistersTab(): JSX.Element {
           </div>
         ) : view === 'receipts' ? (
           receipts.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">Aucun reçu sur cette période.</p>
+            <EmptyState title="Aucun reçu sur cette période." />
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -159,7 +161,7 @@ export function CashRegistersTab(): JSX.Element {
             </table>
           )
         ) : sessions.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-400">Aucune session sur cette période.</p>
+          <EmptyState title="Aucune session sur cette période." />
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -178,10 +180,12 @@ export function CashRegistersTab(): JSX.Element {
                   <td className="py-2 font-medium text-gray-900">{s.registerName}</td>
                   <td className="py-2 text-gray-600">{s.cashierName}</td>
                   <td className="py-2 text-gray-500">{dateTime(s.openedAt)}</td>
-                  <td className="py-2 text-gray-500">{s.closedAt ? dateTime(s.closedAt) : <StatusBadge label="Ouverte" tone="success" />}</td>
+                  <td className="py-2 text-gray-500">
+                    {s.closedAt ? dateTime(s.closedAt) : <StatusBadge label="Ouverte" tone="success" />}
+                  </td>
                   <td className="py-2 text-right font-medium text-gray-900">{fcfa(s.total)}</td>
                   <td
-                    className={`py-2 text-right font-medium ${s.difference === null ? 'text-gray-400' : s.difference === 0 ? 'text-emerald-600' : 'text-amber-700'}`}
+                    className={`py-2 text-right font-medium ${s.difference === null ? 'text-gray-400' : s.difference === 0 ? 'text-teal-600' : 'text-amber-700'}`}
                   >
                     {s.difference === null ? '—' : `${s.difference > 0 ? '+' : ''}${fcfa(s.difference)}`}
                   </td>

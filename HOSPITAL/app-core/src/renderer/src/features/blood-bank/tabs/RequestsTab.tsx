@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiTransfusionRequest, ApiTransfusionRequestStatus, ApiTransfusionRequestUrgency } from '@shared/blood-bank-types'
 import { TransfusionRequestFormModal } from './TransfusionRequestFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiTransfusionRequestStatus, string> = {
   EN_ATTENTE: 'En attente',
@@ -51,12 +52,7 @@ export function RequestsTab(): JSX.Element {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -102,26 +98,26 @@ export function RequestsTab(): JSX.Element {
       )}
 
       {requests.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune demande transfusionnelle enregistrée.</p>
+        <EmptyState title="Aucune demande transfusionnelle enregistrée." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Patient</th>
-                <th className="px-6 py-2.5 font-medium">Groupe / Composant</th>
-                <th className="px-6 py-2.5 font-medium">Quantité</th>
-                <th className="px-6 py-2.5 font-medium">Urgence</th>
-                <th className="px-6 py-2.5 font-medium">Demandeur</th>
-                <th className="px-6 py-2.5 font-medium">Date</th>
-                <th className="px-6 py-2.5 font-medium">Statut</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Patient</th>
+                <th className="px-6 py-3 font-semibold">Groupe / Composant</th>
+                <th className="px-6 py-3 font-semibold">Quantité</th>
+                <th className="px-6 py-3 font-semibold">Urgence</th>
+                <th className="px-6 py-3 font-semibold">Demandeur</th>
+                <th className="px-6 py-3 font-semibold">Date</th>
+                <th className="px-6 py-3 font-semibold">Statut</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {requests.map((r) => (
-                <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{r.reference}</td>
                   <td className="px-6 py-3 text-gray-600">{r.patientName}</td>
                   <td className="px-6 py-3 text-gray-600">

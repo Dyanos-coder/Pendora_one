@@ -17,6 +17,10 @@ export interface SessionUser {
   email: string
   name: string
   role: Role
+  /** Id du dossier employé lié à ce compte (`Employee.userId`), s'il existe — `null` si ce
+   * compte n'est rattaché à aucun employé. Sert notamment à restreindre un médecin à ses
+   * propres rendez-vous (voir Role === 'MEDECIN' côté app-core). */
+  employeeId: string | null
 }
 
 export interface Session {

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import multer from 'multer'
 import { requireAccess, requireAuth } from '../middleware/auth.middleware'
 import {
   createPatient,
@@ -8,11 +9,22 @@ import {
   generatePatientSummaryPdf,
   getPatientById,
   getPatientDossier,
+  getVitalsFile,
   listPatients,
   updatePatient,
-  updatePatientPrescription
+  updatePatientPrescription,
+  uploadVitalsFile
 } from '../services/patients.service'
+import {
+  createPatientDocument,
+  deletePatientDocument,
+  getPatientDocumentFile,
+  listPatientDocuments,
+  uploadPatientDocumentFile
+} from '../services/patient-documents.service'
 import { logAudit } from '../services/audit.service'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 export const patientsRouter = Router()
 
@@ -58,16 +70,45 @@ patientsRouter.get('/:id/print', async (req, res) => {
 })
 
 patientsRouter.post('/:id/vitals', requireAccess('patients', 'write'), async (req, res) => {
-  const { bloodPressure, temperature, heartRate, weight, oxygenSaturation } = req.body ?? {}
-  if (!bloodPressure && !temperature && !heartRate && !weight && !oxygenSaturation) {
-    res.status(400).json({ ok: false, error: 'Au moins une constante doit être renseignée.' })
+  const { source } = req.body ?? {}
+  if (source !== 'ANALYSE' && source !== 'RDV' && source !== 'CONSULTATION') {
+    res.status(400).json({ ok: false, error: 'Contexte de prise invalide.' })
     return
   }
 
-  const vitals = await createPatientVitals(req.params.id, req.body ?? {})
+  const result = await createPatientVitals(req.params.id, req.body ?? {})
   await logAudit(req.auth!.userId, 'patient.vitals.create', 'Patient', req.params.id)
-  res.status(201).json({ ok: true, vitals })
+  res.status(201).json({ ok: true, vitalsId: result.id, vitals: result.rows })
 })
+
+patientsRouter.get('/:id/vitals/:vitalsId/file', async (req, res) => {
+  const document = await getVitalsFile(req.params.vitalsId)
+  if (!document) {
+    res.status(404).json({ ok: false, error: 'Aucun fichier pour cette prise de constantes.' })
+    return
+  }
+  res.json({ ok: true, document })
+})
+
+patientsRouter.post(
+  '/:id/vitals/:vitalsId/file',
+  requireAccess('patients', 'write'),
+  upload.single('file'),
+  async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ ok: false, error: 'Aucun fichier reçu.' })
+      return
+    }
+
+    const result = await uploadVitalsFile(req.params.vitalsId, {
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      content: req.file.buffer
+    })
+    await logAudit(req.auth!.userId, 'patient.vitals.uploadFile', 'Patient', req.params.id)
+    res.json({ ok: true, vitalsId: result.id, vitals: result.rows })
+  }
+)
 
 patientsRouter.post('/:id/prescriptions', requireAccess('patients', 'write'), async (req, res) => {
   const { name, dosage } = req.body ?? {}
@@ -91,6 +132,55 @@ patientsRouter.patch('/:id/prescriptions/:prescriptionId', requireAccess('patien
   const prescription = await updatePatientPrescription(req.params.prescriptionId, { active })
   await logAudit(req.auth!.userId, 'patient.prescription.update', 'Patient', req.params.prescriptionId)
   res.json({ ok: true, prescription })
+})
+
+// --- Documents patient (item 11, même mécanisme BLOB que les documents employé) ---------------
+
+patientsRouter.get('/:id/documents', async (req, res) => {
+  const documents = await listPatientDocuments(req.params.id)
+  res.json({ ok: true, documents })
+})
+
+patientsRouter.post('/:id/documents', requireAccess('patients', 'write'), async (req, res) => {
+  const { title } = req.body ?? {}
+  if (typeof title !== 'string' || !title.trim()) {
+    res.status(400).json({ ok: false, error: 'Titre requis.' })
+    return
+  }
+
+  const document = await createPatientDocument({ patientId: req.params.id, title, category: req.body?.category })
+  await logAudit(req.auth!.userId, 'patient.document.create', 'Patient', req.params.id)
+  res.status(201).json({ ok: true, document })
+})
+
+patientsRouter.delete('/:id/documents/:documentId', requireAccess('patients', 'write'), async (req, res) => {
+  await deletePatientDocument(req.params.documentId)
+  await logAudit(req.auth!.userId, 'patient.document.delete', 'Patient', req.params.id)
+  res.json({ ok: true })
+})
+
+patientsRouter.get('/:id/documents/:documentId/file', async (req, res) => {
+  const document = await getPatientDocumentFile(req.params.documentId)
+  if (!document) {
+    res.status(404).json({ ok: false, error: 'Aucun fichier pour ce document.' })
+    return
+  }
+  res.json({ ok: true, document })
+})
+
+patientsRouter.post('/:id/documents/:documentId/file', requireAccess('patients', 'write'), upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ ok: false, error: 'Aucun fichier reçu.' })
+    return
+  }
+
+  const document = await uploadPatientDocumentFile(req.params.documentId, {
+    fileName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    content: req.file.buffer
+  })
+  await logAudit(req.auth!.userId, 'patient.document.uploadFile', 'Patient', req.params.id)
+  res.json({ ok: true, document })
 })
 
 patientsRouter.post('/', requireAccess('patients', 'write'), async (req, res) => {

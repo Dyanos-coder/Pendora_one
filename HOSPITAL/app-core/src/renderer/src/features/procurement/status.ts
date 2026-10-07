@@ -14,9 +14,9 @@ export function procurementPriorityTone(priority: ProcurementPriority): StatusTo
 }
 
 export const STATUS_CHART_COLOR: Record<ProcurementStatus, string> = {
-  'À valider': '#f59e0b',
+  'À valider': '#dea127',
   Validé: '#9ca3af',
   Commandé: '#3b82f6',
-  Reçu: '#10b981',
+  Reçu: '#14b8a6',
   Retard: '#ef4444'
 }

@@ -16,8 +16,8 @@ interface HospitalizationFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiHospitalizationStatus; label: string }[] = [
   { value: 'EN_ATTENTE', label: 'En attente' },
@@ -44,9 +44,7 @@ export function HospitalizationFormModal({ onClose, onCreated, editing }: Hospit
   const [patientId, setPatientId] = useState(editing?.patientId ?? '')
   const [doctorId, setDoctorId] = useState(editing?.doctorId ?? '')
   const [bedId, setBedId] = useState(editing?.bedId ?? '')
-  const [admissionDate, setAdmissionDate] = useState(
-    editing ? editing.admissionDate.toISOString().slice(0, 10) : todayLocal()
-  )
+  const [admissionDate, setAdmissionDate] = useState(editing ? editing.admissionDate.toISOString().slice(0, 10) : todayLocal())
   const [service, setService] = useState(editing && editing.service !== '—' ? editing.service : '')
   const [motive, setMotive] = useState(editing && editing.motive !== '—' ? editing.motive : '')
   const [status, setStatus] = useState<ApiHospitalizationStatus>(
@@ -151,12 +149,7 @@ export function HospitalizationFormModal({ onClose, onCreated, editing }: Hospit
           </div>
           <div>
             <label className={labelClass}>Service</label>
-            <PicklistInput
-              listKey={PICKLIST_KEYS.HOSPITALIZATION_SERVICE}
-              value={service}
-              onChange={setService}
-              className={inputClass}
-            />
+            <PicklistInput listKey={PICKLIST_KEYS.HOSPITALIZATION_SERVICE} value={service} onChange={setService} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>Motif</label>

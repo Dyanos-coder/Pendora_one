@@ -38,7 +38,7 @@ usersRouter.get('/', async (_req, res) => {
 })
 
 usersRouter.post('/', requireAccess('users', 'write'), async (req, res) => {
-  const { email, password, name, role } = req.body ?? {}
+  const { email, password, name, role, employeeId } = req.body ?? {}
   if (
     typeof email !== 'string' ||
     !email.trim() ||
@@ -47,7 +47,8 @@ usersRouter.post('/', requireAccess('users', 'write'), async (req, res) => {
     typeof name !== 'string' ||
     !name.trim() ||
     typeof role !== 'string' ||
-    !VALID_ROLES.includes(role as Role)
+    !VALID_ROLES.includes(role as Role) ||
+    (employeeId !== undefined && typeof employeeId !== 'string')
   ) {
     res.status(400).json({ ok: false, error: 'Champs invalides (mot de passe : 8 caractères minimum).' })
     return
@@ -60,19 +61,35 @@ usersRouter.post('/', requireAccess('users', 'write'), async (req, res) => {
     return
   }
 
-  const user = await createUser({ email, password, name, role: role as Role })
+  if (employeeId) {
+    const employee = await prisma.employee.findUnique({ where: { id: employeeId } })
+    if (!employee) {
+      res.status(400).json({ ok: false, error: 'Fiche employé introuvable.' })
+      return
+    }
+    if (employee.userId) {
+      res.status(400).json({ ok: false, error: 'Cette fiche employé est déjà rattachée à un autre compte.' })
+      return
+    }
+  }
+
+  const user = await createUser({ email, password, name, role: role as Role, employeeId })
   await logAudit(req.auth!.userId, 'user.create', 'User', user.id)
   res.status(201).json({ ok: true, user })
 })
 
 usersRouter.patch('/:id', requireAccess('users', 'write'), async (req, res) => {
-  const { name, role, isActive } = req.body ?? {}
+  const { name, email, role, isActive } = req.body ?? {}
   if (role !== undefined && !VALID_ROLES.includes(role as Role)) {
     res.status(400).json({ ok: false, error: 'Rôle invalide.' })
     return
   }
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
     res.status(400).json({ ok: false, error: 'Nom invalide.' })
+    return
+  }
+  if (email !== undefined && (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    res.status(400).json({ ok: false, error: 'Email invalide.' })
     return
   }
   if (isActive !== undefined && typeof isActive !== 'boolean') {
@@ -84,7 +101,16 @@ usersRouter.patch('/:id', requireAccess('users', 'write'), async (req, res) => {
     return
   }
 
-  const user = await updateUser(req.params.id, { name, role, isActive })
+  if (email !== undefined) {
+    const prisma = getPrismaClient()
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing && existing.id !== req.params.id) {
+      res.status(400).json({ ok: false, error: 'Cet email est déjà utilisé.' })
+      return
+    }
+  }
+
+  const user = await updateUser(req.params.id, { name, email, role, isActive })
   await logAudit(req.auth!.userId, 'user.update', 'User', user.id)
   res.json({ ok: true, user })
 })

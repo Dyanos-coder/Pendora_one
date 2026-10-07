@@ -4,6 +4,7 @@ import { Button } from '@renderer/components/Button'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiEmployeeDocument, ApiHrEmployee } from '@shared/hr-types'
 import { EmployeeDocumentFormModal } from './EmployeeDocumentFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatSize(bytes: number | null): string {
   if (bytes === null) return '—'
@@ -60,12 +61,7 @@ export function DocumentsTab({ employees }: { employees: ApiHrEmployee[] }): JSX
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -104,23 +100,23 @@ export function DocumentsTab({ employees }: { employees: ApiHrEmployee[] }): JSX
       )}
 
       {documents.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun document enregistré.</p>
+        <EmptyState title="Aucun document enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Employé</th>
-                <th className="px-6 py-2.5 font-medium">Titre</th>
-                <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                <th className="px-6 py-2.5 font-medium">Fichier</th>
-                <th className="px-6 py-2.5 font-medium">Taille</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Employé</th>
+                <th className="px-6 py-3 font-semibold">Titre</th>
+                <th className="px-6 py-3 font-semibold">Catégorie</th>
+                <th className="px-6 py-3 font-semibold">Fichier</th>
+                <th className="px-6 py-3 font-semibold">Taille</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {documents.map((d) => (
-                <tr key={d.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={d.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{d.employeeName}</td>
                   <td className="px-6 py-3 text-gray-600">{d.title}</td>
                   <td className="px-6 py-3 text-gray-600">{d.category ?? '—'}</td>

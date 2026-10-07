@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { requireAccess, requireAuth } from '../middleware/auth.middleware'
-import { createSurgery, deleteSurgery, listSurgeries, updateSurgery } from '../services/surgeries.service'
+import { createSurgery, deleteSurgery, exportSurgeries, listSurgeries, updateSurgery } from '../services/surgeries.service'
 import { listOperatingRooms } from '../services/operating-rooms.service'
 import { logAudit } from '../services/audit.service'
 
@@ -8,6 +8,12 @@ export const operatingRoomRouter = Router()
 
 operatingRoomRouter.use(requireAuth)
 operatingRoomRouter.use(requireAccess('operating-room', 'read'))
+
+// Doit rester avant toute route GET /:id du même routeur.
+operatingRoomRouter.get('/export', async (_req, res) => {
+  const document = await exportSurgeries()
+  res.json({ ok: true, document })
+})
 
 operatingRoomRouter.get('/', async (_req, res) => {
   const surgeries = await listSurgeries()

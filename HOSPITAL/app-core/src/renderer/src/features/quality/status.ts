@@ -9,7 +9,7 @@ export function indicatorStatusTone(status: IndicatorStatus): StatusTone {
 
 export const CATEGORY_CHART_COLOR: Record<string, string> = {
   'Sécurité patient': '#ef4444',
-  Hygiène: '#10b981',
+  Hygiène: '#14b8a6',
   'Satisfaction patient': '#3b82f6',
-  'Processus clinique': '#8b5cf6'
+  'Processus clinique': '#12a04a'
 }

@@ -33,6 +33,7 @@ import type { SurgeryRecord, SurgeryStatus } from './types'
 import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { SurgeryFormModal } from './SurgeryFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface OperatingRoomPageProps {
   onOpenPatient: (patientId: string) => void
@@ -54,7 +55,7 @@ const ROOM_STATUS_LABEL: Record<ApiOperatingRoomStatus, string> = {
 }
 
 const ROOM_STATUS_DOT: Record<ApiOperatingRoomStatus, string> = {
-  OCCUPIED: 'bg-emerald-500',
+  OCCUPIED: 'bg-teal-500',
   AVAILABLE: 'bg-gray-300',
   MAINTENANCE: 'bg-amber-400'
 }
@@ -194,18 +195,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
       }
       return true
     })
-  }, [
-    tabRows,
-    search,
-    filterService,
-    filterSurgeon,
-    filterAnesthetist,
-    filterRoom,
-    filterStatus,
-    filterPeriod,
-    today,
-    realMonday
-  ])
+  }, [tabRows, search, filterService, filterSurgeon, filterAnesthetist, filterRoom, filterStatus, filterPeriod, today, realMonday])
 
   function handleResetFilters(): void {
     setFilterPeriod('all')
@@ -315,58 +305,55 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement du bloc opératoire…
-        </div>
+        <PulseLoader label="Chargement du bloc opératoire…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="operatingRoom.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Scissors className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Scissors className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Interventions aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{todaySurgeries.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{todaySurgeries.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <CalendarClock className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Interventions programmées</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{waiting.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{waiting.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <Hourglass className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En cours</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{inProgress.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{inProgress.length}</p>
               <p className="text-xs text-gray-400">En ce moment</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Terminées aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{done.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{done.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <XCircle className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Annulées aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{annule.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{annule.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Timer className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Timer className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Durée moyenne</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
                 {avgDurationMin === null ? '—' : `${Math.floor(avgDurationMin / 60)}h ${String(avgDurationMin % 60).padStart(2, '0')}m`}
               </p>
             </Card>
@@ -382,9 +369,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
@@ -399,7 +384,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher dans la liste..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -424,24 +409,24 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="px-6 py-2.5 font-medium">Heure</th>
-                        <th className="px-6 py-2.5 font-medium">Patient</th>
-                        <th className="px-6 py-2.5 font-medium">Âge / Sexe</th>
-                        <th className="px-6 py-2.5 font-medium">Intervention</th>
-                        <th className="px-6 py-2.5 font-medium">Chirurgien</th>
-                        <th className="px-6 py-2.5 font-medium">Salle</th>
-                        <th className="px-6 py-2.5 font-medium">Anesthésiste</th>
-                        <th className="px-6 py-2.5 font-medium">Statut</th>
-                        <th className="px-6 py-2.5 font-medium">Durée</th>
-                        <th className="px-6 py-2.5 font-medium" />
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                        <th className="px-6 py-3 font-semibold">Heure</th>
+                        <th className="px-6 py-3 font-semibold">Patient</th>
+                        <th className="px-6 py-3 font-semibold">Âge / Sexe</th>
+                        <th className="px-6 py-3 font-semibold">Intervention</th>
+                        <th className="px-6 py-3 font-semibold">Chirurgien</th>
+                        <th className="px-6 py-3 font-semibold">Salle</th>
+                        <th className="px-6 py-3 font-semibold">Anesthésiste</th>
+                        <th className="px-6 py-3 font-semibold">Statut</th>
+                        <th className="px-6 py-3 font-semibold">Durée</th>
+                        <th className="px-6 py-3 font-semibold" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredRows.map((s) => (
-                        <tr key={s.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={s.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3 font-medium text-gray-900">{formatTime(s.scheduledAt)}</td>
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2.5">
@@ -522,11 +507,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Période</label>
                     <select
                       value={filterPeriod}
                       onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value="all">Toutes les périodes</option>
                       <option value="today">Aujourd&apos;hui</option>
@@ -535,11 +520,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {specialtyOptions.map((sp) => (
@@ -550,11 +535,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Chirurgien</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Chirurgien</label>
                     <select
                       value={filterSurgeon}
                       onChange={(e) => setFilterSurgeon(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les chirurgiens</option>
                       {surgeonOptions.map((s) => (
@@ -565,11 +550,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Anesthésiste</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Anesthésiste</label>
                     <select
                       value={filterAnesthetist}
                       onChange={(e) => setFilterAnesthetist(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les anesthésistes</option>
                       {anesthetistOptions.map((a) => (
@@ -580,11 +565,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Salle</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Salle</label>
                     <select
                       value={filterRoom}
                       onChange={(e) => setFilterRoom(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les salles</option>
                       {roomOptions.map((r) => (
@@ -595,11 +580,11 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -614,7 +599,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
 
               <Card>
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Salles opératoires</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Salles opératoires</h3>
                 </div>
                 <div className="space-y-3">
                   {rooms.map((room) => (
@@ -633,14 +618,22 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
                   <QuickAction icon={Plus} label="Programmer une intervention" onClick={() => setShowCreateModal(true)} />
                   <QuickAction icon={Siren} label="Ajouter une intervention urgente" onClick={() => setShowCreateModal(true)} />
                   <QuickAction icon={LayoutGrid} label="Voir le planning du bloc" onClick={() => setActiveTab('all')} />
-                  <QuickAction icon={Hourglass} label={`Voir les interventions en attente (${waiting.length})`} onClick={() => setActiveTab('waiting')} />
-                  <QuickAction icon={XCircle} label={`Voir les interventions annulées (${annule.length})`} onClick={() => setActiveTab('annule')} />
+                  <QuickAction
+                    icon={Hourglass}
+                    label={`Voir les interventions en attente (${waiting.length})`}
+                    onClick={() => setActiveTab('waiting')}
+                  />
+                  <QuickAction
+                    icon={XCircle}
+                    label={`Voir les interventions annulées (${annule.length})`}
+                    onClick={() => setActiveTab('annule')}
+                  />
                   <QuickAction icon={FileDown} label="Imprimer le programme du jour" onClick={() => window.print()} />
                 </div>
               </Card>
@@ -651,7 +644,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
           <SortableGroup id="operatingRoom.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Répartition par spécialité</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Répartition par spécialité</h3>
               </div>
               {todaySurgeries.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune intervention aujourd&apos;hui.</p>
@@ -684,13 +677,13 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Interventions par tranche horaire</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Interventions par tranche horaire</h3>
               <BarChart categories={HOURLY_SLOTS} values={hourlyCounts} />
             </Card>
 
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Interventions en attente ({waiting.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Interventions en attente ({waiting.length})</h3>
               </div>
               <div className="space-y-3 p-5">
                 {waiting.length === 0 ? (
@@ -720,15 +713,7 @@ export function OperatingRoomPage({ onOpenPatient }: OperatingRoomPageProps): JS
   )
 }
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick
-}: {
-  icon: typeof Plus
-  label: string
-  onClick?: () => void
-}): JSX.Element {
+function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick?: () => void }): JSX.Element {
   return (
     <button
       onClick={onClick}

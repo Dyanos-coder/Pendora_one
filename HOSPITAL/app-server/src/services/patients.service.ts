@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto'
-import PDFDocument from 'pdfkit'
 import { getPrismaClient } from '../db/client'
+import { ConflictError } from '../lib/conflict-error'
 import { nextCode } from './counter.service'
 import { computeAge } from './date-utils'
 import { listConsultationsByPatient } from './consultations.service'
 import { listUpcomingAppointmentsByPatient } from './appointments.service'
+import { createPdfBuffer, drawEmptyNote, drawHeaderBand, drawInfoCard, drawSectionTitle, drawTable } from './pdf-layout'
 import type {
   Gender,
   AdmissionType,
@@ -23,6 +24,10 @@ import type {
 } from '../generated/prisma/client'
 
 export interface CreatePatientInput {
+  /** Optionnel : id généré côté client (mode hors-ligne, voir Plan-Mode-Hors-Ligne-Synchronisation.md
+   * §4). Permet une création idempotente — si un patient avec cet id existe déjà (rejeu d'une
+   * synchro après une confirmation perdue), on renvoie l'existant plutôt que d'en créer un second. */
+  id?: string
   firstName: string
   lastName: string
   gender: Gender
@@ -60,6 +65,11 @@ export interface UpdatePatientInput {
   insuranceExpiry?: string | null
   emergencyContactName?: string | null
   emergencyContactPhone?: string | null
+  /** Dernière version connue (`updatedAt`) du poste qui modifie, pour détecter un conflit si la
+   * fiche a été modifiée entre-temps par quelqu'un d'autre (mode hors-ligne, voir
+   * Plan-Mode-Hors-Ligne-Synchronisation.md §6.3). Absent : pas de vérification (mise à jour en
+   * ligne normale, jamais hors-ligne). */
+  expectedUpdatedAt?: string
 }
 
 function computeRecordCompleteness(patient: Patient): number {
@@ -99,12 +109,12 @@ function toDetail(patient: Patient) {
     admissionType: patient.admissionType,
     insuranceNumber: patient.insuranceNumber,
     insuranceExpiry: patient.insuranceExpiry?.toISOString() ?? null,
-    balance: patient.balance,
     emergencyContact: { name: patient.emergencyContactName, phone: patient.emergencyContactPhone },
     medicalHistory: (patient.medicalHistory as string[] | null) ?? [],
     familyHistory: (patient.familyHistory as string[] | null) ?? [],
     lifestyle: (patient.lifestyle as string[] | null) ?? [],
-    recordCompleteness: computeRecordCompleteness(patient)
+    recordCompleteness: computeRecordCompleteness(patient),
+    updatedAt: patient.updatedAt.toISOString()
   }
 }
 
@@ -127,11 +137,17 @@ export async function deletePatient(id: string): Promise<void> {
 
 export async function createPatient(input: CreatePatientInput) {
   const prisma = getPrismaClient()
+
+  if (input.id) {
+    const existing = await prisma.patient.findUnique({ where: { id: input.id } })
+    if (existing) return toDetail(existing)
+  }
+
   const code = await nextCode('PATIENT', 'P')
 
   const patient = await prisma.patient.create({
     data: {
-      id: randomUUID(),
+      id: input.id ?? randomUUID(),
       code,
       firstName: input.firstName,
       lastName: input.lastName,
@@ -160,6 +176,14 @@ export async function createPatient(input: CreatePatientInput) {
 
 export async function updatePatient(id: string, input: UpdatePatientInput) {
   const prisma = getPrismaClient()
+
+  if (input.expectedUpdatedAt) {
+    const current = await prisma.patient.findUnique({ where: { id } })
+    if (current && current.updatedAt.toISOString() !== input.expectedUpdatedAt) {
+      throw new ConflictError(toDetail(current))
+    }
+  }
+
   const patient = await prisma.patient.update({
     where: { id },
     data: {
@@ -245,6 +269,7 @@ function vitalsToRows(v: Vitals) {
   if (v.temperature) rows.push({ label: 'Température', value: v.temperature, date })
   if (v.weight) rows.push({ label: 'Poids', value: v.weight, date })
   if (v.oxygenSaturation) rows.push({ label: 'Saturation O2', value: v.oxygenSaturation, date })
+  if (v.documentFileName) rows.push({ label: 'Document', value: v.documentFileName, date })
   return rows
 }
 
@@ -327,6 +352,8 @@ export async function getPatientDossier(patientId: string) {
 }
 
 export interface CreateVitalsInput {
+  /** Contexte de prise (item 2 PETITES MODIFS) — choix obligatoire, voir enum VitalsSource. */
+  source: 'ANALYSE' | 'RDV' | 'CONSULTATION'
   bloodPressure?: string
   temperature?: string
   heartRate?: string
@@ -340,6 +367,7 @@ export async function createPatientVitals(patientId: string, input: CreateVitals
     data: {
       id: randomUUID(),
       patientId,
+      source: input.source,
       bloodPressure: input.bloodPressure,
       temperature: input.temperature,
       heartRate: input.heartRate,
@@ -347,7 +375,36 @@ export async function createPatientVitals(patientId: string, input: CreateVitals
       oxygenSaturation: input.oxygenSaturation
     }
   })
-  return vitalsToRows(vitals)
+  return { id: vitals.id, rows: vitalsToRows(vitals) }
+}
+
+export interface UploadedVitalsFile {
+  fileName: string
+  mimeType: string
+  content: Buffer
+}
+
+// Alternative à la saisie manuelle (item 2 PETITES MODIFS) — un seul fichier par prise de
+// constantes, même mécanisme BLOB que les autres documents/résultats de l'application.
+export async function uploadVitalsFile(vitalsId: string, file: UploadedVitalsFile) {
+  const prisma = getPrismaClient()
+  const vitals = await prisma.vitals.update({
+    where: { id: vitalsId },
+    data: {
+      documentFileName: file.fileName,
+      documentMimeType: file.mimeType,
+      documentFileSize: file.content.length,
+      documentContent: new Uint8Array(file.content)
+    }
+  })
+  return { id: vitals.id, rows: vitalsToRows(vitals) }
+}
+
+export async function getVitalsFile(vitalsId: string) {
+  const prisma = getPrismaClient()
+  const vitals = await prisma.vitals.findUnique({ where: { id: vitalsId } })
+  if (!vitals || vitals.deletedAt || !vitals.documentContent || !vitals.documentFileName) return null
+  return { filename: vitals.documentFileName, contentBase64: Buffer.from(vitals.documentContent).toString('base64') }
 }
 
 export interface CreatePrescriptionInput {
@@ -384,83 +441,109 @@ export async function updatePatientPrescription(id: string, input: UpdatePrescri
 // Premier flow "Imprimer" réel de l'appli (les ~15 boutons du même nom ailleurs restent
 // décoratifs, voir Audit-Fonctionnalites-Manquantes.md §6) — génère un vrai PDF via `pdfkit`
 // (déjà une dépendance, jusqu'ici inutilisée) plutôt qu'un texte statique.
-function pdfBuffer(build: (doc: PDFKit.PDFDocument) => void): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50 })
-    const chunks: Buffer[] = []
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
-    doc.on('end', () => resolve(Buffer.concat(chunks)))
-    doc.on('error', reject)
-    build(doc)
-    doc.end()
-  })
+const CONSULTATION_STATUS_LABEL: Record<string, string> = {
+  TERMINEE: 'Terminée',
+  EN_COURS: 'En cours',
+  EN_ATTENTE: 'En attente',
+  ANNULEE: 'Annulée'
 }
 
+const RESULT_STATUS_LABEL: Record<string, string> = {
+  DISPONIBLE: 'Disponible',
+  EN_COURS: 'En cours',
+  EN_ATTENTE: 'En attente'
+}
+
+// Résumé imprimable du dossier (item 9) — mise en page refaite (item 16 PETITES MODIFS) : bandeau,
+// fiche d'identité, sections avec tableaux, pied de page numéroté (voir pdf-layout.ts).
 export async function generatePatientSummaryPdf(patientId: string) {
   const prisma = getPrismaClient()
   const patient = await prisma.patient.findUnique({ where: { id: patientId } })
   if (!patient || patient.deletedAt) return null
 
+  const company = await prisma.company.findFirst()
+  const establishment = company?.name ?? 'Pandora Health'
   const dossier = await getPatientDossier(patientId)
   const age = computeAge(patient.birthDate)
   const medicalHistory = (patient.medicalHistory as string[] | null) ?? []
+  const generatedAt = new Date()
+  const fr = (iso: string | Date): string => new Date(iso).toLocaleDateString('fr-FR')
 
-  const buffer = await pdfBuffer((doc) => {
-    doc.fontSize(18).text('Pandora Health — Résumé du dossier patient', { align: 'center' })
-    doc.moveDown()
+  const buffer = await createPdfBuffer((doc) => {
+    drawHeaderBand(
+      doc,
+      establishment,
+      'Résumé du dossier patient',
+      `Document confidentiel · généré le ${generatedAt.toLocaleDateString('fr-FR')} à ${generatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+    )
 
-    doc.fontSize(14).fillColor('#000').text(`${patient.firstName} ${patient.lastName}`)
-    doc
-      .fontSize(10)
-      .fillColor('#555')
-      .text(`Code patient : ${patient.code} · ${age} ans · ${patient.gender === 'M' ? 'Masculin' : 'Féminin'}`)
-    doc.text(`Né(e) le ${patient.birthDate.toLocaleDateString('fr-FR')}`)
-    doc.moveDown(0.75)
-    doc.fillColor('#000')
+    drawInfoCard(doc, `${patient.lastName.toUpperCase()} ${patient.firstName}`, [
+      ['Code patient', patient.code],
+      ['Âge / Sexe', `${age} ans · ${patient.gender === 'M' ? 'Masculin' : 'Féminin'}`],
+      ['Date de naissance', fr(patient.birthDate)],
+      ['Groupe sanguin', patient.bloodType ?? 'Non renseigné'],
+      ['Téléphone', patient.phone ?? '—'],
+      ['Assurance', patient.insuranceProvider ? `${patient.insuranceProvider}${patient.insuranceNumber ? ` · N° ${patient.insuranceNumber}` : ''}` : '—'],
+      ['Allergies', patient.allergies ?? 'Non renseignées'],
+      [
+        "Contact d'urgence",
+        patient.emergencyContactName ? `${patient.emergencyContactName}${patient.emergencyContactPhone ? ` · ${patient.emergencyContactPhone}` : ''}` : '—'
+      ]
+    ])
 
-    doc.fontSize(12).text('Informations médicales clés', { underline: true })
-    doc.fontSize(10)
-    doc.text(`Groupe sanguin : ${patient.bloodType ?? 'Non renseigné'}`)
-    doc.text(`Allergies : ${patient.allergies ?? 'Non renseignées'}`)
-    doc.text(`Antécédents médicaux : ${medicalHistory.length > 0 ? medicalHistory.join(', ') : 'Non renseignés'}`)
-    doc.moveDown()
-
-    doc.fontSize(12).text('Dernières consultations', { underline: true })
-    doc.fontSize(10)
-    if (dossier.consultations.length === 0) {
-      doc.text('Aucune consultation enregistrée.')
+    drawSectionTitle(doc, 'Antécédents médicaux')
+    if (medicalHistory.length === 0) {
+      drawEmptyNote(doc, 'Aucun antécédent renseigné.')
     } else {
-      for (const c of dossier.consultations.slice(0, 8)) {
-        doc.text(`${new Date(c.date).toLocaleDateString('fr-FR')} — ${c.service ?? '—'} — ${c.motive ?? '—'} — ${c.status}`)
-      }
+      drawTable(doc, ['Antécédent'], medicalHistory.map((h) => [h]), [1])
     }
-    doc.moveDown()
 
-    doc.fontSize(12).text('Ordonnances en cours', { underline: true })
-    doc.fontSize(10)
+    drawSectionTitle(doc, 'Dernières consultations')
+    if (dossier.consultations.length === 0) {
+      drawEmptyNote(doc, 'Aucune consultation enregistrée.')
+    } else {
+      drawTable(
+        doc,
+        ['Date', 'Service', 'Motif', 'Médecin', 'Statut'],
+        dossier.consultations
+          .slice(0, 8)
+          .map((c) => [fr(c.date), c.service ?? '—', c.motive ?? '—', c.doctorName ?? '—', CONSULTATION_STATUS_LABEL[c.status] ?? c.status]),
+        [0.14, 0.18, 0.32, 0.2, 0.16]
+      )
+    }
+
+    drawSectionTitle(doc, 'Ordonnances en cours')
     const activePrescriptions = dossier.prescriptions.filter((p) => p.active)
     if (activePrescriptions.length === 0) {
-      doc.text('Aucune ordonnance active.')
+      drawEmptyNote(doc, 'Aucune ordonnance active.')
     } else {
-      for (const p of activePrescriptions) {
-        doc.text(`${p.name} — ${p.dosage}`)
-      }
+      drawTable(
+        doc,
+        ['Médicament', 'Posologie', 'Jours restants'],
+        activePrescriptions.map((p) => [p.name, p.dosage, p.remainingDays > 0 ? `${p.remainingDays} j` : '—']),
+        [0.35, 0.45, 0.2]
+      )
     }
-    doc.moveDown()
 
-    doc.fontSize(12).text('Constantes récentes', { underline: true })
-    doc.fontSize(10)
+    drawSectionTitle(doc, 'Dernières constantes')
     if (dossier.vitals.length === 0) {
-      doc.text('Aucune donnée.')
+      drawEmptyNote(doc, 'Aucune constante enregistrée.')
     } else {
-      for (const v of dossier.vitals) {
-        doc.text(`${v.label} : ${v.value}`)
-      }
+      drawTable(doc, ['Mesure', 'Valeur', 'Date'], dossier.vitals.map((v) => [v.label, v.value, fr(v.date)]), [0.4, 0.35, 0.25])
     }
 
-    doc.moveDown(2)
-    doc.fontSize(8).fillColor('#888').text(`Document généré le ${new Date().toLocaleString('fr-FR')}`, { align: 'right' })
-  })
+    drawSectionTitle(doc, "Résultats d'examens récents")
+    if (dossier.results.length === 0) {
+      drawEmptyNote(doc, 'Aucun examen enregistré.')
+    } else {
+      drawTable(
+        doc,
+        ['Examen', 'Date', 'Statut'],
+        dossier.results.map((r) => [r.label, fr(r.date), RESULT_STATUS_LABEL[r.status] ?? r.status]),
+        [0.6, 0.2, 0.2]
+      )
+    }
+  }, `${establishment} — Dossier ${patient.code} — Confidentiel`)
 
   const filename = `Dossier-${patient.code}.pdf`.replace(/[\\/:*?"<>|]/g, '_')
   return { filename, contentBase64: buffer.toString('base64') }

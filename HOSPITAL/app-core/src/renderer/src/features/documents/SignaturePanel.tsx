@@ -12,8 +12,9 @@ const STATUS: Record<ApiSignatureStatus, { label: string; tone: StatusTone }> = 
   REFUSE: { label: 'Refusé', tone: 'danger' }
 }
 
-const inputClass = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+const inputClass =
+  'w-full rounded-[10px] border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 function toObjectUrl(image: ApiSignatureImage): string {
   const bytes = Uint8Array.from(atob(image.contentBase64), (c) => c.charCodeAt(0))
@@ -89,7 +90,7 @@ export function SignaturePanel({ isDirector, refreshKey, onDocumentsChanged, onV
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${filter === f ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${filter === f ? 'bg-accent-600 text-white shadow-sm shadow-accent-600/25' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {f === 'pending' ? `En attente (${pending.length})` : `Traitées (${done.length})`}
               </button>
@@ -205,7 +206,7 @@ function MySignatureCard(): JSX.Element {
 
   return (
     <Card>
-      <h3 className="mb-1 text-sm font-semibold text-gray-900">Ma signature</h3>
+      <h3 className="mb-1 text-[15px] font-bold text-gray-900">Ma signature</h3>
       <p className="mb-4 text-xs text-gray-500">
         Apposée automatiquement sur les documents que vous signez. Image PNG sur fond transparent de préférence.
       </p>
@@ -354,7 +355,12 @@ export function RequestSignatureModal({
             {signable.length === 0 ? (
               <p className="text-xs text-gray-500">Aucun document PDF disponible : choisissez « Nouveau document PDF ».</p>
             ) : (
-              <select value={documentId} onChange={(e) => setDocumentId(e.target.value)} disabled={Boolean(preselectedId)} className={inputClass}>
+              <select
+                value={documentId}
+                onChange={(e) => setDocumentId(e.target.value)}
+                disabled={Boolean(preselectedId)}
+                className={inputClass}
+              >
                 {signable.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.title}

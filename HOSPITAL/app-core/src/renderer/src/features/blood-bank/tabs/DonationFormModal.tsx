@@ -16,8 +16,8 @@ interface DonationFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
 
@@ -34,9 +34,7 @@ export function DonationFormModal({ pouches, onClose, onSaved, editing }: Donati
   const [donorName, setDonorName] = useState(editing?.patientId ? '' : (editing?.donorName ?? ''))
   const [donorPhone, setDonorPhone] = useState(editing?.donorPhone ?? '')
   const [bloodGroup, setBloodGroup] = useState(editing?.bloodGroup ?? 'O+')
-  const [donationDate, setDonationDate] = useState(
-    editing ? editing.donationDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [donationDate, setDonationDate] = useState(editing ? editing.donationDate.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [volumeMl, setVolumeMl] = useState<number | ''>(editing?.volumeMl ?? 450)
   const [status, setStatus] = useState<ApiDonationStatus>(editing?.status ?? 'PLANIFIE')
   const [pouchId, setPouchId] = useState(editing?.pouchId ?? '')
@@ -130,12 +128,7 @@ export function DonationFormModal({ pouches, onClose, onSaved, editing }: Donati
           ) : (
             <div>
               <label className={labelClass}>Nom du donneur *</label>
-              <PicklistInput
-                listKey={PICKLIST_KEYS.BLOOD_DONOR_NAME}
-                value={donorName}
-                onChange={setDonorName}
-                className={inputClass}
-              />
+              <PicklistInput listKey={PICKLIST_KEYS.BLOOD_DONOR_NAME} value={donorName} onChange={setDonorName} className={inputClass} />
             </div>
           )}
           <div>

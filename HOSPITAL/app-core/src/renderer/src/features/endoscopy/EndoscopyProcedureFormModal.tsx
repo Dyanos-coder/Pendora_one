@@ -19,8 +19,8 @@ interface EndoscopyProcedureFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiEndoscopyStatus; label: string }[] = [
   { value: 'PROGRAMME', label: 'Programmé' },
@@ -52,9 +52,7 @@ export function EndoscopyProcedureFormModal({ onClose, onCreated, editing }: End
   )
   const [service, setService] = useState('')
   const [room, setRoom] = useState(editing && editing.room !== '—' ? editing.room : '')
-  const [status, setStatus] = useState<ApiEndoscopyStatus>(
-    editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'EN_ATTENTE') : 'EN_ATTENTE'
-  )
+  const [status, setStatus] = useState<ApiEndoscopyStatus>(editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'EN_ATTENTE') : 'EN_ATTENTE')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,12 +103,21 @@ export function EndoscopyProcedureFormModal({ onClose, onCreated, editing }: End
   }
 
   return (
-    <Modal title={editing ? "Modifier la procédure d'endoscopie" : "Nouvelle procédure d'endoscopie"} onClose={onClose} widthClassName="max-w-2xl">
+    <Modal
+      title={editing ? "Modifier la procédure d'endoscopie" : "Nouvelle procédure d'endoscopie"}
+      onClose={onClose}
+      widthClassName="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Type de procédure *</label>
-            <input value={procedureType} onChange={(e) => setProcedureType(e.target.value)} placeholder="ex. Coloscopie, Gastroscopie" className={inputClass} />
+            <input
+              value={procedureType}
+              onChange={(e) => setProcedureType(e.target.value)}
+              placeholder="ex. Coloscopie, Gastroscopie"
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Patient</label>
@@ -174,7 +181,13 @@ export function EndoscopyProcedureFormModal({ onClose, onCreated, editing }: End
             Annuler
           </Button>
           <Button type="submit" size="sm" disabled={submitting}>
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editing ? 'Enregistrer les modifications' : 'Créer la procédure'}
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : editing ? (
+              'Enregistrer les modifications'
+            ) : (
+              'Créer la procédure'
+            )}
           </Button>
         </div>
       </form>

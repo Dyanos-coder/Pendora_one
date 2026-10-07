@@ -11,8 +11,8 @@ interface QualityIndicatorFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiQualityIndicatorStatus; label: string }[] = [
   { value: 'CONFORME', label: 'Conforme' },
@@ -101,7 +101,13 @@ export function QualityIndicatorFormModal({ onClose, onCreated, editing }: Quali
             Annuler
           </Button>
           <Button type="submit" size="sm" disabled={submitting}>
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editing ? 'Enregistrer les modifications' : "Créer l'indicateur"}
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : editing ? (
+              'Enregistrer les modifications'
+            ) : (
+              "Créer l'indicateur"
+            )}
           </Button>
         </div>
       </form>

@@ -30,6 +30,7 @@ import { ProcurementRequestFormModal } from './ProcurementRequestFormModal'
 import { OrdersTab } from './tabs/OrdersTab'
 import { ReceptionsTab } from './tabs/ReceptionsTab'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 type Tab = 'needs' | 'purchaseRequests' | 'orders' | 'receptions' | 'suppliers'
 
@@ -219,49 +220,46 @@ export function ProcurementPage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement de l&apos;approvisionnement…
-        </div>
+        <PulseLoader label="Chargement de l'approvisionnement…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="procurement.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <ClipboardList className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Besoins en attente</p>
-              <p className="text-xl font-bold text-gray-900">{enAttente.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enAttente.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Demandes urgentes</p>
-              <p className="text-xl font-bold text-gray-900">{urgentes.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{urgentes.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <Truck className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Commandes en retard</p>
-              <p className="text-xl font-bold text-gray-900">{retards.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{retards.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <BadgeCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <BadgeCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Fiabilité fournisseurs (moy.)</p>
-              <p className="text-xl font-bold text-gray-900">{avgOnTime === null ? '—' : `${avgOnTime}%`}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{avgOnTime === null ? '—' : `${avgOnTime}%`}</p>
             </Card>
           </SortableGroup>
 
           {/* Pipeline */}
           <Card>
-            <h3 className="mb-4 text-sm font-semibold text-gray-900">Cycle d&apos;approvisionnement</h3>
+            <h3 className="mb-4 text-[15px] font-bold text-gray-900">Cycle d&apos;approvisionnement</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {pipeline.map((stage) => (
                 <div key={stage.status} className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 py-4">
@@ -284,9 +282,7 @@ export function ProcurementPage(): JSX.Element {
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label}
@@ -303,7 +299,7 @@ export function ProcurementPage(): JSX.Element {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Rechercher un article, une référence, un demandeur..."
-                        className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                        className="w-72 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -319,28 +315,30 @@ export function ProcurementPage(): JSX.Element {
                   </div>
 
                   {rows.length === 0 ? (
-                    <p className="px-6 py-8 text-center text-sm text-gray-400">Aucune demande ne correspond à cette recherche.</p>
+                    <EmptyState title="Aucune demande ne correspond à cette recherche." />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">Référence</th>
-                            <th className="px-6 py-2.5 font-medium">Article</th>
-                            <th className="px-6 py-2.5 font-medium">Quantité</th>
-                            <th className="px-6 py-2.5 font-medium">Priorité</th>
-                            <th className="px-6 py-2.5 font-medium">Statut</th>
-                            <th className="px-6 py-2.5 font-medium">Demandeur</th>
-                            <th className="px-6 py-2.5 font-medium" />
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">Référence</th>
+                            <th className="px-6 py-3 font-semibold">Article</th>
+                            <th className="px-6 py-3 font-semibold">Quantité</th>
+                            <th className="px-6 py-3 font-semibold">Priorité</th>
+                            <th className="px-6 py-3 font-semibold">Statut</th>
+                            <th className="px-6 py-3 font-semibold">Demandeur</th>
+                            <th className="px-6 py-3 font-semibold" />
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((r) => (
-                            <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                            <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                               <td className="px-6 py-3 font-medium text-gray-900">{r.reference}</td>
                               <td className="px-6 py-3 text-gray-600">
                                 {r.article}
-                                <p className="text-xs text-gray-400">{r.category} · {r.date}</p>
+                                <p className="text-xs text-gray-400">
+                                  {r.category} · {r.date}
+                                </p>
                               </td>
                               <td className="px-6 py-3 text-gray-600">{r.quantity}</td>
                               <td className="px-6 py-3">
@@ -379,7 +377,9 @@ export function ProcurementPage(): JSX.Element {
                   )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
-                    <span>Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {requests.length} besoins</span>
+                    <span>
+                      Affichage de {rows.length === 0 ? 0 : 1} à {rows.length} sur {requests.length} besoins
+                    </span>
                   </div>
                 </>
               )}
@@ -387,26 +387,26 @@ export function ProcurementPage(): JSX.Element {
               {activeTab === 'purchaseRequests' && (
                 <>
                   {requests.filter((r) => r.status !== 'À valider').length === 0 ? (
-                    <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune demande d&apos;achat validée.</p>
+                    <EmptyState title="Aucune demande d'achat validée." />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">Référence</th>
-                            <th className="px-6 py-2.5 font-medium">Article</th>
-                            <th className="px-6 py-2.5 font-medium">Quantité</th>
-                            <th className="px-6 py-2.5 font-medium">Priorité</th>
-                            <th className="px-6 py-2.5 font-medium">Statut</th>
-                            <th className="px-6 py-2.5 font-medium">Demandeur</th>
-                            <th className="px-6 py-2.5 font-medium" />
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">Référence</th>
+                            <th className="px-6 py-3 font-semibold">Article</th>
+                            <th className="px-6 py-3 font-semibold">Quantité</th>
+                            <th className="px-6 py-3 font-semibold">Priorité</th>
+                            <th className="px-6 py-3 font-semibold">Statut</th>
+                            <th className="px-6 py-3 font-semibold">Demandeur</th>
+                            <th className="px-6 py-3 font-semibold" />
                           </tr>
                         </thead>
                         <tbody>
                           {requests
                             .filter((r) => r.status !== 'À valider')
                             .map((r) => (
-                              <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                              <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                                 <td className="px-6 py-3 font-medium text-gray-900">{r.reference}</td>
                                 <td className="px-6 py-3 text-gray-600">
                                   {r.article}
@@ -449,19 +449,19 @@ export function ProcurementPage(): JSX.Element {
 
               {activeTab === 'suppliers' && (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="px-6 py-2.5 font-medium">Fournisseur</th>
-                        <th className="px-6 py-2.5 font-medium">Commandes</th>
-                        <th className="px-6 py-2.5 font-medium">Ponctualité</th>
-                        <th className="px-6 py-2.5 font-medium">Qualité</th>
-                        <th className="px-6 py-2.5 font-medium">Note</th>
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                        <th className="px-6 py-3 font-semibold">Fournisseur</th>
+                        <th className="px-6 py-3 font-semibold">Commandes</th>
+                        <th className="px-6 py-3 font-semibold">Ponctualité</th>
+                        <th className="px-6 py-3 font-semibold">Qualité</th>
+                        <th className="px-6 py-3 font-semibold">Note</th>
                       </tr>
                     </thead>
                     <tbody>
                       {suppliers.map((s) => (
-                        <tr key={s.name} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={s.name} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3 font-medium text-gray-900">{s.name}</td>
                           <td className="px-6 py-3 text-gray-600">{s.orders}</td>
                           <td className="px-6 py-3 text-gray-600">{s.onTimePercent}%</td>
@@ -478,13 +478,12 @@ export function ProcurementPage(): JSX.Element {
                   </table>
                 </div>
               )}
-
             </Card>
 
             {/* Colonne latérale */}
             <SortableGroup id="procurement.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par statut</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par statut</h3>
                 {statusBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
@@ -511,7 +510,7 @@ export function ProcurementPage(): JSX.Element {
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Top articles demandés</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Top articles demandés</h3>
                 {topRequested.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
@@ -539,7 +538,7 @@ export function ProcurementPage(): JSX.Element {
           {/* Alertes */}
           <Card className="p-0">
             <div className="border-b border-gray-100 px-5 py-3.5">
-              <h3 className="text-sm font-semibold text-gray-900">Alertes</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Alertes</h3>
             </div>
             <div className="space-y-3 p-5">
               {retards.length === 0 && urgentes.length === 0 ? (
@@ -549,7 +548,9 @@ export function ProcurementPage(): JSX.Element {
                   {retards.length > 0 && (
                     <div className="flex items-start gap-2.5 text-xs">
                       <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                      <span className="text-gray-600">{retards.length} commande{retards.length > 1 ? 's' : ''} en retard</span>
+                      <span className="text-gray-600">
+                        {retards.length} commande{retards.length > 1 ? 's' : ''} en retard
+                      </span>
                     </div>
                   )}
                   {urgentes.length > 0 && (

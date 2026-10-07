@@ -12,8 +12,8 @@ interface StockLossFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const TYPE_OPTIONS: { value: ApiStockLossType; label: string }[] = [
   { value: 'PERTE', label: 'Perte' },
@@ -25,9 +25,7 @@ export function StockLossFormModal({ items, onClose, onSaved, editing }: StockLo
   const [type, setType] = useState<ApiStockLossType>('PERTE')
   const [quantity, setQuantity] = useState('1')
   const [reason, setReason] = useState(editing?.reason ?? '')
-  const [occurredAt, setOccurredAt] = useState(
-    editing ? editing.occurredAt.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [occurredAt, setOccurredAt] = useState(editing ? editing.occurredAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [reportedBy, setReportedBy] = useState(editing?.reportedBy ?? '')
   const [note, setNote] = useState(editing?.note ?? '')
   const [submitting, setSubmitting] = useState(false)

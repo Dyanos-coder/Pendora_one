@@ -1,12 +1,30 @@
 import { Router } from 'express'
+import multer from 'multer'
 import { requireAccess, requireAuth } from '../middleware/auth.middleware'
-import { createLabRequest, deleteLabRequest, listLabRequests, updateLabRequest } from '../services/laboratory.service'
+import {
+  createLabRequest,
+  deleteLabRequest,
+  exportLabRequests,
+  getLabResultFile,
+  listLabRequests,
+  updateLabRequest,
+  uploadLabResultFile
+} from '../services/laboratory.service'
 import { logAudit } from '../services/audit.service'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 export const laboratoryRouter = Router()
 
 laboratoryRouter.use(requireAuth)
 laboratoryRouter.use(requireAccess('laboratory', 'read'))
+
+// Doit rester avant toute route `GET /:id` du même routeur (aucune ici, mais gardé en tête par
+// précaution — voir la même remarque dans les autres domaines exportés, item 10).
+laboratoryRouter.get('/export', async (_req, res) => {
+  const document = await exportLabRequests()
+  res.json({ ok: true, document })
+})
 
 laboratoryRouter.get('/', async (_req, res) => {
   const requests = await listLabRequests()
@@ -35,4 +53,30 @@ laboratoryRouter.delete('/:id', requireAccess('laboratory', 'full'), async (req,
   await deleteLabRequest(req.params.id)
   await logAudit(req.auth!.userId, 'lab_request.delete', 'LabRequest', req.params.id)
   res.json({ ok: true })
+})
+
+// --- Fichier de résultat ------------------------------------------------------------------------
+
+laboratoryRouter.get('/:id/file', async (req, res) => {
+  const file = await getLabResultFile(req.params.id)
+  if (!file) {
+    res.status(404).json({ ok: false, error: 'Aucun fichier pour cette demande.' })
+    return
+  }
+  res.json({ ok: true, document: file })
+})
+
+laboratoryRouter.post('/:id/file', requireAccess('laboratory', 'write'), upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ ok: false, error: 'Aucun fichier reçu.' })
+    return
+  }
+
+  const request = await uploadLabResultFile(req.params.id, {
+    fileName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    content: req.file.buffer
+  })
+  await logAudit(req.auth!.userId, 'lab_request.uploadFile', 'LabRequest', req.params.id)
+  res.json({ ok: true, request })
 })

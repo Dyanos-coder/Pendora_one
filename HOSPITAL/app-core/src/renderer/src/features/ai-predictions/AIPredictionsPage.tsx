@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BrainCircuit, TriangleAlert, Boxes, Wallet, Sparkles, LayoutDashboard, MessageCircle, Loader2 } from 'lucide-react'
+import { BrainCircuit, TriangleAlert, Boxes, Wallet, Sparkles, LayoutDashboard, MessageCircle } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import type { ApiAlertCategory, ApiCalculatedAlert } from '@shared/ai-types'
 import { AiChatPanel } from './AiChatPanel'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 const FILTERS: { id: ApiAlertCategory | 'Toutes'; label: string }[] = [
   { id: 'Toutes', label: 'Toutes' },
@@ -15,7 +16,7 @@ const FILTERS: { id: ApiAlertCategory | 'Toutes'; label: string }[] = [
 
 const CATEGORY_ICON_BG: Record<ApiAlertCategory, string> = {
   Stock: 'bg-amber-50 text-amber-600',
-  Financier: 'bg-emerald-50 text-emerald-600'
+  Financier: 'bg-teal-50 text-teal-600'
 }
 
 function severityTone(severity: ApiCalculatedAlert['severity']): StatusTone {
@@ -86,51 +87,47 @@ export function AIPredictionsPage(): JSX.Element {
       {view === 'chat' ? (
         <AiChatPanel />
       ) : loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des alertes…
-        </div>
+        <PulseLoader label="Chargement des alertes…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800">
             <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-            Ces alertes sont calculées à partir des données réelles de l&apos;établissement (stocks,
-            factures) — il ne s&apos;agit pas de prédictions issues d&apos;un modèle de machine
-            learning entraîné. Pour une prévision, utilisez le Chat IA en le précisant : il vous dira
-            honnêtement s&apos;il peut répondre avec les données disponibles.
+            Ces alertes sont calculées à partir des données réelles de l&apos;établissement (stocks, factures) — il ne s&apos;agit pas de
+            prédictions issues d&apos;un modèle de machine learning entraîné. Pour une prévision, utilisez le Chat IA en le précisant : il
+            vous dira honnêtement s&apos;il peut répondre avec les données disponibles.
           </div>
 
           {/* KPI row */}
           <SortableGroup id="aIPredictions.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <BrainCircuit className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <BrainCircuit className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Alertes actives</p>
-              <p className="text-xl font-bold text-gray-900">{alerts.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{alerts.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Alertes critiques</p>
               <p className="text-xl font-bold text-red-600">{critical}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <Boxes className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Alertes stock</p>
-              <p className="text-xl font-bold text-gray-900">{stockCount}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{stockCount}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <Wallet className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <Wallet className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Alertes financières</p>
-              <p className="text-xl font-bold text-gray-900">{financeCount}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{financeCount}</p>
             </Card>
           </SortableGroup>
 
@@ -150,7 +147,7 @@ export function AIPredictionsPage(): JSX.Element {
               ))}
             </div>
             {rows.length === 0 ? (
-              <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune alerte pour le moment.</p>
+              <EmptyState title="Aucune alerte pour le moment." />
             ) : (
               <div className="divide-y divide-gray-100">
                 {rows.map((a) => (

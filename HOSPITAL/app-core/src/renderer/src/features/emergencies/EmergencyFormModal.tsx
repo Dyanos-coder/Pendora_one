@@ -16,8 +16,8 @@ interface EmergencyFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const SEVERITY_OPTIONS: { value: ApiSeverity; label: string }[] = [
   { value: 'CRITIQUE', label: 'Critique' },
@@ -56,9 +56,7 @@ export function EmergencyFormModal({ onClose, onCreated, editing }: EmergencyFor
   const [doctors, setDoctors] = useState<ApiEmployee[]>([])
   const [patientId, setPatientId] = useState(editing?.patientId ?? '')
   const [doctorId, setDoctorId] = useState(editing?.doctorId ?? '')
-  const [severity, setSeverity] = useState<ApiSeverity>(
-    editing ? (LABEL_TO_API_SEVERITY[editing.severity] ?? 'MOYEN') : 'MOYEN'
-  )
+  const [severity, setSeverity] = useState<ApiSeverity>(editing ? (LABEL_TO_API_SEVERITY[editing.severity] ?? 'MOYEN') : 'MOYEN')
   const [zone, setZone] = useState(editing && editing.zone !== '—' ? editing.zone : '')
   const [motive, setMotive] = useState(editing && editing.motive !== '—' ? editing.motive : '')
   const [detail, setDetail] = useState(editing && editing.detail !== '—' ? editing.detail : '')
@@ -112,7 +110,11 @@ export function EmergencyFormModal({ onClose, onCreated, editing }: EmergencyFor
   }
 
   return (
-    <Modal title={editing ? 'Modifier le passage aux urgences' : 'Nouveau passage aux urgences'} onClose={onClose} widthClassName="max-w-2xl">
+    <Modal
+      title={editing ? 'Modifier le passage aux urgences' : 'Nouveau passage aux urgences'}
+      onClose={onClose}
+      widthClassName="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>

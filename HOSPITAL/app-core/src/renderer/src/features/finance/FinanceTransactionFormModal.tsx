@@ -2,12 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/Modal'
 import { Button } from '@renderer/components/Button'
-import type {
-  ApiFinanceTransaction,
-  ApiTransactionStatus,
-  ApiTransactionType,
-  CreateFinanceTransactionInput
-} from '@shared/finance-types'
+import type { ApiFinanceTransaction, ApiTransactionStatus, ApiTransactionType, CreateFinanceTransactionInput } from '@shared/finance-types'
 
 interface FinanceTransactionFormModalProps {
   onClose: () => void
@@ -17,8 +12,8 @@ interface FinanceTransactionFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiTransactionStatus; label: string }[] = [
   { value: 'EN_ATTENTE', label: 'En attente' },
@@ -26,12 +21,7 @@ const STATUS_OPTIONS: { value: ApiTransactionStatus; label: string }[] = [
   { value: 'EN_RETARD', label: 'En retard' }
 ]
 
-export function FinanceTransactionFormModal({
-  onClose,
-  onCreated,
-  editing,
-  initialType
-}: FinanceTransactionFormModalProps): JSX.Element {
+export function FinanceTransactionFormModal({ onClose, onCreated, editing, initialType }: FinanceTransactionFormModalProps): JSX.Element {
   const [type, setType] = useState<ApiTransactionType>(editing?.type ?? initialType ?? 'RECETTE')
   const [party, setParty] = useState(editing?.party ?? '')
   const [category, setCategory] = useState(editing?.category ?? '')
@@ -128,7 +118,13 @@ export function FinanceTransactionFormModal({
             Annuler
           </Button>
           <Button type="submit" size="sm" disabled={submitting}>
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editing ? 'Enregistrer les modifications' : "Créer l'opération"}
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : editing ? (
+              'Enregistrer les modifications'
+            ) : (
+              "Créer l'opération"
+            )}
           </Button>
         </div>
       </form>

@@ -12,8 +12,8 @@ interface MovementFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const TYPE_OPTIONS: { value: ApiStockMovementType; label: string }[] = [
   { value: 'ENTREE', label: 'Entrée' },
@@ -24,9 +24,7 @@ export function MovementFormModal({ items, onClose, onSaved, editing }: Movement
   const [itemId, setItemId] = useState(items[0]?.id ?? '')
   const [type, setType] = useState<ApiStockMovementType>('ENTREE')
   const [quantity, setQuantity] = useState('1')
-  const [movementDate, setMovementDate] = useState(
-    editing ? editing.movementDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [movementDate, setMovementDate] = useState(editing ? editing.movementDate.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [reason, setReason] = useState(editing?.reason ?? '')
   const [performedBy, setPerformedBy] = useState(editing?.performedBy ?? '')
   const [note, setNote] = useState(editing?.note ?? '')

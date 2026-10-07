@@ -36,7 +36,7 @@ async function getClient(): Promise<GoogleGenAI> {
   const company = await getPrismaClient().company.findFirst({ select: { aiApiKey: true } })
   const apiKey = company?.aiApiKey
   if (!apiKey) {
-    throw new Error("Clé API Gemini non configurée (Paramètres › Ultra Admin) — l'assistant IA est désactivé.")
+    throw new Error("Clé API Gemini non configurée (Paramètres › Établissement) — l'assistant IA est désactivé.")
   }
   if (!client || client.apiKey !== apiKey) {
     client = { apiKey, instance: new GoogleGenAI({ apiKey }) }

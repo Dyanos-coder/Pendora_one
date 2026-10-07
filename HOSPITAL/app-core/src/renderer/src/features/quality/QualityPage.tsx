@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ShieldCheck, Gauge, CalendarClock, TriangleAlert, Search, Award, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ShieldCheck, Gauge, CalendarClock, TriangleAlert, Search, Award, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
@@ -10,6 +10,7 @@ import { indicatorStatusTone, CATEGORY_CHART_COLOR } from './status'
 import type { IndicatorStatus, QualityIndicator } from './types'
 import { QualityIndicatorFormModal } from './QualityIndicatorFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiQualityIndicatorStatus, IndicatorStatus> = {
   CONFORME: 'Conforme',
@@ -185,46 +186,45 @@ export function QualityPage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des données qualité…
-        </div>
+        <PulseLoader label="Chargement des données qualité…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="quality.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Gauge className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Gauge className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Indicateurs suivis</p>
-              <p className="text-xl font-bold text-gray-900">{indicators.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{indicators.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <ShieldCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Taux de conformité global</p>
-              <p className="text-xl font-bold text-gray-900">{conformRate === null ? '—' : `${conformRate}%`}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {conformRate === null ? '—' : `${conformRate}%`}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Award className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Certifications actives</p>
-              <p className="text-xl font-bold text-gray-900">{certifications.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{certifications.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <CalendarClock className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Certifications à renouveler (90j)</p>
-              <p className="text-xl font-bold text-gray-900">{soonRenewals}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{soonRenewals}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Non-conformités ouvertes</p>
@@ -235,33 +235,33 @@ export function QualityPage(): JSX.Element {
           <SortableGroup id="quality.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Indicateurs qualité</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Indicateurs qualité</h3>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher un indicateur..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                      <th className="px-6 py-2.5 font-medium">Indicateur</th>
-                      <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                      <th className="px-6 py-2.5 font-medium">Valeur</th>
-                      <th className="px-6 py-2.5 font-medium">Cible</th>
-                      <th className="px-6 py-2.5 font-medium">Statut</th>
-                      <th className="px-6 py-2.5 font-medium">Mesuré le</th>
-                      <th className="px-6 py-2.5 font-medium" />
+                    <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                      <th className="px-6 py-3 font-semibold">Indicateur</th>
+                      <th className="px-6 py-3 font-semibold">Catégorie</th>
+                      <th className="px-6 py-3 font-semibold">Valeur</th>
+                      <th className="px-6 py-3 font-semibold">Cible</th>
+                      <th className="px-6 py-3 font-semibold">Statut</th>
+                      <th className="px-6 py-3 font-semibold">Mesuré le</th>
+                      <th className="px-6 py-3 font-semibold" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((i) => (
-                      <tr key={i.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <tr key={i.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                         <td className="px-6 py-3 font-medium text-gray-900">{i.name}</td>
                         <td className="px-6 py-3 text-gray-600">{i.category}</td>
                         <td className="px-6 py-3 text-gray-600">{i.currentValue}</td>
@@ -298,7 +298,7 @@ export function QualityPage(): JSX.Element {
             <SortableGroup id="quality.side1" className="space-y-6">
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Certifications</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Certifications</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {rawCertifications.map((raw) => {
@@ -325,7 +325,7 @@ export function QualityPage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions qualité en cours</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions qualité en cours</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {actions.map((a) => (
@@ -353,12 +353,15 @@ export function QualityPage(): JSX.Element {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition des indicateurs par catégorie</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition des indicateurs par catégorie</h3>
               {categoryBreakdown.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune donnée.</p>
               ) : (
                 <div className="flex items-center gap-5">
-                  <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full" style={{ background: donutBackground }}>
+                  <div
+                    className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: donutBackground }}
+                  >
                     <div className="h-14 w-14 rounded-full bg-white" />
                   </div>
                   <div className="space-y-1.5">
@@ -376,7 +379,7 @@ export function QualityPage(): JSX.Element {
 
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Indicateurs à surveiller</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Indicateurs à surveiller</h3>
               </div>
               <div className="space-y-3 p-5">
                 {watchList.length === 0 ? (
@@ -384,7 +387,9 @@ export function QualityPage(): JSX.Element {
                 ) : (
                   watchList.map((i) => (
                     <div key={i.id} className="flex items-start gap-2.5 text-xs">
-                      <TriangleAlert className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${i.status === 'Non conforme' ? 'text-red-500' : 'text-amber-500'}`} />
+                      <TriangleAlert
+                        className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${i.status === 'Non conforme' ? 'text-red-500' : 'text-amber-500'}`}
+                      />
                       <span className="text-gray-600">
                         {i.name} — {i.currentValue} <span className="text-gray-400">(cible {i.target})</span>
                       </span>

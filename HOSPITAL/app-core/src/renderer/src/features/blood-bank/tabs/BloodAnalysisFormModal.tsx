@@ -12,8 +12,8 @@ interface BloodAnalysisFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const TEST_TYPES = ['Groupage sanguin', 'Sérologie VIH', 'Sérologie hépatite B', 'Sérologie hépatite C', 'Syphilis (TPHA/VDRL)']
 
@@ -28,9 +28,7 @@ export function BloodAnalysisFormModal({ pouches, onClose, onSaved, editing }: B
   const [testType, setTestType] = useState(editing?.testType ?? TEST_TYPES[0])
   const [result, setResult] = useState<ApiBloodAnalysisResult>(editing?.result ?? 'EN_ATTENTE')
   const [performedBy, setPerformedBy] = useState(editing?.performedBy ?? '')
-  const [performedAt, setPerformedAt] = useState(
-    editing ? editing.performedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [performedAt, setPerformedAt] = useState(editing ? editing.performedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState(editing?.note ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

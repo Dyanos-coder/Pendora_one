@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `vitals` ADD COLUMN `documentContent` LONGBLOB NULL,
+    ADD COLUMN `documentFileName` VARCHAR(191) NULL,
+    ADD COLUMN `documentFileSize` INTEGER NULL,
+    ADD COLUMN `documentMimeType` VARCHAR(191) NULL,
+    ADD COLUMN `source` ENUM('ANALYSE', 'RDV', 'CONSULTATION') NOT NULL DEFAULT 'CONSULTATION';

@@ -8,8 +8,8 @@ export function hospitalizationStatusTone(status: HospitalizationStatus): Status
 }
 
 export const BED_CHART_COLOR = {
-  occupied: '#10b981',
+  occupied: '#14b8a6',
   available: '#3b82f6',
-  cleaning: '#f59e0b',
+  cleaning: '#dea127',
   maintenance: '#ef4444'
 } as const

@@ -14,8 +14,8 @@ export function pathologyPriorityTone(priority: PathologyPriority): StatusTone {
 
 export const SAMPLE_TYPE_CHART_COLOR: Record<string, string> = {
   Biopsie: '#3b82f6',
-  'Pièce opératoire': '#8b5cf6',
-  Ponction: '#f59e0b',
-  'Exérèse / Curetage': '#10b981',
+  'Pièce opératoire': '#12a04a',
+  Ponction: '#dea127',
+  'Exérèse / Curetage': '#14b8a6',
   Autres: '#9ca3af'
 }

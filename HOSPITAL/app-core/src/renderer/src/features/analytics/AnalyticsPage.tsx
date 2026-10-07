@@ -6,6 +6,7 @@ import { Button } from '@renderer/components/Button'
 import { BarChart } from '@renderer/components/BarChart'
 import type { ApiDepartmentComparison, ApiGeneratedReport, ApiReportCategory, ApiReportCategoryCount } from '@shared/reports-types'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const CATEGORY_ICON: Record<ApiReportCategory, typeof Activity> = {
   ACTIVITE_MEDICALE: Activity,
@@ -16,8 +17,8 @@ const CATEGORY_ICON: Record<ApiReportCategory, typeof Activity> = {
 }
 
 const CATEGORY_COLOR: Record<ApiReportCategory, string> = {
-  ACTIVITE_MEDICALE: 'bg-violet-50 text-violet-600',
-  FINANCES: 'bg-emerald-50 text-emerald-600',
+  ACTIVITE_MEDICALE: 'bg-accent-50 text-accent-600',
+  FINANCES: 'bg-teal-50 text-teal-600',
   RESSOURCES_HUMAINES: 'bg-blue-50 text-blue-600',
   QUALITE_CONFORMITE: 'bg-amber-50 text-amber-600',
   STOCKS_ACHATS: 'bg-orange-50 text-orange-600'
@@ -71,10 +72,7 @@ export function AnalyticsPage(): JSX.Element {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des rapports…
-        </div>
+        <PulseLoader label="Chargement des rapports…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
@@ -89,8 +87,10 @@ export function AnalyticsPage(): JSX.Element {
                     <Icon className="h-5 w-5" />
                   </div>
                   <p className="mt-3 text-xs font-medium text-gray-500">{c.label}</p>
-                  <p className="text-xl font-bold text-gray-900">{c.count}</p>
-                  <p className="mb-3 text-xs text-gray-400">rapport{c.count > 1 ? 's' : ''} généré{c.count > 1 ? 's' : ''}</p>
+                  <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{c.count}</p>
+                  <p className="mb-3 text-xs text-gray-400">
+                    rapport{c.count > 1 ? 's' : ''} généré{c.count > 1 ? 's' : ''}
+                  </p>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -108,7 +108,7 @@ export function AnalyticsPage(): JSX.Element {
           <SortableGroup id="analytics.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Rapports récents</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Rapports récents</h3>
               </div>
               {reports.length === 0 ? (
                 <p className="px-6 py-8 text-center text-sm text-gray-400">
@@ -141,14 +141,14 @@ export function AnalyticsPage(): JSX.Element {
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Consultations par service</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Consultations par service</h3>
               {departments.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune donnée.</p>
               ) : (
                 <BarChart
                   categories={departments.slice(0, 6).map((d) => d.label.split(' ')[0])}
                   values={departments.slice(0, 6).map((d) => d.count)}
-                  color="#8b5cf6"
+                  color="#12a04a"
                 />
               )}
               {departments.length > 0 && (

@@ -14,8 +14,8 @@ interface ImagingRequestFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiImagingStatus; label: string }[] = [
   { value: 'EN_ATTENTE_LECTURE', label: 'En attente lecture' },
@@ -40,9 +40,7 @@ export function ImagingRequestFormModal({ onClose, onCreated, editing }: Imaging
   const [doctorId, setDoctorId] = useState(editing?.doctorId ?? '')
   const [examType, setExamType] = useState(editing?.examType ?? '')
   const [region, setRegion] = useState(editing && editing.region !== '—' ? editing.region : '')
-  const [priority, setPriority] = useState<ApiImagingPriority>(
-    editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMAL') : 'NORMAL'
-  )
+  const [priority, setPriority] = useState<ApiImagingPriority>(editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMAL') : 'NORMAL')
   const [service, setService] = useState(editing && editing.service !== '—' ? editing.service : '')
   const [status, setStatus] = useState<ApiImagingStatus>(
     editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'EN_ATTENTE_LECTURE') : 'EN_ATTENTE_LECTURE'
@@ -101,7 +99,12 @@ export function ImagingRequestFormModal({ onClose, onCreated, editing }: Imaging
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Type d&apos;examen *</label>
-            <input value={examType} onChange={(e) => setExamType(e.target.value)} placeholder="ex. Radiographie thoracique" className={inputClass} />
+            <input
+              value={examType}
+              onChange={(e) => setExamType(e.target.value)}
+              placeholder="ex. Radiographie thoracique"
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Patient</label>

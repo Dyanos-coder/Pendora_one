@@ -10,7 +10,7 @@ import type { LoginResult, Session } from '../types'
 export async function login(email: string, password: string): Promise<LoginResult> {
   const prisma = getPrismaClient()
 
-  const user = await prisma.user.findUnique({ where: { email } })
+  const user = await prisma.user.findUnique({ where: { email }, include: { employee: true } })
 
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
     return { ok: false, error: 'Identifiants invalides.' }
@@ -26,7 +26,10 @@ export async function login(email: string, password: string): Promise<LoginResul
   }
 
   const session: Session = {
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    // `employeeId` : rattache la session au dossier employé (s'il existe) plutôt qu'à un simple
+    // rôle — un médecin ne doit pouvoir se programmer des rendez-vous que pour lui-même (voir
+    // AppointmentFormModal.tsx côté app-core), ce qui nécessite de savoir QUEL employé il est.
+    user: { id: user.id, email: user.email, name: user.name, role: user.role, employeeId: user.employee?.id ?? null },
     company: { name: company.name, sector: company.sector }
   }
 

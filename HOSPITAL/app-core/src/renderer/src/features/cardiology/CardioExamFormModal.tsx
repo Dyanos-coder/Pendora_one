@@ -14,8 +14,8 @@ interface CardioExamFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiCardioStatus; label: string }[] = [
   { value: 'PROGRAMME', label: 'Programmé' },
@@ -42,13 +42,9 @@ export function CardioExamFormModal({ onClose, onCreated, editing }: CardioExamF
   const [doctorId, setDoctorId] = useState(editing?.doctorId ?? '')
   const [examType, setExamType] = useState(editing?.examType ?? '')
   const [indication, setIndication] = useState(editing && editing.indication !== '—' ? editing.indication : '')
-  const [priority, setPriority] = useState<ApiCardioPriority>(
-    editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMALE') : 'NORMALE'
-  )
+  const [priority, setPriority] = useState<ApiCardioPriority>(editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMALE') : 'NORMALE')
   const [room, setRoom] = useState(editing && editing.room !== '—' ? editing.room : '')
-  const [status, setStatus] = useState<ApiCardioStatus>(
-    editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'EN_ATTENTE') : 'EN_ATTENTE'
-  )
+  const [status, setStatus] = useState<ApiCardioStatus>(editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'EN_ATTENTE') : 'EN_ATTENTE')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -98,12 +94,21 @@ export function CardioExamFormModal({ onClose, onCreated, editing }: CardioExamF
   }
 
   return (
-    <Modal title={editing ? 'Modifier la demande de cardiologie' : 'Nouvelle demande de cardiologie'} onClose={onClose} widthClassName="max-w-2xl">
+    <Modal
+      title={editing ? 'Modifier la demande de cardiologie' : 'Nouvelle demande de cardiologie'}
+      onClose={onClose}
+      widthClassName="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Type d&apos;examen *</label>
-            <input value={examType} onChange={(e) => setExamType(e.target.value)} placeholder="ex. ECG, Echographie cardiaque" className={inputClass} />
+            <input
+              value={examType}
+              onChange={(e) => setExamType(e.target.value)}
+              placeholder="ex. ECG, Echographie cardiaque"
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Patient</label>

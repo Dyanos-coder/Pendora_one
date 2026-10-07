@@ -12,8 +12,8 @@ interface RiskFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const SCALE_OPTIONS = [
   { value: 1, label: '1' },
@@ -40,9 +40,7 @@ export function RiskFormModal({ onClose, onCreated, editing }: RiskFormModalProp
   const [probability, setProbability] = useState<number>(editing?.probability ?? 2)
   const [impact, setImpact] = useState<number>(editing?.impact ?? 2)
   const [owner, setOwner] = useState(editing?.owner ?? '')
-  const [status, setStatus] = useState<ApiRiskStatus>(
-    editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'OUVERT') : 'OUVERT'
-  )
+  const [status, setStatus] = useState<ApiRiskStatus>(editing ? (LABEL_TO_API_STATUS[editing.status] ?? 'OUVERT') : 'OUVERT')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -137,7 +135,13 @@ export function RiskFormModal({ onClose, onCreated, editing }: RiskFormModalProp
             Annuler
           </Button>
           <Button type="submit" size="sm" disabled={submitting}>
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editing ? 'Enregistrer les modifications' : 'Déclarer le risque'}
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : editing ? (
+              'Enregistrer les modifications'
+            ) : (
+              'Déclarer le risque'
+            )}
           </Button>
         </div>
       </form>

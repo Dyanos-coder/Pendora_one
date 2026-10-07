@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiHrEmployee, ApiPayrollEntry, ApiPayrollStatus } from '@shared/hr-types'
 import { PayrollFormModal } from './PayrollFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiPayrollStatus, string> = {
   EN_PREPARATION: 'En préparation',
@@ -44,12 +45,7 @@ export function PayrollTab({ employees }: { employees: ApiHrEmployee[] }): JSX.E
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -97,29 +93,29 @@ export function PayrollTab({ employees }: { employees: ApiHrEmployee[] }): JSX.E
       )}
 
       {entries.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune fiche de paie enregistrée.</p>
+        <EmptyState title="Aucune fiche de paie enregistrée." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Employé</th>
-                <th className="px-6 py-2.5 font-medium">Période</th>
-                <th className="px-6 py-2.5 font-medium">Salaire de base</th>
-                <th className="px-6 py-2.5 font-medium">Primes</th>
-                <th className="px-6 py-2.5 font-medium">Retenues</th>
-                <th className="px-6 py-2.5 font-medium">Net</th>
-                <th className="px-6 py-2.5 font-medium">Statut</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Employé</th>
+                <th className="px-6 py-3 font-semibold">Période</th>
+                <th className="px-6 py-3 font-semibold">Salaire de base</th>
+                <th className="px-6 py-3 font-semibold">Primes</th>
+                <th className="px-6 py-3 font-semibold">Retenues</th>
+                <th className="px-6 py-3 font-semibold">Net</th>
+                <th className="px-6 py-3 font-semibold">Statut</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={e.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={e.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{e.employeeName}</td>
                   <td className="px-6 py-3 text-gray-600">{e.period}</td>
                   <td className="px-6 py-3 text-gray-600">{formatAmount(e.baseSalary)}</td>
-                  <td className="px-6 py-3 text-emerald-600">{formatAmount(e.bonuses)}</td>
+                  <td className="px-6 py-3 text-teal-600">{formatAmount(e.bonuses)}</td>
                   <td className="px-6 py-3 text-red-500">{formatAmount(e.deductions)}</td>
                   <td className="px-6 py-3 font-semibold text-gray-900">{formatAmount(e.netPay)}</td>
                   <td className="px-6 py-3">

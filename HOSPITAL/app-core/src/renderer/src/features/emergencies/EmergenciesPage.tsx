@@ -35,6 +35,7 @@ import type { EmergencyRecord, EmergencyStatus, Severity } from './types'
 import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { EmergencyFormModal } from './EmergencyFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface EmergenciesPageProps {
   onOpenPatient: (patientId: string) => void
@@ -154,10 +155,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
   )
   const discharged = useMemo(() => visits.filter((v) => v.dischargeTime !== null), [visits])
   const newToday = useMemo(() => visits.filter((v) => isSameDay(v.arrivalTime, today)), [visits, today])
-  const dischargedToday = useMemo(
-    () => discharged.filter((v) => v.dischargeTime && isSameDay(v.dischargeTime, today)),
-    [discharged, today]
-  )
+  const dischargedToday = useMemo(() => discharged.filter((v) => v.dischargeTime && isSameDay(v.dischargeTime, today)), [discharged, today])
   const critical = useMemo(() => active.filter((v) => v.severity === 'Critique'), [active])
   const waitingTriage = useMemo(
     () => active.filter((v) => v.status === 'En attente de triage').sort((a, b) => b.waitMinutes - a.waitMinutes),
@@ -186,14 +184,8 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
   const tabRows = TAB_ROWS[activeTab]
 
-  const zoneOptions = useMemo(
-    () => Array.from(new Set(visits.map((v) => v.zone).filter((z) => z && z !== '—'))).sort(),
-    [visits]
-  )
-  const doctorOptions = useMemo(
-    () => Array.from(new Set(visits.map((v) => v.doctor).filter((d) => d && d !== '—'))).sort(),
-    [visits]
-  )
+  const zoneOptions = useMemo(() => Array.from(new Set(visits.map((v) => v.zone).filter((z) => z && z !== '—'))).sort(), [visits])
+  const doctorOptions = useMemo(() => Array.from(new Set(visits.map((v) => v.doctor).filter((d) => d && d !== '—'))).sort(), [visits])
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -217,18 +209,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
       }
       return true
     })
-  }, [
-    tabRows,
-    search,
-    filterService,
-    filterSeverity,
-    filterStatus,
-    filterDoctor,
-    filterZone,
-    filterPeriod,
-    today,
-    realMonday
-  ])
+  }, [tabRows, search, filterService, filterSeverity, filterStatus, filterDoctor, filterZone, filterPeriod, today, realMonday])
 
   function handleResetFilters(): void {
     setFilterPeriod('all')
@@ -343,53 +324,52 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des urgences…
-        </div>
+        <PulseLoader label="Chargement des urgences…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="emergencies.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Siren className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Siren className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Patients en cours</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{active.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{active.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <UserPlus className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Nouveaux aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{newToday.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{newToday.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <LogOut className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <LogOut className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Sortis aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{dischargedToday.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{dischargedToday.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Hourglass className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En attente de triage</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{waitingTriage.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{waitingTriage.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Clock className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Clock className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Durée moyenne de passage</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{avgTotalDuration === null ? '—' : formatDuration(avgTotalDuration)}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {avgTotalDuration === null ? '—' : formatDuration(avgTotalDuration)}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <HeartPulse className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Patients critiques</p>
@@ -408,9 +388,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
@@ -425,7 +403,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher dans la liste..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -450,24 +428,24 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="px-6 py-2.5 font-medium">Arrivée</th>
-                        <th className="px-6 py-2.5 font-medium">Patient</th>
-                        <th className="px-6 py-2.5 font-medium">Âge / Sexe</th>
-                        <th className="px-6 py-2.5 font-medium">Motif</th>
-                        <th className="px-6 py-2.5 font-medium">Gravité</th>
-                        <th className="px-6 py-2.5 font-medium">Zone / Salle</th>
-                        <th className="px-6 py-2.5 font-medium">Médecin</th>
-                        <th className="px-6 py-2.5 font-medium">Statut</th>
-                        <th className="px-6 py-2.5 font-medium">Durée</th>
-                        <th className="px-6 py-2.5 font-medium" />
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                        <th className="px-6 py-3 font-semibold">Arrivée</th>
+                        <th className="px-6 py-3 font-semibold">Patient</th>
+                        <th className="px-6 py-3 font-semibold">Âge / Sexe</th>
+                        <th className="px-6 py-3 font-semibold">Motif</th>
+                        <th className="px-6 py-3 font-semibold">Gravité</th>
+                        <th className="px-6 py-3 font-semibold">Zone / Salle</th>
+                        <th className="px-6 py-3 font-semibold">Médecin</th>
+                        <th className="px-6 py-3 font-semibold">Statut</th>
+                        <th className="px-6 py-3 font-semibold">Durée</th>
+                        <th className="px-6 py-3 font-semibold" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredRows.map((v) => (
-                        <tr key={v.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={v.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3 font-medium text-gray-900">{formatClock(v.arrivalTime)}</td>
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2.5">
@@ -480,7 +458,9 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3 text-gray-600">{v.age ? `${v.age} ans · ${v.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}</td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {v.age ? `${v.age} ans · ${v.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}
+                          </td>
                           <td className="px-6 py-3">
                             <p className="text-gray-900">{v.motive}</p>
                             <p className="text-xs text-gray-400">{v.detail}</p>
@@ -548,11 +528,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Période</label>
                     <select
                       value={filterPeriod}
                       onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value="all">Toutes les périodes</option>
                       <option value="today">Aujourd&apos;hui</option>
@@ -561,11 +541,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {zoneOptions.map((z) => (
@@ -576,11 +556,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Niveau de gravité</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Niveau de gravité</label>
                     <select
                       value={filterSeverity}
                       onChange={(e) => setFilterSeverity(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les niveaux</option>
                       {Object.values(SEVERITY_LABEL).map((s) => (
@@ -591,11 +571,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -606,11 +586,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin responsable</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Médecin responsable</label>
                     <select
                       value={filterDoctor}
                       onChange={(e) => setFilterDoctor(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les médecins</option>
                       {doctorOptions.map((d) => (
@@ -621,11 +601,11 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Zone / Salle</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Zone / Salle</label>
                     <select
                       value={filterZone}
                       onChange={(e) => setFilterZone(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les zones</option>
                       {zoneOptions.map((z) => (
@@ -639,7 +619,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par niveau de gravité</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par niveau de gravité</h3>
                 <div className="flex items-center gap-5">
                   <div
                     className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
@@ -664,7 +644,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
               </Card>
 
               <Card>
-                <h3 className="mb-3 text-sm font-semibold text-gray-900">Temps d&apos;attente moyen</h3>
+                <h3 className="mb-3 text-[15px] font-bold text-gray-900">Temps d&apos;attente moyen</h3>
                 <div className="space-y-2.5 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-gray-600">
@@ -685,7 +665,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
                   <QuickAction icon={Plus} label="Nouveau patient urgent" onClick={() => setShowCreateModal(true)} />
@@ -706,7 +686,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Alertes urgences</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Alertes urgences</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {critical.length === 0 && longWaits === 0 ? (
@@ -738,7 +718,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
           <SortableGroup id="emergencies.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Patients en attente de triage ({waitingTriage.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Patients en attente de triage ({waitingTriage.length})</h3>
               </div>
               <div className="space-y-3 p-5">
                 {waitingTriage.length === 0 ? (
@@ -758,7 +738,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Patients critiques ({critical.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Patients critiques ({critical.length})</h3>
               </div>
               <div className="space-y-3 p-5">
                 {critical.length === 0 ? (
@@ -780,7 +760,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
             <Card className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Sorties aujourd&apos;hui ({dischargedToday.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Sorties aujourd&apos;hui ({dischargedToday.length})</h3>
               </div>
               <div className="space-y-3 p-5">
                 {dischargedToday.length === 0 ? (
@@ -788,10 +768,10 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                 ) : (
                   dischargedToday.map((d) => (
                     <div key={d.id} className="flex items-center gap-2 text-xs">
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-teal-500" />
                       <span className="flex-1 truncate text-gray-800">{d.patientName}</span>
                       <span className="shrink-0 text-gray-400">{d.dischargeTime ? formatClock(d.dischargeTime) : '—'}</span>
-                      <span className="shrink-0 text-emerald-600">{d.outcome}</span>
+                      <span className="shrink-0 text-teal-600">{d.outcome}</span>
                     </div>
                   ))
                 )}
@@ -800,7 +780,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
 
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Flux des urgences (aujourd&apos;hui)</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Flux des urgences (aujourd&apos;hui)</h3>
               </div>
               <div className="p-5">
                 <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
@@ -815,7 +795,7 @@ export function EmergenciesPage({ onOpenPatient }: EmergenciesPageProps): JSX.El
                   categories={FLOW_BUCKET_LABELS}
                   series={[
                     { label: 'Entrées', color: '#3b82f6', values: flowData.entries },
-                    { label: 'Sorties', color: '#f59e0b', values: flowData.exits }
+                    { label: 'Sorties', color: '#dea127', values: flowData.exits }
                   ]}
                 />
               </div>

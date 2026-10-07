@@ -14,7 +14,10 @@ import {
 import { inputClass, labelClass } from './CashierModals'
 import { TILE_COLORS, fcfa } from './format'
 
-const FORMAT_LABEL: Record<ApiReceiptFormat, string> = { TICKET_80MM: 'Ticket thermique 80 mm', A6: 'A6' }
+const FORMAT_LABEL: Record<ApiReceiptFormat, string> = {
+  TICKET_80MM: 'Ticket thermique 80 mm',
+  A6: 'A6'
+}
 const DEFAULT_SERVICES = ['Consultation', ...Object.values(EXAM_SERVICE), 'Pharmacie', 'Bloc opératoire', 'Hospitalisation', 'Urgences']
 
 /** Réglages du module (dirigeant) : caisses, catalogue de tarifs, et imprimante de ce poste. */
@@ -53,7 +56,7 @@ export function CashierSettings({ onBack }: { onBack: () => void }): JSX.Element
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Caisses</h3>
+            <h3 className="text-[15px] font-bold text-gray-900">Caisses</h3>
             <p className="text-xs text-gray-500">Autant de caisses que nécessaire, chacune avec ses caissiers autorisés.</p>
           </div>
           <Button size="sm" onClick={() => setEditingRegister('new')}>
@@ -74,7 +77,10 @@ export function CashierSettings({ onBack }: { onBack: () => void }): JSX.Element
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge label={r.isActive ? 'Active' : 'Désactivée'} tone={r.isActive ? 'success' : 'neutral'} />
-                <button onClick={() => setEditingRegister(r)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                <button
+                  onClick={() => setEditingRegister(r)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                >
                   <Pencil className="h-4 w-4" />
                 </button>
               </div>
@@ -87,10 +93,10 @@ export function CashierSettings({ onBack }: { onBack: () => void }): JSX.Element
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Catalogue de tarifs</h3>
+            <h3 className="text-[15px] font-bold text-gray-900">Catalogue de tarifs</h3>
             <p className="text-xs text-gray-500">
-              Tuiles de l&apos;écran d&apos;encaissement. Pour un examen prescrit, le tarif est retrouvé par son service et son
-              libellé exact (ex. Laboratoire — « NFS »).
+              Tuiles de l&apos;écran d&apos;encaissement. Pour un examen prescrit, le tarif est retrouvé par son service et son libellé
+              exact (ex. Laboratoire — « NFS »).
             </p>
           </div>
           <Button size="sm" onClick={() => setEditingTariff('new')}>
@@ -113,7 +119,10 @@ export function CashierSettings({ onBack }: { onBack: () => void }): JSX.Element
                     </span>
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-900">{fcfa(t.price)}</span>
-                      <button onClick={() => setEditingTariff(t)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                      <button
+                        onClick={() => setEditingTariff(t)}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                      >
                         <Pencil className="h-4 w-4" />
                       </button>
                     </span>
@@ -144,7 +153,9 @@ export function CashierSettings({ onBack }: { onBack: () => void }): JSX.Element
           services={knownServices}
           onClose={() => setEditingTariff(null)}
           onSaved={(saved) => {
-            setTariffs((prev) => (prev.some((t) => t.id === saved.id) ? prev.map((t) => (t.id === saved.id ? saved : t)) : [...prev, saved]))
+            setTariffs((prev) =>
+              prev.some((t) => t.id === saved.id) ? prev.map((t) => (t.id === saved.id ? saved : t)) : [...prev, saved]
+            )
             setEditingTariff(null)
           }}
         />
@@ -175,7 +186,13 @@ function RegisterFormModal({
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setBusy(true)
-    const input = { name, location: location || null, receiptFormat: format, isActive, cashierIds }
+    const input = {
+      name,
+      location: location || null,
+      receiptFormat: format,
+      isActive,
+      cashierIds
+    }
     const result = register ? await window.api.cashier.updateRegister(register.id, input) : await window.api.cashier.createRegister(input)
     setBusy(false)
     if (!result.ok) {
@@ -267,7 +284,14 @@ function TariffFormModal({
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setBusy(true)
-    const input = { label, service, price: Number(price || 0), color, sortOrder: Number(sortOrder || 0), isActive }
+    const input = {
+      label,
+      service,
+      price: Number(price || 0),
+      color,
+      sortOrder: Number(sortOrder || 0),
+      isActive
+    }
     const result = tariff ? await window.api.cashier.updateTariff(tariff.id, input) : await window.api.cashier.createTariff(input)
     setBusy(false)
     if (!result.ok) {
@@ -282,7 +306,13 @@ function TariffFormModal({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>Libellé</label>
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Consultation générale" autoFocus className={inputClass} />
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Consultation générale"
+            autoFocus
+            className={inputClass}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -358,7 +388,7 @@ function PrinterCard(): JSX.Element {
 
   return (
     <Card>
-      <h3 className="mb-1 text-sm font-semibold text-gray-900">Imprimante des reçus (ce poste)</h3>
+      <h3 className="mb-1 text-[15px] font-bold text-gray-900">Imprimante des reçus (ce poste)</h3>
       <p className="mb-3 text-xs text-gray-500">
         Avec une imprimante choisie, les reçus s&apos;impriment directement, sans boîte de dialogue.
       </p>
@@ -372,7 +402,7 @@ function PrinterCard(): JSX.Element {
             </option>
           ))}
         </select>
-        {saved && <span className="whitespace-nowrap text-xs text-emerald-600">Enregistré.</span>}
+        {saved && <span className="whitespace-nowrap text-xs text-teal-600">Enregistré.</span>}
       </div>
     </Card>
   )

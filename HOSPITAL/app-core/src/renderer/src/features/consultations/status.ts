@@ -9,8 +9,8 @@ export function consultationStatusTone(status: ConsultationStatus): StatusTone {
 }
 
 export const STATUS_CHART_COLOR: Record<ConsultationStatus, string> = {
-  Terminée: '#10b981',
+  Terminée: '#14b8a6',
   'En cours': '#3b82f6',
-  'En attente': '#f59e0b',
+  'En attente': '#dea127',
   Annulée: '#ef4444'
 }

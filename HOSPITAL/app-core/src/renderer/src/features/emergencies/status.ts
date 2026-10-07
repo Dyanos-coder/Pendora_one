@@ -11,8 +11,8 @@ export function severityTone(severity: Severity): StatusTone {
 export const SEVERITY_CHART_COLOR: Record<Severity, string> = {
   Critique: '#ef4444',
   Élevé: '#f97316',
-  Moyen: '#f59e0b',
-  Faible: '#22c55e'
+  Moyen: '#dea127',
+  Faible: '#14b8a6'
 }
 
 export function emergencyStatusTone(status: EmergencyStatus): StatusTone {

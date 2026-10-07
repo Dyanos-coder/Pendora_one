@@ -39,6 +39,7 @@ import { BudgetsTab } from './tabs/BudgetsTab'
 import { BankAccountsTab } from './tabs/BankAccountsTab'
 import { CashRegistersTab } from './tabs/CashRegistersTab'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 type Tab = 'recent' | 'cashRegisters' | 'invoices' | 'payments' | 'byService' | 'budgets' | 'accounts'
 
@@ -71,7 +72,10 @@ function toTransaction(t: ApiFinanceTransaction): FinanceTransaction {
   return {
     id: t.id,
     date: occurred.toLocaleDateString('fr-FR'),
-    time: occurred.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    time: occurred.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
     reference: t.reference,
     type: TYPE_LABEL[t.type],
     party: t.party,
@@ -123,10 +127,7 @@ export function FinancePage(): JSX.Element {
     setExporting(false)
   }
 
-  const categoryOptions = useMemo(
-    () => Array.from(new Set(transactions.map((t) => t.category).filter(Boolean))).sort(),
-    [transactions]
-  )
+  const categoryOptions = useMemo(() => Array.from(new Set(transactions.map((t) => t.category).filter(Boolean))).sort(), [transactions])
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -158,7 +159,11 @@ export function FinancePage(): JSX.Element {
     const counts = new Map<string, number>()
     for (const t of depenses) counts.set(t.category, (counts.get(t.category) ?? 0) + t.amount)
     return Array.from(counts.entries())
-      .map(([label, amount]) => ({ label, amount, percent: totalDepenses === 0 ? 0 : Math.round((amount / totalDepenses) * 100) }))
+      .map(([label, amount]) => ({
+        label,
+        amount,
+        percent: totalDepenses === 0 ? 0 : Math.round((amount / totalDepenses) * 100)
+      }))
       .sort((a, b) => b.amount - a.amount)
   }, [depenses, totalDepenses])
 
@@ -181,19 +186,54 @@ export function FinancePage(): JSX.Element {
       .slice(0, 5)
   }, [depenses])
 
-  const pendingDues = useMemo(
-    () => [...enRetard, ...enAttente].sort((a, b) => b.amount - a.amount).slice(0, 5),
-    [enRetard, enAttente]
-  )
+  const pendingDues = useMemo(() => [...enRetard, ...enAttente].sort((a, b) => b.amount - a.amount).slice(0, 5), [enRetard, enAttente])
 
-  const QUICK_ACTIONS: { icon: typeof Plus; label: string; onClick?: () => void }[] = [
-    { icon: Plus, label: 'Créer une recette', onClick: () => { setCreateType('RECETTE'); setShowCreateModal(true) } },
-    { icon: ReceiptText, label: 'Enregistrer une dépense', onClick: () => { setCreateType('DEPENSE'); setShowCreateModal(true) } },
-    { icon: CreditCard, label: 'Nouveau paiement', onClick: () => setActiveTab('payments') },
-    { icon: ClipboardList, label: 'Créer un budget', onClick: () => setActiveTab('budgets') },
-    { icon: ArrowLeftRight, label: 'Transfert entre comptes', onClick: () => setActiveTab('accounts') },
-    { icon: Landmark, label: 'Rapprochement bancaire', onClick: () => setActiveTab('accounts') },
-    { icon: FileBarChart, label: 'Rapport financier', onClick: handleExportExcel },
+  const QUICK_ACTIONS: {
+    icon: typeof Plus
+    label: string
+    onClick?: () => void
+  }[] = [
+    {
+      icon: Plus,
+      label: 'Créer une recette',
+      onClick: () => {
+        setCreateType('RECETTE')
+        setShowCreateModal(true)
+      }
+    },
+    {
+      icon: ReceiptText,
+      label: 'Enregistrer une dépense',
+      onClick: () => {
+        setCreateType('DEPENSE')
+        setShowCreateModal(true)
+      }
+    },
+    {
+      icon: CreditCard,
+      label: 'Nouveau paiement',
+      onClick: () => setActiveTab('payments')
+    },
+    {
+      icon: ClipboardList,
+      label: 'Créer un budget',
+      onClick: () => setActiveTab('budgets')
+    },
+    {
+      icon: ArrowLeftRight,
+      label: 'Transfert entre comptes',
+      onClick: () => setActiveTab('accounts')
+    },
+    {
+      icon: Landmark,
+      label: 'Rapprochement bancaire',
+      onClick: () => setActiveTab('accounts')
+    },
+    {
+      icon: FileBarChart,
+      label: 'Rapport financier',
+      onClick: handleExportExcel
+    },
     { icon: Settings, label: 'Paramètres finances' }
   ]
 
@@ -209,7 +249,13 @@ export function FinancePage(): JSX.Element {
               {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
               Exporter
             </Button>
-            <Button size="sm" onClick={() => { setCreateType(undefined); setShowCreateModal(true) }}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setCreateType(undefined)
+                setShowCreateModal(true)
+              }}
+            >
               <Plus className="h-3.5 w-3.5" />
               Nouvelle opération
             </Button>
@@ -256,50 +302,47 @@ export function FinancePage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des finances…
-        </div>
+        <PulseLoader label="Chargement des finances…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="finance.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <TrendingUp className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <TrendingUp className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Recettes enregistrées</p>
               <p className="text-lg font-bold text-gray-900">{formatFcfa(totalRecettes)}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TrendingDown className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Dépenses enregistrées</p>
               <p className="text-lg font-bold text-gray-900">{formatFcfa(totalDepenses)}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Scale className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Résultat net</p>
               <p className={`text-lg font-bold ${resultatNet >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatFcfa(resultatNet)}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <ReceiptText className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Opérations en attente</p>
-              <p className="text-xl font-bold text-gray-900">{enAttente.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enAttente.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Wallet className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Wallet className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Paiements en retard</p>
-              <p className="text-xl font-bold text-gray-900">{enRetard.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enRetard.length}</p>
             </Card>
           </SortableGroup>
 
@@ -313,9 +356,7 @@ export function FinancePage(): JSX.Element {
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label}
@@ -344,7 +385,7 @@ export function FinancePage(): JSX.Element {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Rechercher une opération, un tiers, une référence..."
-                        className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                        className="w-72 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -371,22 +412,22 @@ export function FinancePage(): JSX.Element {
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">Date</th>
-                            <th className="px-6 py-2.5 font-medium">Référence</th>
-                            <th className="px-6 py-2.5 font-medium">Tiers</th>
-                            <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                            <th className="px-6 py-2.5 font-medium">Montant</th>
-                            <th className="px-6 py-2.5 font-medium">Statut</th>
-                            <th className="px-6 py-2.5 font-medium">Mode</th>
-                            <th className="px-6 py-2.5 font-medium" />
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">Date</th>
+                            <th className="px-6 py-3 font-semibold">Référence</th>
+                            <th className="px-6 py-3 font-semibold">Tiers</th>
+                            <th className="px-6 py-3 font-semibold">Catégorie</th>
+                            <th className="px-6 py-3 font-semibold">Montant</th>
+                            <th className="px-6 py-3 font-semibold">Statut</th>
+                            <th className="px-6 py-3 font-semibold">Mode</th>
+                            <th className="px-6 py-3 font-semibold" />
                           </tr>
                         </thead>
                         <tbody>
                           {filteredRows.map((t) => (
-                            <tr key={t.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                            <tr key={t.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                               <td className="px-6 py-3 text-gray-600">
                                 <p>{t.date}</p>
                                 <p className="text-xs text-gray-400">{t.time}</p>
@@ -394,7 +435,7 @@ export function FinancePage(): JSX.Element {
                               <td className="px-6 py-3 text-xs text-gray-500">{t.reference}</td>
                               <td className="px-6 py-3 font-medium text-gray-900">{t.party}</td>
                               <td className="px-6 py-3 text-gray-600">{t.category}</td>
-                              <td className={`px-6 py-3 font-medium ${t.type === 'Recette' ? 'text-emerald-600' : 'text-red-600'}`}>
+                              <td className={`px-6 py-3 font-medium ${t.type === 'Recette' ? 'text-teal-600' : 'text-red-600'}`}>
                                 {t.type === 'Recette' ? '+' : '-'} {formatFcfa(t.amount)}
                               </td>
                               <td className="px-6 py-3">
@@ -449,11 +490,11 @@ export function FinancePage(): JSX.Element {
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;opération</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type d&apos;opération</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les opérations</option>
                       {Object.values(TYPE_LABEL).map((t) => (
@@ -464,11 +505,11 @@ export function FinancePage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Catégorie</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Catégorie</label>
                     <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les catégories</option>
                       {categoryOptions.map((c) => (
@@ -479,11 +520,11 @@ export function FinancePage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -500,7 +541,7 @@ export function FinancePage(): JSX.Element {
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition des dépenses</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition des dépenses</h3>
                 {expenseBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
@@ -516,7 +557,9 @@ export function FinancePage(): JSX.Element {
                         <div key={label} className="flex items-center gap-1.5">
                           <span
                             className="h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: EXPENSE_CATEGORY_COLOR[label] ?? EXPENSE_CATEGORY_COLOR.Autres }}
+                            style={{
+                              backgroundColor: EXPENSE_CATEGORY_COLOR[label] ?? EXPENSE_CATEGORY_COLOR.Autres
+                            }}
                           />
                           <span className="text-gray-600">{label}</span>
                           <span className="font-medium text-gray-900">{percent}%</span>
@@ -530,7 +573,7 @@ export function FinancePage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Top fournisseurs (dépenses)</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Top fournisseurs (dépenses)</h3>
                 </div>
                 <div className="space-y-2.5 p-5 text-xs">
                   {topSuppliers.length === 0 ? (
@@ -548,7 +591,7 @@ export function FinancePage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Échéances à surveiller</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Échéances à surveiller</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {pendingDues.length === 0 ? (
@@ -577,7 +620,7 @@ export function FinancePage(): JSX.Element {
           <SortableGroup id="finance.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Alertes financières</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Alertes financières</h3>
               </div>
               <div className="space-y-3 p-5">
                 {enRetard.length === 0 && enAttente.length === 0 ? (
@@ -587,14 +630,18 @@ export function FinancePage(): JSX.Element {
                     {enRetard.length > 0 && (
                       <div className="flex items-start gap-2.5 text-xs">
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                        <span className="text-gray-600">{enRetard.length} paiement{enRetard.length > 1 ? 's' : ''} en retard</span>
+                        <span className="text-gray-600">
+                          {enRetard.length} paiement
+                          {enRetard.length > 1 ? 's' : ''} en retard
+                        </span>
                       </div>
                     )}
                     {enAttente.length > 0 && (
                       <div className="flex items-start gap-2.5 text-xs">
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                         <span className="text-gray-600">
-                          {enAttente.length} opération{enAttente.length > 1 ? 's' : ''} en attente de règlement
+                          {enAttente.length} opération
+                          {enAttente.length > 1 ? 's' : ''} en attente de règlement
                         </span>
                       </div>
                     )}
@@ -605,7 +652,7 @@ export function FinancePage(): JSX.Element {
 
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
               </div>
               <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4">
                 {QUICK_ACTIONS.map((action) => (

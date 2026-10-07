@@ -12,6 +12,6 @@ export function pouchStatusTone(status: PouchStatus): StatusTone {
 export const POUCH_TYPE_CHART_COLOR: Record<string, string> = {
   'Globules rouges': '#ef4444',
   Plasma: '#3b82f6',
-  Plaquettes: '#f59e0b',
+  Plaquettes: '#dea127',
   Autres: '#9ca3af'
 }

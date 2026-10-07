@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, CalendarClock, LogOut, RefreshCw } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { Card } from '@renderer/components/Card'
+import { OrbitLogo } from '@renderer/components/brand/AuthLayout'
 import type { Session } from '@shared/auth-types'
 import type { SubscriptionInfo } from '@shared/subscription-types'
 import { SubscriptionManager, SubscriptionSummary } from './SubscriptionManager'
@@ -26,15 +27,18 @@ export function SubscriptionLock({ info, session, onLogout }: { info: Subscripti
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-ink-950/90 bg-[radial-gradient(800px_420px_at_50%_0%,rgba(13,42,25,0.9),transparent_70%)] backdrop-blur-md">
       <div className="mx-auto my-10 max-w-3xl px-4">
-        <Card className="space-y-6 hover:shadow-sm">
+        <div className="mb-6 flex justify-center">
+          <OrbitLogo size={104} />
+        </div>
+        <Card className="animate-pop-in space-y-6 border-t-4 border-t-gold-400 shadow-[0_28px_70px_rgba(0,0,0,0.45)]">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-100 text-gold-700 ring-1 ring-gold-500/25">
               {info.state === 'EXPIRED' ? <CalendarClock className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-xl font-extrabold text-gray-900">
                 {info.state === 'EXPIRED' ? `Abonnement expiré depuis le ${formatYmd(info.endDate)}` : 'Abonnement requis'}
               </h2>
               <p className="mt-1 text-sm text-gray-600">{LOCK_MESSAGE[info.state] ?? LOCK_MESSAGE.NONE}</p>

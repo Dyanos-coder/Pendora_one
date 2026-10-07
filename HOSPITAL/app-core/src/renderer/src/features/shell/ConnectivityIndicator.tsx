@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<SyncOutboxEntry['status'], string> = {
 const STATUS_COLOR: Record<SyncOutboxEntry['status'], string> = {
   PENDING: 'text-amber-600',
   SENDING: 'text-blue-600',
-  SENT: 'text-emerald-600',
+  SENT: 'text-teal-600',
   FAILED: 'text-red-600'
 }
 
@@ -90,7 +90,7 @@ export function ConnectivityIndicator(): JSX.Element {
         {status === null ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : status === 'ONLINE' ? (
-          <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+          <Wifi className="h-3.5 w-3.5 text-teal-500" />
         ) : (
           <WifiOff className="h-3.5 w-3.5 text-red-500" />
         )}
@@ -117,9 +117,7 @@ export function ConnectivityIndicator(): JSX.Element {
           </div>
 
           {outbox.length === 0 ? (
-            <p className="py-3 text-center text-xs text-gray-400">
-              Aucune action en attente — tout est à jour.
-            </p>
+            <p className="py-3 text-center text-xs text-gray-400">Aucune action en attente — tout est à jour.</p>
           ) : (
             <div className="max-h-64 space-y-1.5 overflow-y-auto text-xs">
               {outbox.map((entry) => (

@@ -1,9 +1,12 @@
 import { randomUUID } from 'crypto'
 import { getPrismaClient } from '../db/client'
+import { ConflictError } from '../lib/conflict-error'
 import { computeAge } from './date-utils'
 import type { Employee, EndoscopyPriority, EndoscopyProcedure, EndoscopyStatus, Gender, Patient } from '../generated/prisma/client'
 
 export interface CreateEndoscopyProcedureInput {
+  /** Optionnel : id généré côté client (mode hors-ligne) — création idempotente si rejoué. */
+  id?: string
   patientId?: string
   patientName?: string
   patientCode?: string
@@ -32,6 +35,11 @@ export interface UpdateEndoscopyProcedureInput {
   status?: EndoscopyStatus
   expectedDurationMin?: number | null
   room?: string | null
+  /** Dernière version connue (`updatedAt`) du poste qui modifie, pour détecter un conflit si la
+   * fiche a été modifiée entre-temps par quelqu'un d'autre (mode hors-ligne, voir
+   * Plan-Mode-Hors-Ligne-Synchronisation.md §6.3). Absent : pas de vérification (mise à jour en
+   * ligne normale, jamais hors-ligne). */
+  expectedUpdatedAt?: string
 }
 
 type EndoscopyProcedureWithRelations = EndoscopyProcedure & { patient: Patient | null; endoscopist: Employee | null }
@@ -47,6 +55,7 @@ function toDisplay(p: EndoscopyProcedureWithRelations) {
     resultAt: p.resultAt?.toISOString() ?? null,
     procedureType: p.procedureType,
     indication: p.indication,
+    service: p.service,
     room: p.room,
     status: p.status,
     priority: p.priority,
@@ -57,8 +66,40 @@ function toDisplay(p: EndoscopyProcedureWithRelations) {
     age: p.patient ? computeAge(p.patient.birthDate) : p.patientAge,
     gender: p.patient?.gender ?? p.patientGender,
     endoscopistId: p.endoscopistId,
-    endoscopistName: doctorDisplayName(p.endoscopist)
+    endoscopistName: doctorDisplayName(p.endoscopist),
+    resultFileName: p.resultFileName,
+    resultMimeType: p.resultMimeType,
+    resultFileSize: p.resultFileSize,
+    updatedAt: p.updatedAt.toISOString()
   }
+}
+
+export interface UploadedFile {
+  fileName: string
+  mimeType: string
+  content: Buffer
+}
+
+export async function uploadEndoscopyResultFile(id: string, file: UploadedFile) {
+  const prisma = getPrismaClient()
+  const procedure = await prisma.endoscopyProcedure.update({
+    where: { id },
+    data: {
+      resultFileName: file.fileName,
+      resultMimeType: file.mimeType,
+      resultFileSize: file.content.length,
+      resultContent: new Uint8Array(file.content)
+    },
+    include: { patient: true, endoscopist: true }
+  })
+  return toDisplay(procedure)
+}
+
+export async function getEndoscopyResultFile(id: string) {
+  const prisma = getPrismaClient()
+  const procedure = await prisma.endoscopyProcedure.findUnique({ where: { id } })
+  if (!procedure || procedure.deletedAt || !procedure.resultContent || !procedure.resultFileName) return null
+  return { filename: procedure.resultFileName, contentBase64: Buffer.from(procedure.resultContent).toString('base64') }
 }
 
 export async function listEndoscopyProcedures() {
@@ -95,9 +136,15 @@ export async function deleteEndoscopyProcedure(id: string): Promise<void> {
 
 export async function createEndoscopyProcedure(input: CreateEndoscopyProcedureInput) {
   const prisma = getPrismaClient()
+
+  if (input.id) {
+    const existing = await prisma.endoscopyProcedure.findUnique({ where: { id: input.id }, include: { patient: true, endoscopist: true } })
+    if (existing) return toDisplay(existing)
+  }
+
   const procedure = await prisma.endoscopyProcedure.create({
     data: {
-      id: randomUUID(),
+      id: input.id ?? randomUUID(),
       patientId: input.patientId,
       patientName: input.patientName,
       patientCode: input.patientCode,
@@ -120,6 +167,14 @@ export async function createEndoscopyProcedure(input: CreateEndoscopyProcedureIn
 
 export async function updateEndoscopyProcedure(id: string, input: UpdateEndoscopyProcedureInput) {
   const prisma = getPrismaClient()
+
+  if (input.expectedUpdatedAt) {
+    const current = await prisma.endoscopyProcedure.findUnique({ where: { id }, include: { patient: true, endoscopist: true } })
+    if (current && current.updatedAt.toISOString() !== input.expectedUpdatedAt) {
+      throw new ConflictError(toDisplay(current))
+    }
+  }
+
   const procedure = await prisma.endoscopyProcedure.update({
     where: { id },
     data: {

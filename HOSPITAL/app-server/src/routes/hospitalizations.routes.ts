@@ -3,6 +3,7 @@ import { requireAccess, requireAuth } from '../middleware/auth.middleware'
 import {
   createHospitalization,
   deleteHospitalization,
+  exportHospitalizations,
   listHospitalizations,
   updateHospitalization
 } from '../services/hospitalizations.service'
@@ -13,6 +14,12 @@ export const hospitalizationsRouter = Router()
 
 hospitalizationsRouter.use(requireAuth)
 hospitalizationsRouter.use(requireAccess('hospitalizations', 'read'))
+
+// Doit rester avant toute route GET /:id du même routeur.
+hospitalizationsRouter.get('/export', async (_req, res) => {
+  const document = await exportHospitalizations()
+  res.json({ ok: true, document })
+})
 
 hospitalizationsRouter.get('/', async (_req, res) => {
   const hospitalizations = await listHospitalizations()

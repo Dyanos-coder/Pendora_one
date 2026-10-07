@@ -38,6 +38,7 @@ import { TrainingTab } from './tabs/TrainingTab'
 import { PayrollTab } from './tabs/PayrollTab'
 import { DocumentsTab } from './tabs/DocumentsTab'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 type Tab = 'overview' | 'employees' | 'attendance' | 'contracts' | 'performance' | 'training' | 'payroll' | 'documents'
 
@@ -201,10 +202,11 @@ export function HRPage(): JSX.Element {
       const [d, m, y] = dateStr.split('/').map(Number)
       return Math.round((new Date(y, m - 1, d).getTime() - now) / 86400000)
     }
-    const within = (max: number) => cdd.filter((e) => {
-      const days = daysUntil(e.contractEnd)
-      return days !== null && days <= max
-    }).length
+    const within = (max: number) =>
+      cdd.filter((e) => {
+        const days = daysUntil(e.contractEnd)
+        return days !== null && days <= max
+      }).length
     return [
       { label: '30 jours', count: within(30) },
       { label: '60 jours', count: within(60) },
@@ -224,9 +226,10 @@ export function HRPage(): JSX.Element {
   const attendanceDonutBackground = useMemo(() => {
     const total = totalPresentDays + totalAbsentDays || 1
     const percent = (totalPresentDays / total) * 100
-    return `conic-gradient(#10b981 0% ${percent}%, #ef4444 ${percent}% 100%)`
+    return `conic-gradient(#14b8a6 0% ${percent}%, #ef4444 ${percent}% 100%)`
   }, [totalPresentDays, totalAbsentDays])
-  const globalPresenceRate = totalPresentDays + totalAbsentDays === 0 ? 0 : Math.round((totalPresentDays / (totalPresentDays + totalAbsentDays)) * 1000) / 10
+  const globalPresenceRate =
+    totalPresentDays + totalAbsentDays === 0 ? 0 : Math.round((totalPresentDays / (totalPresentDays + totalAbsentDays)) * 1000) / 10
 
   const QUICK_ACTIONS: { icon: typeof UserPlus; label: string; onClick?: () => void }[] = [
     { icon: UserPlus, label: 'Nouvel employé', onClick: () => setShowCreateModal(true) },
@@ -298,57 +301,54 @@ export function HRPage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement du personnel…
-        </div>
+        <PulseLoader label="Chargement du personnel…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="hr.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Users className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Users className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Effectif total</p>
-              <p className="text-xl font-bold text-gray-900">{employees.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{employees.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <UserCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <UserCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Présents aujourd&apos;hui</p>
-              <p className="text-xl font-bold text-gray-900">{presents.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{presents.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <UserX className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Absents aujourd&apos;hui</p>
-              <p className="text-xl font-bold text-gray-900">{absents.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{absents.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <CalendarClock className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En congé</p>
-              <p className="text-xl font-bold text-gray-900">{enConge.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enConge.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <CalendarClock className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En retard</p>
-              <p className="text-xl font-bold text-gray-900">{enRetard.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enRetard.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-orange-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-orange-50">
                 <FileSignature className="h-5 w-5 text-orange-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Contrats à échéance (90j)</p>
-              <p className="text-xl font-bold text-gray-900">{contractExpiries[2].count}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{contractExpiries[2].count}</p>
             </Card>
           </SortableGroup>
 
@@ -362,9 +362,7 @@ export function HRPage(): JSX.Element {
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label}
@@ -393,7 +391,7 @@ export function HRPage(): JSX.Element {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Rechercher un employé, service, fonction..."
-                        className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                        className="w-72 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                       />
                     </div>
                     <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
@@ -404,20 +402,18 @@ export function HRPage(): JSX.Element {
 
                   {filteredRows.length === 0 ? (
                     <p className="px-6 py-8 text-center text-sm text-gray-400">
-                      {employees.length === 0
-                        ? 'Aucun employé enregistré.'
-                        : 'Aucun employé ne correspond à la recherche ou aux filtres.'}
+                      {employees.length === 0 ? 'Aucun employé enregistré.' : 'Aucun employé ne correspond à la recherche ou aux filtres.'}
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">Employé</th>
-                            <th className="px-6 py-2.5 font-medium">Service</th>
-                            <th className="px-6 py-2.5 font-medium">Fonction</th>
-                            <th className="px-6 py-2.5 font-medium">Contrat</th>
-                            <th className="px-6 py-2.5 font-medium">Statut</th>
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">Employé</th>
+                            <th className="px-6 py-3 font-semibold">Service</th>
+                            <th className="px-6 py-3 font-semibold">Fonction</th>
+                            <th className="px-6 py-3 font-semibold">Contrat</th>
+                            <th className="px-6 py-3 font-semibold">Statut</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -474,11 +470,11 @@ export function HRPage(): JSX.Element {
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {serviceOptions.map((s) => (
@@ -489,11 +485,11 @@ export function HRPage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Fonction</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Fonction</label>
                     <select
                       value={filterRole}
                       onChange={(e) => setFilterRole(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les fonctions</option>
                       {roleOptions.map((r) => (
@@ -504,11 +500,11 @@ export function HRPage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -519,11 +515,11 @@ export function HRPage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type de contrat</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type de contrat</label>
                     <select
                       value={filterContractType}
                       onChange={(e) => setFilterContractType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {contractTypeOptions.map((c) => (
@@ -540,7 +536,7 @@ export function HRPage(): JSX.Element {
               </Card>
 
               <Card>
-                <h3 className="mb-3 text-sm font-semibold text-gray-900">Contrats CDD à échéance</h3>
+                <h3 className="mb-3 text-[15px] font-bold text-gray-900">Contrats CDD à échéance</h3>
                 <div className="space-y-2.5 text-xs">
                   {contractExpiries.map((c) => (
                     <div key={c.label} className="flex items-center justify-between">
@@ -556,7 +552,7 @@ export function HRPage(): JSX.Element {
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Présence aujourd&apos;hui</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Présence aujourd&apos;hui</h3>
                 <div className="flex items-center gap-4">
                   <div
                     className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
@@ -568,7 +564,7 @@ export function HRPage(): JSX.Element {
                   </div>
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      <span className="h-2 w-2 rounded-full bg-teal-500" />
                       <span className="text-gray-600">Présents</span>
                       <span className="font-medium text-gray-900">{presents.length}</span>
                     </div>
@@ -589,7 +585,7 @@ export function HRPage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Alertes RH</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Alertes RH</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {contractExpiries[0].count === 0 && absents.length === 0 && enConge.length === 0 ? (
@@ -600,20 +596,25 @@ export function HRPage(): JSX.Element {
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
                           <span className="text-gray-600">
-                            {contractExpiries[0].count} contrat{contractExpiries[0].count > 1 ? 's' : ''} CDD arrivant à échéance sous 30 jours
+                            {contractExpiries[0].count} contrat{contractExpiries[0].count > 1 ? 's' : ''} CDD arrivant à échéance sous 30
+                            jours
                           </span>
                         </div>
                       )}
                       {absents.length > 0 && (
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-gray-600">{absents.length} employé{absents.length > 1 ? 's' : ''} absent{absents.length > 1 ? 's' : ''} aujourd&apos;hui</span>
+                          <span className="text-gray-600">
+                            {absents.length} employé{absents.length > 1 ? 's' : ''} absent{absents.length > 1 ? 's' : ''} aujourd&apos;hui
+                          </span>
                         </div>
                       )}
                       {enConge.length > 0 && (
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-                          <span className="text-gray-600">{enConge.length} employé{enConge.length > 1 ? 's' : ''} en congé aujourd&apos;hui</span>
+                          <span className="text-gray-600">
+                            {enConge.length} employé{enConge.length > 1 ? 's' : ''} en congé aujourd&apos;hui
+                          </span>
                         </div>
                       )}
                     </>
@@ -626,7 +627,7 @@ export function HRPage(): JSX.Element {
           {/* Présences & Absences (mois en cours) */}
           <SortableGroup id="hr.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Présences & Absences (mois en cours)</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Présences & Absences (mois en cours)</h3>
               <div className="flex items-center gap-4">
                 <div
                   className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
@@ -636,7 +637,7 @@ export function HRPage(): JSX.Element {
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="h-2 w-2 rounded-full bg-teal-500" />
                     <span className="text-gray-600">Présences</span>
                     <span className="font-medium text-gray-900">{totalPresentDays}</span>
                   </div>
@@ -651,10 +652,11 @@ export function HRPage(): JSX.Element {
             </Card>
 
             <Card className="lg:col-span-2">
-              <h3 className="text-sm font-semibold text-gray-900">Taux de présence global (mois en cours)</h3>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{globalPresenceRate}%</p>
+              <h3 className="text-[15px] font-bold text-gray-900">Taux de présence global (mois en cours)</h3>
+              <p className="mt-1 text-2xl font-display font-extrabold tabular-nums text-gray-900">{globalPresenceRate}%</p>
               <p className="mt-1 text-xs text-gray-400">
-                Calculé sur {employees.length} employés — {totalPresentDays} jours présents sur {totalPresentDays + totalAbsentDays} jours ouvrés cumulés.
+                Calculé sur {employees.length} employés — {totalPresentDays} jours présents sur {totalPresentDays + totalAbsentDays} jours
+                ouvrés cumulés.
               </p>
             </Card>
           </SortableGroup>
@@ -664,7 +666,7 @@ export function HRPage(): JSX.Element {
             <SortableGroup id="hr.grid4" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Détail des présences</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Détail des présences</h3>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="secondary"
@@ -704,7 +706,7 @@ export function HRPage(): JSX.Element {
 
               <SortableGroup id="hr.side2" className="space-y-6">
                 <Card>
-                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Informations du contrat</h3>
+                  <h3 className="mb-3 text-[15px] font-bold text-gray-900">Informations du contrat</h3>
                   <div className="space-y-2.5 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-500">Date d&apos;embauche</span>
@@ -726,7 +728,7 @@ export function HRPage(): JSX.Element {
 
                 <Card className="p-0">
                   <div className="border-b border-gray-100 px-5 py-3.5">
-                    <h3 className="text-sm font-semibold text-gray-900">Télécharger</h3>
+                    <h3 className="text-[15px] font-bold text-gray-900">Télécharger</h3>
                   </div>
                   <div className="space-y-1 p-2">
                     {EMPLOYEE_DOCUMENTS.map((doc) => (
@@ -750,7 +752,7 @@ export function HRPage(): JSX.Element {
           {/* Actions rapides */}
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
             </div>
             <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4">
               {QUICK_ACTIONS.map((action) => (

@@ -3,7 +3,6 @@ export const SETTINGS_SECTIONS = [
   'Abonnement',
   'Utilisateurs & rôles',
   'Sécurité',
-  'Ultra Admin',
   'Sauvegardes',
   'Mises à jour',
   'Apparence'

@@ -26,7 +26,9 @@ function toDisplay(d: ProtocolDocument) {
     version: d.version,
     status: d.status,
     revisedAt: d.revisedAt.toISOString(),
-    owner: d.owner
+    owner: d.owner,
+    fileName: d.fileName,
+    fileSize: d.fileSize
   }
 }
 
@@ -71,4 +73,34 @@ export async function updateProtocolDocument(id: string, input: UpdateProtocolDo
     }
   })
   return toDisplay(document)
+}
+
+export interface UploadedFile {
+  fileName: string
+  mimeType: string
+  content: Buffer
+}
+
+// Fichier stocké en BLOB (colonne `content`) — voir la note sur le modèle ProtocolDocument dans
+// schema.prisma (item 11 : le disque du serveur d'hébergement n'est pas persistant).
+export async function uploadProtocolDocumentFile(id: string, file: UploadedFile) {
+  const prisma = getPrismaClient()
+  const document = await prisma.protocolDocument.update({
+    where: { id },
+    data: {
+      fileName: file.fileName,
+      mimeType: file.mimeType,
+      fileSize: file.content.length,
+      content: new Uint8Array(file.content),
+      revisedAt: new Date()
+    }
+  })
+  return toDisplay(document)
+}
+
+export async function getProtocolDocumentFile(id: string) {
+  const prisma = getPrismaClient()
+  const document = await prisma.protocolDocument.findUnique({ where: { id } })
+  if (!document || document.deletedAt || !document.content || !document.fileName) return null
+  return { filename: document.fileName, contentBase64: Buffer.from(document.content).toString('base64') }
 }

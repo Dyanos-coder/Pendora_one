@@ -37,6 +37,7 @@ import { InventoryTab } from './tabs/InventoryTab'
 import { LossesTab } from './tabs/LossesTab'
 import { AnalysisTab } from './tabs/AnalysisTab'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 type Tab = 'overview' | 'movements' | 'transfers' | 'inventory' | 'losses' | 'analysis'
 
@@ -259,56 +260,54 @@ export function StocksPage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des stocks…
-        </div>
+        <PulseLoader label="Chargement des stocks…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="stocks.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Package className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Références actives</p>
-              <p className="text-xl font-bold text-gray-900">{items.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{items.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <Gauge className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <Gauge className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Taux de disponibilité</p>
-              <p className="text-xl font-bold text-gray-900">{availabilityRate === null ? '—' : `${availabilityRate}%`}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {availabilityRate === null ? '—' : `${availabilityRate}%`}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <TriangleAlert className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Stocks faibles</p>
-              <p className="text-xl font-bold text-gray-900">{stockFaible.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{stockFaible.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <PackageX className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Ruptures</p>
-              <p className="text-xl font-bold text-gray-900">{ruptures.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{ruptures.length}</p>
             </Card>
           </SortableGroup>
 
           <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-blue-800">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-            Ce module gère uniquement les stocks généraux (hôtellerie, hygiène, entretien,
-            maintenance...). Les médicaments sont gérés dans la Pharmacie et les produits sanguins
-            dans la Banque de sang.
+            Ce module gère uniquement les stocks généraux (hôtellerie, hygiène, entretien, maintenance...). Les médicaments sont gérés dans
+            la Pharmacie et les produits sanguins dans la Banque de sang.
           </div>
 
           {/* Aperçu des dépôts */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-gray-900">Aperçu des dépôts</h3>
+            <h3 className="mb-3 text-[15px] font-bold text-gray-900">Aperçu des dépôts</h3>
             <SortableGroup id="stocks.grid2" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {depotsWithAvailability.map((depot) => (
                 <Card key={depot.id} className="p-4">
@@ -320,7 +319,7 @@ export function StocksPage(): JSX.Element {
                     <span className="font-medium text-gray-900">{depot.availabilityLabel}%</span>
                   </div>
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${depot.availabilityLabel}%` }} />
+                    <div className="h-full rounded-full bg-teal-500" style={{ width: `${depot.availabilityLabel}%` }} />
                   </div>
                 </Card>
               ))}
@@ -337,9 +336,7 @@ export function StocksPage(): JSX.Element {
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label}
@@ -366,7 +363,7 @@ export function StocksPage(): JSX.Element {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Rechercher un article, une référence, un dépôt..."
-                        className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                        className="w-72 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -391,21 +388,21 @@ export function StocksPage(): JSX.Element {
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">Article</th>
-                            <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                            <th className="px-6 py-2.5 font-medium">Dépôt</th>
-                            <th className="px-6 py-2.5 font-medium">Disponible</th>
-                            <th className="px-6 py-2.5 font-medium">État</th>
-                            <th className="px-6 py-2.5 font-medium">Dernier mouvement</th>
-                            <th className="px-6 py-2.5 font-medium" />
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">Article</th>
+                            <th className="px-6 py-3 font-semibold">Catégorie</th>
+                            <th className="px-6 py-3 font-semibold">Dépôt</th>
+                            <th className="px-6 py-3 font-semibold">Disponible</th>
+                            <th className="px-6 py-3 font-semibold">État</th>
+                            <th className="px-6 py-3 font-semibold">Dernier mouvement</th>
+                            <th className="px-6 py-3 font-semibold" />
                           </tr>
                         </thead>
                         <tbody>
                           {filteredRows.map((item) => (
-                            <tr key={item.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                            <tr key={item.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                               <td className="px-6 py-3">
                                 <div className="flex items-center gap-2.5">
                                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-50 text-[11px] font-semibold text-accent-700">
@@ -471,11 +468,11 @@ export function StocksPage(): JSX.Element {
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Catégorie</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Catégorie</label>
                     <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les catégories</option>
                       {categoryOptions.map((c) => (
@@ -486,11 +483,11 @@ export function StocksPage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Dépôt</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Dépôt</label>
                     <select
                       value={filterDepot}
                       onChange={(e) => setFilterDepot(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les dépôts</option>
                       {depotOptions.map((d) => (
@@ -501,11 +498,11 @@ export function StocksPage(): JSX.Element {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATE_LABEL).map((s) => (
@@ -519,7 +516,7 @@ export function StocksPage(): JSX.Element {
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par catégorie</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
@@ -554,7 +551,7 @@ export function StocksPage(): JSX.Element {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Alertes</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Alertes</h3>
               </div>
               <div className="space-y-3 p-5">
                 {ruptures.length === 0 && stockFaible.length === 0 ? (
@@ -564,13 +561,17 @@ export function StocksPage(): JSX.Element {
                     {ruptures.length > 0 && (
                       <div className="flex items-start gap-2.5 text-xs">
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                        <span className="text-gray-600">{ruptures.length} article{ruptures.length > 1 ? 's' : ''} en rupture</span>
+                        <span className="text-gray-600">
+                          {ruptures.length} article{ruptures.length > 1 ? 's' : ''} en rupture
+                        </span>
                       </div>
                     )}
                     {stockFaible.length > 0 && (
                       <div className="flex items-start gap-2.5 text-xs">
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                        <span className="text-gray-600">{stockFaible.length} article{stockFaible.length > 1 ? 's' : ''} en stock faible</span>
+                        <span className="text-gray-600">
+                          {stockFaible.length} article{stockFaible.length > 1 ? 's' : ''} en stock faible
+                        </span>
                       </div>
                     )}
                   </>
@@ -579,7 +580,7 @@ export function StocksPage(): JSX.Element {
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par dépôt</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par dépôt</h3>
               {depotBreakdown.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune donnée.</p>
               ) : (
@@ -593,10 +594,7 @@ export function StocksPage(): JSX.Element {
                   <div className="space-y-1 text-[11px]">
                     {depotBreakdown.map(({ label, percent }) => (
                       <div key={label} className="flex items-center gap-1.5">
-                        <span
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: DEPOT_CHART_COLOR[label] ?? '#9ca3af' }}
-                        />
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DEPOT_CHART_COLOR[label] ?? '#9ca3af' }} />
                         <span className="text-gray-600">{label}</span>
                         <span className="font-medium text-gray-900">{percent}%</span>
                       </div>
@@ -611,7 +609,7 @@ export function StocksPage(): JSX.Element {
           {/* Actions rapides */}
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
             </div>
             <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4 lg:grid-cols-7">
               {QUICK_ACTIONS.map((action) => (

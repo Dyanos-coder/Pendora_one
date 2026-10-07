@@ -1,9 +1,13 @@
 import { randomUUID } from 'crypto'
 import { getPrismaClient } from '../db/client'
+import { ConflictError } from '../lib/conflict-error'
 import { computeAge } from './date-utils'
 import type { Appointment, AppointmentStatus, AppointmentType, Employee, Patient } from '../generated/prisma/client'
 
 export interface CreateAppointmentInput {
+  /** Optionnel : id généré côté client (mode hors-ligne, voir
+   * Plan-Mode-Hors-Ligne-Synchronisation.md §4) — création idempotente si rejoué. */
+  id?: string
   patientId?: string
   patientName?: string
   patientAge?: number
@@ -32,6 +36,11 @@ export interface UpdateAppointmentInput {
   motive?: string | null
   status?: AppointmentStatus
   reminder?: string | null
+  /** Dernière version connue (`updatedAt`) du poste qui modifie, pour détecter un conflit si la
+   * fiche a été modifiée entre-temps par quelqu'un d'autre (mode hors-ligne, voir
+   * Plan-Mode-Hors-Ligne-Synchronisation.md §6.3). Absent : pas de vérification (mise à jour en
+   * ligne normale, jamais hors-ligne). */
+  expectedUpdatedAt?: string
 }
 
 type AppointmentWithRelations = Appointment & { patient: Patient | null; doctor: Employee | null }
@@ -57,7 +66,8 @@ function toDisplay(appt: AppointmentWithRelations) {
     patientPhone: appt.patient?.phone ?? null,
     age: appt.patient ? computeAge(appt.patient.birthDate) : appt.patientAge,
     doctorId: appt.doctorId,
-    doctorName: doctorDisplayName(appt.doctor)
+    doctorName: doctorDisplayName(appt.doctor),
+    updatedAt: appt.updatedAt.toISOString()
   }
 }
 
@@ -100,6 +110,14 @@ export async function deleteAppointment(id: string): Promise<void> {
 
 export async function updateAppointment(id: string, input: UpdateAppointmentInput) {
   const prisma = getPrismaClient()
+
+  if (input.expectedUpdatedAt) {
+    const current = await prisma.appointment.findUnique({ where: { id }, include: { patient: true, doctor: true } })
+    if (current && current.updatedAt.toISOString() !== input.expectedUpdatedAt) {
+      throw new ConflictError(toDisplay(current))
+    }
+  }
+
   const appointment = await prisma.appointment.update({
     where: { id },
     data: {
@@ -121,9 +139,15 @@ export async function updateAppointment(id: string, input: UpdateAppointmentInpu
 
 export async function createAppointment(input: CreateAppointmentInput) {
   const prisma = getPrismaClient()
+
+  if (input.id) {
+    const existing = await prisma.appointment.findUnique({ where: { id: input.id }, include: { patient: true, doctor: true } })
+    if (existing) return toDisplay(existing)
+  }
+
   const appointment = await prisma.appointment.create({
     data: {
-      id: randomUUID(),
+      id: input.id ?? randomUUID(),
       patientId: input.patientId,
       patientName: input.patientName,
       patientAge: input.patientAge,

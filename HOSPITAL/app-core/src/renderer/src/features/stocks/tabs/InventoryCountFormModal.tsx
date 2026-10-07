@@ -12,15 +12,13 @@ interface InventoryCountFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 export function InventoryCountFormModal({ items, onClose, onSaved, editing }: InventoryCountFormModalProps): JSX.Element {
   const [itemId, setItemId] = useState(items[0]?.id ?? '')
   const [countedQuantity, setCountedQuantity] = useState('0')
-  const [conductedAt, setConductedAt] = useState(
-    editing ? editing.conductedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [conductedAt, setConductedAt] = useState(editing ? editing.conductedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [conductedBy, setConductedBy] = useState(editing?.conductedBy ?? '')
   const [note, setNote] = useState(editing?.note ?? '')
   const [submitting, setSubmitting] = useState(false)
@@ -78,15 +76,8 @@ export function InventoryCountFormModal({ items, onClose, onSaved, editing }: In
           {!editing && (
             <div>
               <label className={labelClass}>Quantité comptée *</label>
-              <input
-                type="number"
-                value={countedQuantity}
-                onChange={(e) => setCountedQuantity(e.target.value)}
-                className={inputClass}
-              />
-              {selectedItem && (
-                <p className="mt-1 text-[11px] text-gray-400">Stock système actuel : {selectedItem.available}</p>
-              )}
+              <input type="number" value={countedQuantity} onChange={(e) => setCountedQuantity(e.target.value)} className={inputClass} />
+              {selectedItem && <p className="mt-1 text-[11px] text-gray-400">Stock système actuel : {selectedItem.available}</p>}
             </div>
           )}
           <div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardCheck, CalendarClock, ShieldCheck, TriangleAlert, Loader2, PlayCircle, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ClipboardCheck, CalendarClock, ShieldCheck, TriangleAlert, PlayCircle, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { Button } from '@renderer/components/Button'
@@ -10,6 +10,7 @@ import { auditStatusTone } from './status'
 import type { Audit, AuditStatus, Framework } from './types'
 import { AuditFormModal } from './AuditFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiGovernanceAuditStatus, AuditStatus> = {
   PLANIFIE: 'Planifié',
@@ -19,13 +20,13 @@ const STATUS_LABEL: Record<ApiGovernanceAuditStatus, AuditStatus> = {
 
 const FINDING_CATEGORY_COLOR: Record<string, string> = {
   Documentation: '#3b82f6',
-  'Hygiène & sécurité': '#10b981',
-  Traçabilité: '#f59e0b',
-  "Systèmes d'information": '#8b5cf6'
+  'Hygiène & sécurité': '#14b8a6',
+  Traçabilité: '#dea127',
+  "Systèmes d'information": '#12a04a'
 }
 
 const STATUS_DONUT_COLOR: Record<AuditStatus, string> = {
-  Terminé: '#10b981',
+  Terminé: '#14b8a6',
   'En cours': '#3b82f6',
   Planifié: '#9ca3af'
 }
@@ -66,7 +67,9 @@ export function AuditCompliancePage(): JSX.Element {
         } else setError(auditsResult.error)
         if (findingsResult.ok) setFindings(findingsResult.data.findings)
         if (frameworksResult.ok)
-          setFrameworks(frameworksResult.data.frameworks.map((f: ApiComplianceFramework) => ({ name: f.name, compliance: f.compliancePercent })))
+          setFrameworks(
+            frameworksResult.data.frameworks.map((f: ApiComplianceFramework) => ({ name: f.name, compliance: f.compliancePercent }))
+          )
         setLoading(false)
       }
     )
@@ -173,67 +176,64 @@ export function AuditCompliancePage(): JSX.Element {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des audits…
-        </div>
+        <PulseLoader label="Chargement des audits…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="auditCompliance.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <ClipboardCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Audits réalisés</p>
-              <p className="text-xl font-bold text-gray-900">{completed.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{completed.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <CalendarClock className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Audits programmés</p>
-              <p className="text-xl font-bold text-gray-900">{planned.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{planned.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <ShieldCheck className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <ShieldCheck className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Score moyen d&apos;audit</p>
-              <p className="text-xl font-bold text-gray-900">{avgScore === null ? '—' : `${avgScore}%`}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{avgScore === null ? '—' : `${avgScore}%`}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <PlayCircle className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Audits en cours</p>
-              <p className="text-xl font-bold text-gray-900">{inProgress.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{inProgress.length}</p>
             </Card>
           </SortableGroup>
 
           <SortableGroup id="auditCompliance.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Audits</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Audits</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                      <th className="px-6 py-2.5 font-medium">Audit</th>
-                      <th className="px-6 py-2.5 font-medium">Type</th>
-                      <th className="px-6 py-2.5 font-medium">Service</th>
-                      <th className="px-6 py-2.5 font-medium">Date</th>
-                      <th className="px-6 py-2.5 font-medium">Statut</th>
-                      <th className="px-6 py-2.5 font-medium">Score</th>
-                      <th className="px-6 py-2.5 font-medium" />
+                    <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                      <th className="px-6 py-3 font-semibold">Audit</th>
+                      <th className="px-6 py-3 font-semibold">Type</th>
+                      <th className="px-6 py-3 font-semibold">Service</th>
+                      <th className="px-6 py-3 font-semibold">Date</th>
+                      <th className="px-6 py-3 font-semibold">Statut</th>
+                      <th className="px-6 py-3 font-semibold">Score</th>
+                      <th className="px-6 py-3 font-semibold" />
                     </tr>
                   </thead>
                   <tbody>
                     {audits.map((a) => (
-                      <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <tr key={a.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                         <td className="px-6 py-3 font-medium text-gray-900">{a.title}</td>
                         <td className="px-6 py-3 text-gray-600">{a.type}</td>
                         <td className="px-6 py-3 text-gray-600">{a.service}</td>
@@ -269,7 +269,7 @@ export function AuditCompliancePage(): JSX.Element {
 
             <SortableGroup id="auditCompliance.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-3 text-sm font-semibold text-gray-900">Référentiels suivis</h3>
+                <h3 className="mb-3 text-[15px] font-bold text-gray-900">Référentiels suivis</h3>
                 <div className="space-y-3">
                   {frameworks.map((f) => (
                     <div key={f.name}>
@@ -279,7 +279,7 @@ export function AuditCompliancePage(): JSX.Element {
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
                         <div
-                          className={`h-full rounded-full ${f.compliance < COMPLIANCE_ALERT_THRESHOLD ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          className={`h-full rounded-full ${f.compliance < COMPLIANCE_ALERT_THRESHOLD ? 'bg-amber-500' : 'bg-teal-500'}`}
                           style={{ width: `${f.compliance}%` }}
                         />
                       </div>
@@ -290,7 +290,7 @@ export function AuditCompliancePage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Points de vigilance</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Points de vigilance</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {planned.length === 0 && lowComplianceFrameworks.length === 0 ? (
@@ -300,7 +300,9 @@ export function AuditCompliancePage(): JSX.Element {
                       {planned.length > 0 && (
                         <div className="flex items-start gap-2.5 text-xs">
                           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-                          <span className="text-gray-600">{planned.length} audit{planned.length > 1 ? 's' : ''} programmé{planned.length > 1 ? 's' : ''} à venir</span>
+                          <span className="text-gray-600">
+                            {planned.length} audit{planned.length > 1 ? 's' : ''} programmé{planned.length > 1 ? 's' : ''} à venir
+                          </span>
                         </div>
                       )}
                       {lowComplianceFrameworks.map((f) => (
@@ -320,13 +322,18 @@ export function AuditCompliancePage(): JSX.Element {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition des audits par statut</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition des audits par statut</h3>
               {statusTotal === 0 ? (
                 <p className="text-xs text-gray-400">Aucune donnée.</p>
               ) : (
                 <div className="flex items-center gap-5">
-                  <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full" style={{ background: statusDonutBackground }}>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">{statusTotal}</div>
+                  <div
+                    className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: statusDonutBackground }}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">
+                      {statusTotal}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     {statusBreakdown.map(({ label, count }) => (
@@ -342,13 +349,18 @@ export function AuditCompliancePage(): JSX.Element {
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Constats par catégorie</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Constats par catégorie</h3>
               {findingsByCategory.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucun constat enregistré.</p>
               ) : (
                 <div className="flex items-center gap-5">
-                  <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full" style={{ background: findingsDonutBackground }}>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">{findingsTotal}</div>
+                  <div
+                    className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: findingsDonutBackground }}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900">
+                      {findingsTotal}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     {findingsByCategory.map(({ label, count, color }) => (

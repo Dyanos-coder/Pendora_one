@@ -10,9 +10,9 @@ export function transactionStatusTone(status: TransactionStatus): StatusTone {
 
 export const EXPENSE_CATEGORY_COLOR: Record<string, string> = {
   'Achats & approvisionnement': '#3b82f6',
-  'Masse salariale': '#8b5cf6',
-  'Charges fixes': '#f59e0b',
-  'Services médicaux': '#10b981',
+  'Masse salariale': '#12a04a',
+  'Charges fixes': '#dea127',
+  'Services médicaux': '#14b8a6',
   'Maintenance & énergie': '#ef4444',
   Autres: '#9ca3af'
 }

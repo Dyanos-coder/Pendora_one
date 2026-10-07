@@ -15,9 +15,9 @@ export function endoscopyPriorityTone(priority: EndoscopyPriority): StatusTone {
 
 export const PROCEDURE_TYPE_CHART_COLOR: Record<string, string> = {
   'Fibroscopie haute': '#3b82f6',
-  Coloscopie: '#10b981',
-  CPRE: '#8b5cf6',
-  Bronchoscopie: '#f59e0b',
+  Coloscopie: '#14b8a6',
+  CPRE: '#12a04a',
+  Bronchoscopie: '#dea127',
   Rectosigmoïdoscopie: '#ef4444',
   Autres: '#9ca3af'
 }

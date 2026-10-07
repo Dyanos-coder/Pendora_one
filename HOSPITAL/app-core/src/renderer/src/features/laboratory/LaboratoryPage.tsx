@@ -34,6 +34,7 @@ import type { LabRequest, LabStatus } from './types'
 import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { LabRequestFormModal } from './LabRequestFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface LaboratoryPageProps {
   onOpenPatient: (patientId: string) => void
@@ -55,9 +56,9 @@ const PRIORITY_LABEL: Record<ApiLabPriority, 'Normale' | 'Élevée' | 'Critique'
 }
 
 const STATUS_DONUT_COLOR: Record<LabStatus, string> = {
-  'Résultat validé': '#10b981',
+  'Résultat validé': '#14b8a6',
   'En cours': '#3b82f6',
-  'En attente prélèvement': '#f59e0b',
+  'En attente prélèvement': '#dea127',
   Annulée: '#9ca3af'
 }
 
@@ -205,10 +206,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
     return base.filter((r) => `${r.patientName} ${r.analysisType} ${r.service} ${r.technician}`.toLowerCase().includes(term))
   }, [activeTab, search, periodRequests])
 
-  const serviceOptions = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.service).filter((s) => s && s !== '—'))).sort(),
-    [requests]
-  )
+  const serviceOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.service).filter((s) => s && s !== '—'))).sort(), [requests])
   const typeOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.analysisType).filter(Boolean))).sort(), [requests])
   const technicianOptions = useMemo(
     () => Array.from(new Set(requests.map((r) => r.technician).filter((t) => t && t !== '—'))).sort(),
@@ -358,57 +356,56 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement du laboratoire…
-        </div>
+        <PulseLoader label="Chargement du laboratoire…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="laboratory.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <FlaskConical className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <FlaskConical className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Analyses demandées</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{todayRequests.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{todayRequests.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-orange-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-orange-50">
                 <Loader2 className="h-5 w-5 text-orange-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Analyses en cours</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{inProgress.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{inProgress.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Droplet className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En attente de prélèvement</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{waiting.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{waiting.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CalendarCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CalendarCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Résultats validés (aujourd&apos;hui)</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{validated.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{validated.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Critiques à notifier</p>
               <p className="mt-0.5 text-xl font-bold text-red-600">{critical.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Clock className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Délai moyen de rendu</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{avgTurnaroundMin === null ? '—' : formatDuration(avgTurnaroundMin)}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {avgTurnaroundMin === null ? '—' : formatDuration(avgTurnaroundMin)}
+              </p>
             </Card>
           </SortableGroup>
 
@@ -422,9 +419,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
@@ -439,7 +434,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher dans la liste..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -464,24 +459,24 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="px-6 py-2.5 font-medium">N° Demande</th>
-                        <th className="px-6 py-2.5 font-medium">Patient</th>
-                        <th className="px-6 py-2.5 font-medium">Âge / Sexe</th>
-                        <th className="px-6 py-2.5 font-medium">Service</th>
-                        <th className="px-6 py-2.5 font-medium">Analyse</th>
-                        <th className="px-6 py-2.5 font-medium">Statut</th>
-                        <th className="px-6 py-2.5 font-medium">Priorité</th>
-                        <th className="px-6 py-2.5 font-medium">Échantillon</th>
-                        <th className="px-6 py-2.5 font-medium">Technicien</th>
-                        <th className="px-6 py-2.5 font-medium" />
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                        <th className="px-6 py-3 font-semibold">N° Demande</th>
+                        <th className="px-6 py-3 font-semibold">Patient</th>
+                        <th className="px-6 py-3 font-semibold">Âge / Sexe</th>
+                        <th className="px-6 py-3 font-semibold">Service</th>
+                        <th className="px-6 py-3 font-semibold">Analyse</th>
+                        <th className="px-6 py-3 font-semibold">Statut</th>
+                        <th className="px-6 py-3 font-semibold">Priorité</th>
+                        <th className="px-6 py-3 font-semibold">Échantillon</th>
+                        <th className="px-6 py-3 font-semibold">Technicien</th>
+                        <th className="px-6 py-3 font-semibold" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredRows.map((r) => (
-                        <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3 text-xs text-gray-500">{r.requestNumber}</td>
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2.5">
@@ -494,7 +489,9 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3 text-gray-600">{r.age ? `${r.age} ans · ${r.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}</td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {r.age ? `${r.age} ans · ${r.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}
+                          </td>
                           <td className="px-6 py-3 text-gray-600">{r.service}</td>
                           <td className="px-6 py-3 text-gray-600">{r.analysisType}</td>
                           <td className="px-6 py-3">
@@ -572,11 +569,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Période</label>
                     <select
                       value={filterPeriod}
                       onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value="today">Aujourd&apos;hui</option>
                       <option value="week">Cette semaine</option>
@@ -585,11 +582,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service demandeur</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service demandeur</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {serviceOptions.map((s) => (
@@ -600,11 +597,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type d&apos;analyse</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type d&apos;analyse</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {typeOptions.map((t) => (
@@ -615,11 +612,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -630,11 +627,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Priorité</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Priorité</label>
                     <select
                       value={filterPriority}
                       onChange={(e) => setFilterPriority(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les priorités</option>
                       {Object.values(PRIORITY_LABEL).map((p) => (
@@ -645,11 +642,11 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Technicien</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Technicien</label>
                     <select
                       value={filterTechnician}
                       onChange={(e) => setFilterTechnician(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les techniciens</option>
                       {technicianOptions.map((t) => (
@@ -666,7 +663,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par statut</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par statut</h3>
                 {todayRequests.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune demande aujourd&apos;hui.</p>
                 ) : (
@@ -696,7 +693,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
                   <QuickAction icon={Plus} label="Créer une nouvelle demande" onClick={() => setShowCreateModal(true)} />
@@ -713,7 +710,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
           {/* Panneaux du bas */}
           <SortableGroup id="laboratory.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-4">
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Délai moyen de rendu</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Délai moyen de rendu</h3>
               <div className="space-y-3">
                 {turnaroundByPriority.map(({ priority, avg }) => (
                   <div key={priority} className="flex items-center justify-between text-xs">
@@ -728,7 +725,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Analyses les plus demandées</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Analyses les plus demandées</h3>
               {topAnalyses.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune analyse aujourd&apos;hui.</p>
               ) : (
@@ -740,7 +737,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
                         <span className="font-medium text-gray-900">{a.count}</span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                        <div className="h-full rounded-full bg-violet-500" style={{ width: `${(a.count / maxTopAnalysis) * 100}%` }} />
+                        <div className="h-full rounded-full bg-accent-500" style={{ width: `${(a.count / maxTopAnalysis) * 100}%` }} />
                       </div>
                     </div>
                   ))}
@@ -749,7 +746,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Échantillons par type</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Échantillons par type</h3>
               {todayRequests.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune demande aujourd&apos;hui.</p>
               ) : (
@@ -782,7 +779,7 @@ export function LaboratoryPage({ onOpenPatient }: LaboratoryPageProps): JSX.Elem
 
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Alertes laboratoire</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Alertes laboratoire</h3>
               </div>
               <div className="space-y-3 p-5">
                 {critical.length === 0 && waiting.length === 0 ? (
@@ -815,15 +812,7 @@ function labPriorityDot(priority: 'Critique' | 'Élevée' | 'Normale'): string {
   return 'bg-blue-500'
 }
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick
-}: {
-  icon: typeof Plus
-  label: string
-  onClick?: () => void
-}): JSX.Element {
+function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick?: () => void }): JSX.Element {
   return (
     <button
       onClick={onClick}

@@ -9,7 +9,7 @@ interface ModuleTreeProps {
  * Plan-Installeur-Configurable.md §4.4) : cocher un groupe entier coche tous ses écrans ; décocher
  * un seul écran laisse les autres du groupe cochés (case du groupe "indéterminée", comme un
  * dossier partiellement sélectionné). Réutilisé par l'assistant de premier lancement et par
- * Paramètres → Ultra Admin — même composant, même comportement.
+ * Paramètres → Établissement — même composant, même comportement.
  *
  * Modules liés (voir MODULE_DEPENDENCIES, setup-types.ts) : décocher "Patients" décoche aussi en
  * cascade tout écran qui a besoin d'un patient pour avoir du sens (rendez-vous, consultations,

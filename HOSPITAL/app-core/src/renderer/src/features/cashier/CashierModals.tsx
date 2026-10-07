@@ -6,8 +6,8 @@ import { PAYMENT_MODE_LABEL, PAYMENT_MODES, type ApiCashSession, type PaymentAmo
 import { fcfa } from './format'
 
 export const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-export const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+export const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 /** Saisie d'un motif obligatoire (annulation, remboursement). */
 export function ReasonModal({
@@ -263,7 +263,12 @@ export function CloseSessionModal({
                 <td className="py-2 pl-3">
                   <input
                     value={counted[mode]}
-                    onChange={(e) => setCounted({ ...counted, [mode]: e.target.value.replace(/\D/g, '') })}
+                    onChange={(e) =>
+                      setCounted({
+                        ...counted,
+                        [mode]: e.target.value.replace(/\D/g, '')
+                      })
+                    }
                     className={`${inputClass} text-right`}
                   />
                 </td>
@@ -272,7 +277,7 @@ export function CloseSessionModal({
           </tbody>
         </table>
         <div
-          className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold ${difference === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}
+          className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold ${difference === 0 ? 'bg-teal-50 text-teal-700' : 'bg-amber-50 text-amber-800'}`}
         >
           <span>Écart</span>
           <span>

@@ -1,7 +1,8 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { login, logout } from '../services/auth.service'
 import { clearCurrentSession, getCurrentToken, restoreSessionFromCache } from '../services/session.store'
 import { setUnauthorizedHandler } from '../services/remote-api.client'
+import { getDevLogin, saveDevLogin } from '../services/app-config.service'
 import type { LoginResult, Session } from '../../shared/auth-types'
 
 export function registerAuthIpcHandlers(): void {
@@ -16,8 +17,17 @@ export function registerAuthIpcHandlers(): void {
   })
 
   ipcMain.handle('auth:login', async (_event, email: string, password: string): Promise<LoginResult> => {
+    // Développement uniquement : champs vides = dernière connexion réussie sur ce poste.
+    if (!app.isPackaged && !email.trim() && !password) {
+      const saved = getDevLogin()
+      if (!saved) return { ok: false, error: 'Mode développement : connectez-vous une première fois, la connexion sera ensuite retenue.' }
+      email = saved.email
+      password = saved.password
+    }
     // setCurrentSession (avec le jeton) est déjà appelé à l'intérieur de login().
-    return login(email, password)
+    const result = await login(email, password)
+    if (result.ok) saveDevLogin(email, password)
+    return result
   })
 
   ipcMain.handle('auth:logout', async (): Promise<void> => {

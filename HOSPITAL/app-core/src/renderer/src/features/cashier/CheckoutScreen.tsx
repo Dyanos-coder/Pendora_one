@@ -28,6 +28,7 @@ import {
 import type { PatientSummary } from '@shared/patient-types'
 import { CloseSessionModal, QuickPatientModal, ReasonModal, inputClass, type QuickPatient } from './CashierModals'
 import { RECEIPT_STATUS, fcfa, tileClass, time } from './format'
+import { EmptyState } from '@renderer/components/ui/Feedback'
 
 interface CartLine {
   key: string
@@ -70,7 +71,10 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
   const [paymentReference, setPaymentReference] = useState('')
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
-  const [lastReceipt, setLastReceipt] = useState<{ receipt: ApiReceipt; printError: string | null } | null>(null)
+  const [lastReceipt, setLastReceipt] = useState<{
+    receipt: ApiReceipt
+    printError: string | null
+  } | null>(null)
 
   const [showJournal, setShowJournal] = useState(false)
   const [showClose, setShowClose] = useState(false)
@@ -163,7 +167,10 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
       setPayError(result.error)
       return
     }
-    setLastReceipt({ receipt: result.data.receipt, printError: result.printError })
+    setLastReceipt({
+      receipt: result.data.receipt,
+      printError: result.printError
+    })
     // Prêt pour le patient suivant.
     setCart([])
     setPatient(null)
@@ -265,7 +272,11 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                       if (e.key === 'Escape') setListOpen(false)
                       if (e.key === 'Enter' && matches[0]) {
                         const p = matches[0]
-                        selectPatient({ id: p.id, code: p.code, name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}` })
+                        selectPatient({
+                          id: p.id,
+                          code: p.code,
+                          name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}`
+                        })
                         setListOpen(false)
                       }
                     }}
@@ -296,7 +307,11 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
-                            selectPatient({ id: p.id, code: p.code, name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}` })
+                            selectPatient({
+                              id: p.id,
+                              code: p.code,
+                              name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}`
+                            })
                             setListOpen(false)
                           }}
                           className="block w-full px-3 py-2 text-left hover:bg-accent-50"
@@ -348,7 +363,10 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                             label: exam.label,
                             price: exam.price,
                             service: exam.service,
-                            input: { examType: exam.examType, examId: exam.examId }
+                            input: {
+                              examType: exam.examType,
+                              examId: exam.examId
+                            }
                           })
                         }
                         title={exam.price === null ? 'Aucun tarif défini dans le catalogue pour cet examen' : undefined}
@@ -369,7 +387,7 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => setServiceFilter(null)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${serviceFilter === null ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${serviceFilter === null ? 'bg-accent-600 text-white shadow-sm shadow-accent-600/25' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 Tous
               </button>
@@ -377,7 +395,7 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                 <button
                   key={s}
                   onClick={() => setServiceFilter(s)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${serviceFilter === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${serviceFilter === s ? 'bg-accent-600 text-white shadow-sm shadow-accent-600/25' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 >
                   {s}
                 </button>
@@ -386,7 +404,8 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
 
             {tariffs.length === 0 ? (
               <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500">
-                Le catalogue de tarifs est vide. {isAdmin ? 'Ajoutez des tarifs dans les paramètres de la caisse.' : 'Demandez au dirigeant de le compléter.'}
+                Le catalogue de tarifs est vide.{' '}
+                {isAdmin ? 'Ajoutez des tarifs dans les paramètres de la caisse.' : 'Demandez au dirigeant de le compléter.'}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
@@ -395,7 +414,13 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                     key={t.id}
                     disabled={!patient}
                     onClick={() =>
-                      addLine({ key: `tariff-${t.id}`, label: t.label, price: t.price, service: t.service, input: { tariffItemId: t.id } })
+                      addLine({
+                        key: `tariff-${t.id}`,
+                        label: t.label,
+                        price: t.price,
+                        service: t.service,
+                        input: { tariffItemId: t.id }
+                      })
                     }
                     className={`min-h-[84px] rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${tileClass(t.color)}`}
                   >
@@ -414,7 +439,7 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">3. Paiement</p>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               {cart.length === 0 ? (
-                <p className="py-4 text-center text-sm text-gray-400">Aucun service sélectionné.</p>
+                <EmptyState title="Aucun service sélectionné." />
               ) : (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-gray-500">{cartService}</p>
@@ -423,7 +448,10 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
                       <span className="truncate text-gray-700">{line.label}</span>
                       <span className="flex items-center gap-1.5 whitespace-nowrap font-medium text-gray-900">
                         {fcfa(line.price)}
-                        <button onClick={() => setCart(cart.filter((l) => l.key !== line.key))} className="text-gray-300 hover:text-red-500">
+                        <button
+                          onClick={() => setCart(cart.filter((l) => l.key !== line.key))}
+                          className="text-gray-300 hover:text-red-500"
+                        >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </span>
@@ -434,7 +462,7 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
               {notice && <p className="mt-2 text-[11px] text-amber-700">{notice}</p>}
               <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
                 <span className="text-sm text-gray-500">Total</span>
-                <span className="text-xl font-bold text-gray-900">{fcfa(total)}</span>
+                <span className="text-xl font-display font-extrabold tabular-nums text-gray-900">{fcfa(total)}</span>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-1.5">
@@ -465,16 +493,16 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
             </div>
 
             {lastReceipt && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
+              <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-teal-800">
                   <CheckCircle2 className="h-4 w-4" />
                   Reçu {lastReceipt.receipt.number}
                 </p>
-                <p className="mt-1 text-xs text-emerald-700">
+                <p className="mt-1 text-xs text-teal-700">
                   {lastReceipt.receipt.patientName} — {fcfa(lastReceipt.receipt.amount)}
                 </p>
                 {lastReceipt.receipt.queueNumber !== null && (
-                  <p className="mt-2 text-sm text-emerald-800">
+                  <p className="mt-2 text-sm text-teal-800">
                     N° de passage <span className="text-2xl font-bold">{lastReceipt.receipt.queueNumber}</span>
                   </p>
                 )}
@@ -504,7 +532,11 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
           onClose={() => setShowQuickPatient(false)}
           onCreated={(p: QuickPatient) => {
             setShowQuickPatient(false)
-            selectPatient({ id: p.id, code: p.code, name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}` })
+            selectPatient({
+              id: p.id,
+              code: p.code,
+              name: `${p.lastName.toLocaleUpperCase('fr-FR')} ${p.firstName}`
+            })
           }}
         />
       )}
@@ -518,7 +550,10 @@ export function CheckoutScreen({ sessionId, isAdmin, onBack }: CheckoutScreenPro
           session={session}
           onClose={() => setShowClose(false)}
           onClosed={async (countedAmounts, note) => {
-            const result = await window.api.cashier.closeSession(sessionId, { countedAmounts, note })
+            const result = await window.api.cashier.closeSession(sessionId, {
+              countedAmounts,
+              note
+            })
             if (!result.ok) return result.error
             await window.api.cashier.printSessionReport(sessionId)
             setShowClose(false)
@@ -545,7 +580,10 @@ function SessionJournal({
 }): JSX.Element {
   const [receipts, setReceipts] = useState<ApiReceipt[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [action, setAction] = useState<{ kind: 'cancel' | 'refund'; receipt: ApiReceipt } | null>(null)
+  const [action, setAction] = useState<{
+    kind: 'cancel' | 'refund'
+    receipt: ApiReceipt
+  } | null>(null)
 
   async function load(): Promise<void> {
     const result = await window.api.cashier.receipts({ sessionId })
@@ -564,7 +602,7 @@ function SessionJournal({
       {!receipts ? (
         <Loader2 className="mx-auto h-5 w-5 animate-spin text-gray-300" />
       ) : receipts.length === 0 ? (
-        <p className="py-6 text-center text-sm text-gray-400">Aucun reçu pour cette session.</p>
+        <EmptyState title="Aucun reçu pour cette session." />
       ) : (
         <div className="max-h-[60vh] overflow-y-auto">
           <table className="w-full text-sm">

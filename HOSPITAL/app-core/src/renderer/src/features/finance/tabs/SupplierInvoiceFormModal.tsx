@@ -13,8 +13,8 @@ interface SupplierInvoiceFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const STATUS_OPTIONS: { value: ApiTransactionStatus; label: string }[] = [
   { value: 'EN_ATTENTE', label: 'En attente' },
@@ -51,9 +51,7 @@ export function SupplierInvoiceFormModal({ suppliers, onClose, onSaved, editing 
       note: note.trim() || undefined
     }
 
-    const result = editing
-      ? await window.api.finance.invoices.update(editing.id, base)
-      : await window.api.finance.invoices.create(base)
+    const result = editing ? await window.api.finance.invoices.update(editing.id, base) : await window.api.finance.invoices.create(base)
     setSubmitting(false)
     if (result.ok) {
       onSaved(result.data.invoice)

@@ -36,6 +36,7 @@ import { RequestsTab } from './tabs/RequestsTab'
 import { TransfusionsTab } from './tabs/TransfusionsTab'
 import { AnalysesTab } from './tabs/AnalysesTab'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 interface BloodBankPageProps {
   onOpenPatient: (patientId: string) => void
@@ -267,57 +268,54 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement de la banque de sang…
-        </div>
+        <PulseLoader label="Chargement de la banque de sang…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="bloodBank.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <Droplet className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Poches disponibles</p>
-              <p className="text-xl font-bold text-gray-900">{disponibles.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{disponibles.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <HeartHandshake className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <HeartHandshake className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Poches enregistrées</p>
-              <p className="text-xl font-bold text-gray-900">{pouches.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{pouches.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <PackageCheck className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Poches transfusées</p>
-              <p className="text-xl font-bold text-gray-900">{transfusees.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{transfusees.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <FlaskConical className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En attente d&apos;analyse</p>
-              <p className="text-xl font-bold text-gray-900">{enAttenteAnalyse.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{enAttenteAnalyse.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-orange-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-orange-50">
                 <CalendarX className="h-5 w-5 text-orange-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Poches périmées</p>
-              <p className="text-xl font-bold text-gray-900">{perimees.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{perimees.length}</p>
             </Card>
           </SortableGroup>
 
           {/* Stock par groupe */}
           <Card>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Stock disponible par groupe</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Stock disponible par groupe</h3>
             </div>
             {stockByGroup.length === 0 ? (
               <p className="text-xs text-gray-400">Aucune poche disponible actuellement.</p>
@@ -350,9 +348,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label}
@@ -373,24 +369,24 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                   {(() => {
                     const expired = pouches.filter((p) => p.status === 'Périmée' || p.status === 'Écartée')
                     return expired.length === 0 ? (
-                      <p className="px-6 py-12 text-center text-sm text-gray-400">Aucune poche périmée ou écartée.</p>
+                      <EmptyState title="Aucune poche périmée ou écartée." />
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                           <thead>
-                            <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                              <th className="px-6 py-2.5 font-medium">N° Poche</th>
-                              <th className="px-6 py-2.5 font-medium">Groupe</th>
-                              <th className="px-6 py-2.5 font-medium">Type / Composant</th>
-                              <th className="px-6 py-2.5 font-medium">Statut</th>
-                              <th className="px-6 py-2.5 font-medium">Expiration</th>
-                              <th className="px-6 py-2.5 font-medium">Donneur</th>
-                              <th className="px-6 py-2.5 font-medium" />
+                            <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                              <th className="px-6 py-3 font-semibold">N° Poche</th>
+                              <th className="px-6 py-3 font-semibold">Groupe</th>
+                              <th className="px-6 py-3 font-semibold">Type / Composant</th>
+                              <th className="px-6 py-3 font-semibold">Statut</th>
+                              <th className="px-6 py-3 font-semibold">Expiration</th>
+                              <th className="px-6 py-3 font-semibold">Donneur</th>
+                              <th className="px-6 py-3 font-semibold" />
                             </tr>
                           </thead>
                           <tbody>
                             {expired.map((p) => (
-                              <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                              <tr key={p.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                                 <td className="px-6 py-3 text-xs text-gray-500">{p.pouchNumber}</td>
                                 <td className="px-6 py-3 font-semibold text-gray-900">{p.bloodGroup}</td>
                                 <td className="px-6 py-3 text-gray-600">{p.component}</td>
@@ -425,7 +421,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Rechercher une poche, un groupe, un donneur..."
-                        className="w-72 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                        className="w-72 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                       />
                     </div>
                     <Button variant="secondary" size="sm" onClick={handleExportExcel} disabled={exporting}>
@@ -440,22 +436,22 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                         <thead>
-                          <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                            <th className="px-6 py-2.5 font-medium">N° Poche</th>
-                            <th className="px-6 py-2.5 font-medium">Groupe</th>
-                            <th className="px-6 py-2.5 font-medium">Type / Composant</th>
-                            <th className="px-6 py-2.5 font-medium">Volume</th>
-                            <th className="px-6 py-2.5 font-medium">Statut</th>
-                            <th className="px-6 py-2.5 font-medium">Expiration</th>
-                            <th className="px-6 py-2.5 font-medium">Donneur</th>
-                            <th className="px-6 py-2.5 font-medium" />
+                          <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                            <th className="px-6 py-3 font-semibold">N° Poche</th>
+                            <th className="px-6 py-3 font-semibold">Groupe</th>
+                            <th className="px-6 py-3 font-semibold">Type / Composant</th>
+                            <th className="px-6 py-3 font-semibold">Volume</th>
+                            <th className="px-6 py-3 font-semibold">Statut</th>
+                            <th className="px-6 py-3 font-semibold">Expiration</th>
+                            <th className="px-6 py-3 font-semibold">Donneur</th>
+                            <th className="px-6 py-3 font-semibold" />
                           </tr>
                         </thead>
                         <tbody>
                           {filteredRows.map((p) => (
-                            <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                            <tr key={p.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                               <td className="px-6 py-3 text-xs text-gray-500">{p.pouchNumber}</td>
                               <td className="px-6 py-3 font-semibold text-gray-900">{p.bloodGroup}</td>
                               <td className="px-6 py-3 text-gray-600">{p.component}</td>
@@ -521,11 +517,11 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Groupe sanguin</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Groupe sanguin</label>
                     <select
                       value={filterGroup}
                       onChange={(e) => setFilterGroup(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les groupes</option>
                       {bloodGroupOptions.map((g) => (
@@ -536,11 +532,11 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type / Composant</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type / Composant</label>
                     <select
                       value={filterComponent}
                       onChange={(e) => setFilterComponent(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {componentOptions.map((c) => (
@@ -551,11 +547,11 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATE_LABEL).map((s) => (
@@ -570,7 +566,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
 
               <Card className="p-0">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Alertes critiques</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Alertes critiques</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {perimees.length === 0 && enAttenteAnalyse.length === 0 && groupsWithNoStock.length === 0 ? (
@@ -606,7 +602,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
 
               <Card>
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Poches par type</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Poches par type</h3>
                 </div>
                 {typeBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
@@ -640,7 +636,7 @@ export function BloodBankPage({ onOpenPatient }: BloodBankPageProps): JSX.Elemen
           {/* Actions rapides */}
           <Card className="p-0">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+              <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
             </div>
             <SortableGroup id="bloodBank.grid3" className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
               {QUICK_ACTIONS.map((action) => (

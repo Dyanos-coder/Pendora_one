@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiBudget } from '@shared/finance-types'
 import { BudgetFormModal } from './BudgetFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatAmount(n: number): string {
   return `${n.toLocaleString('fr-FR')} FCFA`
@@ -31,12 +32,7 @@ export function BudgetsTab(): JSX.Element {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -82,26 +78,26 @@ export function BudgetsTab(): JSX.Element {
       )}
 
       {budgets.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun budget enregistré.</p>
+        <EmptyState title="Aucun budget enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Service</th>
-                <th className="px-6 py-2.5 font-medium">Année</th>
-                <th className="px-6 py-2.5 font-medium">Alloué</th>
-                <th className="px-6 py-2.5 font-medium">Consommé</th>
-                <th className="px-6 py-2.5 font-medium">Reste</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Service</th>
+                <th className="px-6 py-3 font-semibold">Année</th>
+                <th className="px-6 py-3 font-semibold">Alloué</th>
+                <th className="px-6 py-3 font-semibold">Consommé</th>
+                <th className="px-6 py-3 font-semibold">Reste</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {budgets.map((b) => {
                 const percent = b.allocatedAmount === 0 ? 0 : Math.min(100, Math.round((b.consumedAmount / b.allocatedAmount) * 100))
                 return (
-                  <tr key={b.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                  <tr key={b.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                     <td className="px-6 py-3 font-medium text-gray-900">{b.reference}</td>
                     <td className="px-6 py-3 text-gray-600">{b.service}</td>
                     <td className="px-6 py-3 text-gray-600">{b.year}</td>

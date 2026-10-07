@@ -3,6 +3,8 @@ import mariadb, { type Connection } from 'mariadb'
 import type { Hospital } from '@/generated/prisma/client'
 import { decryptSecret } from './crypto'
 import { ALL_MODULE_IDS } from './modules'
+import { verifyText } from './signing'
+import { currentPeriod, livePeriods, normalizePayload, type SubscriptionPeriod } from './subscription-periods'
 
 // Lecture des bases des hôpitaux (§5) avec les accès enregistrés dans `Hospital`. Lecture seule,
 // délais courts (une base lente ou coupée ne bloque jamais l'affichage), résultats gardés en
@@ -31,6 +33,17 @@ export interface HospitalOverview {
   cashThisMonth: number | null
   lastMigration: { name: string; appliedAt: string } | null
   lastActivityAt: string | null
+  /** Abonnement lu dans la base de l'hôpital : null = jamais activé ; valid = signature Pandora correcte. */
+  subscription: {
+    endDate: string
+    issuedAt: string
+    /** Offres et modules de la période en cours (vides si expiré). */
+    items: string[]
+    modules: string[]
+    /** Périodes en cours et à venir (ex. mois d'essai, puis mois payés). */
+    periods: SubscriptionPeriod[]
+    valid: boolean
+  } | null
 }
 
 const CACHE_TTL_MS = 2 * 60 * 1000
@@ -70,17 +83,27 @@ function describeError(error: unknown): string {
   return e.message ?? 'Connexion impossible.'
 }
 
-/** Test d'accès avant enregistrement d'un hôpital : vérifie aussi qu'il s'agit bien d'une base
- * Pandora Health (table `company` présente) et renvoie le nom de l'établissement. */
-export async function testAccess(access: HospitalDbAccess): Promise<{ ok: true; companyName: string | null } | { ok: false; error: string }> {
+/** Test d'accès : vérifie qu'il s'agit d'une base Pandora Health (table `company` présente) et
+ * renvoie le nom de l'établissement. Avec `requirePandora: false`, une base **vide** est acceptée
+ * (nouvel hôpital : l'application la préparera à la première activation d'un poste) ; une base qui
+ * contient autre chose reste refusée. */
+export async function testAccess(
+  access: HospitalDbAccess,
+  options: { requirePandora?: boolean } = {}
+): Promise<{ ok: true; companyName: string | null; empty: boolean } | { ok: false; error: string }> {
   let connection: Connection | undefined
   try {
     connection = await openConnection(access)
-    const rows = (await connection.query('SELECT name FROM company LIMIT 1')) as { name: string }[]
-    return { ok: true, companyName: rows[0]?.name ?? null }
+    try {
+      const rows = (await connection.query('SELECT name FROM company LIMIT 1')) as { name: string }[]
+      return { ok: true, companyName: rows[0]?.name ?? null, empty: false }
+    } catch (error) {
+      if ((error as { errno?: number }).errno !== 1146) throw error
+      const tables = (await connection.query('SHOW TABLES')) as unknown[]
+      if (options.requirePandora === false && tables.length === 0) return { ok: true, companyName: null, empty: true }
+      return { ok: false, error: "Connexion réussie, mais ce n'est pas une base Pandora Health (table « company » absente)." }
+    }
   } catch (error) {
-    const e = error as { errno?: number }
-    if (e.errno === 1146) return { ok: false, error: "Connexion réussie, mais ce n'est pas une base Pandora Health (table « company » absente)." }
     return { ok: false, error: describeError(error) }
   } finally {
     await connection?.end().catch(() => undefined)
@@ -134,6 +157,21 @@ export async function readOverview(hospital: Hospital, options: { force?: boolea
     const count = (sql: string, params: unknown[] = []) =>
       safe(async () => toNumber(((await c.query(sql, params)) as { n: unknown }[])[0]?.n))
 
+    const subscription = await safe(async () => {
+      const rows = (await c.query("SELECT payload, signature FROM subscription WHERE id = 'current'")) as { payload: string; signature: string }[]
+      if (!rows[0]) return null
+      const p = normalizePayload(JSON.parse(rows[0].payload))
+      if (!p) return null
+      const current = currentPeriod(p)
+      return {
+        endDate: p.endDate,
+        issuedAt: p.issuedAt,
+        items: current?.items ?? [],
+        modules: current?.modules ?? [],
+        periods: livePeriods(p),
+        valid: verifyText(rows[0].payload, rows[0].signature) && p.hospitalId === hospital.id
+      }
+    })
     const [patients, activeUsers, consultationsThisMonth, cashThisMonth, lastMigration, lastActivity] = await Promise.all([
       count('SELECT COUNT(*) AS n FROM patient WHERE deletedAt IS NULL'),
       count('SELECT COUNT(*) AS n FROM `user` WHERE isActive = 1'),
@@ -162,7 +200,8 @@ export async function readOverview(hospital: Hospital, options: { force?: boolea
       consultationsThisMonth,
       cashThisMonth,
       lastMigration,
-      lastActivityAt: lastActivity
+      lastActivityAt: lastActivity,
+      subscription
     }
   } catch (error) {
     data = {
@@ -176,7 +215,8 @@ export async function readOverview(hospital: Hospital, options: { force?: boolea
       consultationsThisMonth: null,
       cashThisMonth: null,
       lastMigration: null,
-      lastActivityAt: null
+      lastActivityAt: null,
+      subscription: null
     }
   } finally {
     await connection?.end().catch(() => undefined)

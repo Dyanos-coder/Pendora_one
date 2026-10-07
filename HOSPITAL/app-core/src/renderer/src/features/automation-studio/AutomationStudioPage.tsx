@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Workflow, Zap, CheckCircle2, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Workflow, Zap, CheckCircle2, CheckCircle, XCircle } from 'lucide-react'
 import { Card } from '@renderer/components/Card'
 import { PageHeader } from '@renderer/components/PageHeader'
 import { BarChart } from '@renderer/components/BarChart'
 import type { ApiAutomationCategory, ApiAutomationLog, ApiAutomationRule } from '@shared/automation-types'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 const CATEGORY_LABEL: Record<ApiAutomationCategory, string> = {
   RENDEZ_VOUS: 'Rendez-vous',
@@ -17,9 +18,9 @@ const CATEGORY_LABEL: Record<ApiAutomationCategory, string> = {
 
 const CATEGORY_COLOR: Record<ApiAutomationCategory, string> = {
   RENDEZ_VOUS: '#3b82f6',
-  STOCKS: '#f59e0b',
-  LABORATOIRE: '#10b981',
-  FINANCES: '#8b5cf6',
+  STOCKS: '#dea127',
+  LABORATOIRE: '#14b8a6',
+  FINANCES: '#12a04a',
   RH: '#ec4899',
   SOINS_PATIENTS: '#9ca3af'
 }
@@ -98,38 +99,37 @@ export function AutomationStudioPage(): JSX.Element {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement d&apos;Automation Studio…
-        </div>
+        <PulseLoader label="Chargement d'Automation Studio…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="automationStudio.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Workflow className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Workflow className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Règles actives</p>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">
                 {activeRules} <span className="text-sm font-normal text-gray-400">/ {rules.length}</span>
               </p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Zap className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Exécutions aujourd&apos;hui</p>
-              <p className="text-xl font-bold text-gray-900">{logsToday.length}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">{logsToday.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Taux de réussite</p>
-              <p className="text-xl font-bold text-gray-900">{successRate === null ? '—' : `${successRate}%`}</p>
+              <p className="text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {successRate === null ? '—' : `${successRate}%`}
+              </p>
             </Card>
             <Card>
               <h3 className="mb-2 text-xs font-medium text-gray-500">Exécutions par règle (aujourd&apos;hui)</h3>
@@ -149,7 +149,7 @@ export function AutomationStudioPage(): JSX.Element {
           <SortableGroup id="automationStudio.grid2" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-0 lg:col-span-2">
               <div className="border-b border-gray-100 px-6 py-4">
-                <h3 className="text-sm font-semibold text-gray-900">Règles d&apos;automatisation</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Règles d&apos;automatisation</h3>
               </div>
               <div className="divide-y divide-gray-100">
                 {rules.map((r) => (
@@ -173,7 +173,9 @@ export function AutomationStudioPage(): JSX.Element {
                         disabled={togglingId === r.id}
                         className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${r.active ? 'bg-accent-500' : 'bg-gray-200'}`}
                       >
-                        <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${r.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        <span
+                          className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${r.active ? 'translate-x-4' : 'translate-x-0.5'}`}
+                        />
                       </button>
                     </div>
                     <div className="mt-3 flex gap-6 text-xs text-gray-500">
@@ -193,12 +195,15 @@ export function AutomationStudioPage(): JSX.Element {
 
             <SortableGroup id="automationStudio.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Règles par catégorie</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Règles par catégorie</h3>
                 {categoryBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune donnée.</p>
                 ) : (
                   <div className="flex items-center gap-4">
-                    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" style={{ background: donutBackground }}>
+                    <div
+                      className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: donutBackground }}
+                    >
                       <div className="h-11 w-11 rounded-full bg-white" />
                     </div>
                     <div className="space-y-1 text-[11px]">
@@ -216,7 +221,7 @@ export function AutomationStudioPage(): JSX.Element {
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-3.5">
-                  <h3 className="text-sm font-semibold text-gray-900">Journal d&apos;exécution</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Journal d&apos;exécution</h3>
                 </div>
                 <div className="space-y-3 p-5">
                   {logs.length === 0 ? (
@@ -225,7 +230,7 @@ export function AutomationStudioPage(): JSX.Element {
                     logs.slice(0, 10).map((log) => (
                       <div key={log.id} className="flex items-start gap-2.5 text-xs">
                         {log.success ? (
-                          <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-500" />
                         ) : (
                           <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
                         )}

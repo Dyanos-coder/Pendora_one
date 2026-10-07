@@ -35,9 +35,9 @@ export type SiteResult<T> =
   /** Site injoignable : on garde ce qu'on a. */
   | { kind: 'network'; message: string }
 
-export async function postToSite<T>(path: string, body: unknown, token?: string): Promise<SiteResult<T>> {
+export async function postToSite<T>(path: string, body: unknown, token?: string, timeoutMs = TIMEOUT_MS): Promise<SiteResult<T>> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   let response: Response
   try {
     response = await fetch(`${siteUrl()}${path}`, {
@@ -74,6 +74,8 @@ export interface CredentialsResponse {
   db: SiteDbAccess
 }
 
-export function requestCredentials(token: string): Promise<SiteResult<CredentialsResponse>> {
-  return postToSite('/api/public/device/credentials', { appVersion: app.getVersion() }, token)
+/** Contrôle du poste au lancement (code toujours valide, poste non révoqué) + accès à jour. Délai
+ * court : sans réponse du site, le lancement continue avec les accès enregistrés. */
+export function requestCredentials(token: string, code: string): Promise<SiteResult<CredentialsResponse>> {
+  return postToSite('/api/public/device/credentials', { appVersion: app.getVersion(), code }, token, 8000)
 }

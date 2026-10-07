@@ -14,8 +14,8 @@ interface TransfusionFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 export function TransfusionFormModal({ pouches, requests, onClose, onSaved, editing }: TransfusionFormModalProps): JSX.Element {
   const [patients, setPatients] = useState<PatientSummary[]>([])
@@ -23,9 +23,7 @@ export function TransfusionFormModal({ pouches, requests, onClose, onSaved, edit
   const [patientId, setPatientId] = useState(editing?.patientId ?? '')
   const [pouchId, setPouchId] = useState(editing?.pouchId ?? availablePouches[0]?.id ?? '')
   const [requestId, setRequestId] = useState(editing?.requestId ?? '')
-  const [transfusedAt, setTransfusedAt] = useState(
-    editing ? editing.transfusedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  )
+  const [transfusedAt, setTransfusedAt] = useState(editing ? editing.transfusedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [administeredBy, setAdministeredBy] = useState(editing?.administeredBy ?? '')
   const [reaction, setReaction] = useState(editing?.reaction ?? '')
   const [submitting, setSubmitting] = useState(false)

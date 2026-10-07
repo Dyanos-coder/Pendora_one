@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2, Landmark } from 'lucide-react'
+import { Plus, Pencil, Trash2, Landmark } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { Card } from '@renderer/components/Card'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiBankAccount } from '@shared/finance-types'
 import { BankAccountFormModal } from './BankAccountFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatAmount(n: number): string {
   return `${n.toLocaleString('fr-FR')} FCFA`
@@ -32,12 +33,7 @@ export function BankAccountsTab(): JSX.Element {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -83,14 +79,14 @@ export function BankAccountsTab(): JSX.Element {
       )}
 
       {accounts.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun compte bancaire enregistré.</p>
+        <EmptyState title="Aucun compte bancaire enregistré." />
       ) : (
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
           {accounts.map((a) => (
             <Card key={a.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50 text-accent-600">
                     <Landmark className="h-4 w-4" />
                   </div>
                   <div>

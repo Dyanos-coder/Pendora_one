@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiBloodPouch, ApiDonation, ApiDonationStatus } from '@shared/blood-bank-types'
 import { DonationFormModal } from './DonationFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiDonationStatus, string> = {
   PLANIFIE: 'Planifié',
@@ -44,12 +45,7 @@ export function DonationsTab({ pouches }: { pouches: ApiBloodPouch[] }): JSX.Ele
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -97,24 +93,24 @@ export function DonationsTab({ pouches }: { pouches: ApiBloodPouch[] }): JSX.Ele
       )}
 
       {donations.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun don enregistré.</p>
+        <EmptyState title="Aucun don enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Donneur</th>
-                <th className="px-6 py-2.5 font-medium">Groupe</th>
-                <th className="px-6 py-2.5 font-medium">Date</th>
-                <th className="px-6 py-2.5 font-medium">Poche liée</th>
-                <th className="px-6 py-2.5 font-medium">Statut</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Donneur</th>
+                <th className="px-6 py-3 font-semibold">Groupe</th>
+                <th className="px-6 py-3 font-semibold">Date</th>
+                <th className="px-6 py-3 font-semibold">Poche liée</th>
+                <th className="px-6 py-3 font-semibold">Statut</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {donations.map((d) => (
-                <tr key={d.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={d.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{d.reference}</td>
                   <td className="px-6 py-3 text-gray-600">{d.donorName}</td>
                   <td className="px-6 py-3 font-semibold text-gray-900">{d.bloodGroup}</td>

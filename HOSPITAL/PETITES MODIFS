@@ -1,0 +1,16 @@
+1-Au niveuau de consultation  rajouter l'upload d'un doc qui va regrouper le disgnostique t les infos recupéré lors de la consutation possiblilité de demander ausii dasnanalyse de depus quand on cré une consultation ça doit aussi aller dans rdv ce qui est logique une consutation c'est aussi un rdv
+2-au niveau de signe vitaus pastient rajouter la possibilté de soit entres les info mnuellement soit d'upload un doc et aussii il doi y avoir unmenu deroulant ou je peux choisir si ces signe vitaux on eé pris lors dun' eanalyse ou d'un rdv ou d'un cosultation et je dois choisir ce derneir 
+3- pur l'upload de do au niveau de patient la ssection catégori doi etre une liste deroulante et quad j'entre une categorie si la catégori existe ça me la propose sinon  une fois le form valider ça l'ajoute à la base de donner pour l a prochiane fois 
+4-retirer le solde patient 
+5- retirer ssytsteme d'envoi sms qui est dans parametre 
+6- au nivveau de hospitalisation le servcice doit etre une liste déroulante  quand  j'entre une categorie si le service  existe ça me la propose sinon  une fois le form valider ça l'ajoute à la base de donner pour l a prochiane fois 
+7-pour la  zone das le formulaire urgence aussi liste deroulante comme je l'ai dit 
+8- laboratoire type liste deroulante aussi
+9- imageri medical rajouter upload de png et doc
+10-cardiologie rajouter la possibilité du'upload un doc pour les résultats pareil poue cardiologie 
+11-pour laboratoir jrajouter la possibilité qu'on puisse ajouter le edecin demande nb: c'est pas obligatoir ede remplir ce champ 
+12- pour la pharmacie la serciton medicament liste deroulante categorie aussi liste deroulante  comme je dit plus tot quoi avec ajout à la bd automatique 
+13- pour donner dans banque de sang rajouter la possibilité de selectionné un patient car il est possible qu'un patient donne son sang sinon liste deroulant de personne avec ajout à la bd autaomatique 
+14- pour la gestion de presence il faut que ça l'hopitable dans parametre puisse mettre a jour la localisation et ça recupere automatique ment al locatlisation de l'hopital là quand un use qui n'est pas directeur se connecte ça doit recuerer l'here et la loacalisation pour faire acte de presence c'est mieux que de le faire manuellement 
+15- rajouter la possibilité de glisser deposer les interfaces  car les page son discposé de differen bloc qdonc je veux que l'user puisse adapter ça comme il veut 
+16-ameliorer les sortie excel  et surtotu les export pdf car c'est très moche 

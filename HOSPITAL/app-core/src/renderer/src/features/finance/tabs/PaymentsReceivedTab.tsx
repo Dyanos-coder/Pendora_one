@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiPaymentReceived } from '@shared/finance-types'
 import { PaymentFormModal } from './PaymentFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 function formatAmount(n: number): string {
   return `${n.toLocaleString('fr-FR')} FCFA`
@@ -35,12 +36,7 @@ export function PaymentsReceivedTab(): JSX.Element {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -86,28 +82,28 @@ export function PaymentsReceivedTab(): JSX.Element {
       )}
 
       {payments.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun paiement reçu enregistré.</p>
+        <EmptyState title="Aucun paiement reçu enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Référence</th>
-                <th className="px-6 py-2.5 font-medium">Payeur</th>
-                <th className="px-6 py-2.5 font-medium">Catégorie</th>
-                <th className="px-6 py-2.5 font-medium">Montant</th>
-                <th className="px-6 py-2.5 font-medium">Date</th>
-                <th className="px-6 py-2.5 font-medium">Mode</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Référence</th>
+                <th className="px-6 py-3 font-semibold">Payeur</th>
+                <th className="px-6 py-3 font-semibold">Catégorie</th>
+                <th className="px-6 py-3 font-semibold">Montant</th>
+                <th className="px-6 py-3 font-semibold">Date</th>
+                <th className="px-6 py-3 font-semibold">Mode</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {payments.map((p) => (
-                <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={p.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{p.reference}</td>
                   <td className="px-6 py-3 text-gray-600">{p.payer}</td>
                   <td className="px-6 py-3 text-gray-600">{p.category}</td>
-                  <td className="px-6 py-3 font-medium text-emerald-600">+ {formatAmount(p.amount)}</td>
+                  <td className="px-6 py-3 font-medium text-teal-600">+ {formatAmount(p.amount)}</td>
                   <td className="px-6 py-3 text-gray-600">{formatDate(p.receivedAt)}</td>
                   <td className="px-6 py-3 text-gray-600">{p.paymentMode}</td>
                   <td className="px-6 py-3">

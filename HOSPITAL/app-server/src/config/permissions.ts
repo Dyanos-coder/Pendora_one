@@ -40,6 +40,7 @@ export type Domain =
   | 'reports'
   | 'automation'
   | 'users'
+  | 'settings'
 
 // Matrice de permissions par domaine et par rôle — reflète le tableau de référence et ses notes
 // de conception dans HOSPITAL/Audit-Fonctionnalites-Manquantes.md §2 (proposition validée par
@@ -75,5 +76,9 @@ export const DOMAIN_PERMISSIONS: Record<Domain, Record<Role, AccessLevel>> = {
   // ADMINISTRATIF peut seulement consulter la liste (§2 : "ne peut que consulter"), les autres
   // rôles n'y ont aucun accès. Le changement de son propre mot de passe est une route à part,
   // ouverte à tous les rôles authentifiés, qui ne passe pas par cette matrice (voir users.routes.ts).
-  users: { DIRIGEANT: 'full', MEDECIN: 'none', INFIRMIER: 'none', TECHNICIEN: 'none', PHARMACIEN: 'none', ADMINISTRATIF: 'read' }
+  users: { DIRIGEANT: 'full', MEDECIN: 'none', INFIRMIER: 'none', TECHNICIEN: 'none', PHARMACIEN: 'none', ADMINISTRATIF: 'read' },
+  // Établissement + Notifications (Paramètres) : lecture ouverte à tous (affiché dans un écran
+  // que tous les rôles peuvent ouvrir), écriture réservée à DIRIGEANT/ADMINISTRATIF — même schéma
+  // que `documents`/`quality`.
+  settings: { DIRIGEANT: 'full', MEDECIN: 'read', INFIRMIER: 'read', TECHNICIEN: 'read', PHARMACIEN: 'read', ADMINISTRATIF: 'write' }
 }

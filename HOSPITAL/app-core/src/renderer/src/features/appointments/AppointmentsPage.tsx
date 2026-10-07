@@ -14,7 +14,6 @@ import {
   Hourglass,
   BadgeCheck,
   CalendarX,
-  Loader2,
   Trash2,
   Maximize2
 } from 'lucide-react'
@@ -32,6 +31,7 @@ import { addDays, dayIndexInWeek, formatDayLabel, formatFullDate, formatTime, is
 import { AppointmentFormModal } from './AppointmentFormModal'
 import type { Session } from '@shared/auth-types'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface AppointmentsPageProps {
   onOpenPatient: (patientId: string) => void
@@ -538,52 +538,49 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement des rendez-vous…
-        </div>
+        <PulseLoader label="Chargement des rendez-vous…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="appointments.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <CalendarCheck className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <CalendarCheck className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{todayAppointments.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{todayAppointments.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <CalendarDays className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Cette semaine</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{weekAppointments.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{weekAppointments.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-amber-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-amber-50">
                 <Hourglass className="h-5 w-5 text-amber-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En attente</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{waitingAppointments.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{waitingAppointments.length}</p>
               <p className="text-xs text-gray-400">Patients en liste d&apos;attente</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <BadgeCheck className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <BadgeCheck className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Consultations honorées</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{completionRate === null ? '—' : `${completionRate}%`}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{completionRate === null ? '—' : `${completionRate}%`}</p>
               <p className="text-xs text-gray-400">Taux de réalisation</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <CalendarX className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Rendez-vous annulés</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{cancelledAppointments.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{cancelledAppointments.length}</p>
             </Card>
           </SortableGroup>
 
@@ -591,7 +588,7 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
             {/* Calendrier */}
             <Card className="p-0 lg:col-span-2">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h2 className="text-sm font-semibold text-gray-900">Calendrier</h2>
+                <h2 className="text-[15px] font-bold text-gray-900">Calendrier</h2>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center rounded-lg border border-gray-200">
                     <button
@@ -664,14 +661,14 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
             {/* Colonne latérale */}
             <SortableGroup id="appointments.side1" className="space-y-6">
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Filtres</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Filtres</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Période</label>
                     <select
                       value={filterPeriod}
                       onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value="all">Toutes les périodes</option>
                       <option value="today">Aujourd&apos;hui</option>
@@ -680,11 +677,11 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {serviceOptions.map((s) => (
@@ -695,11 +692,11 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Médecin</label>
                     <select
                       value={filterDoctor}
                       onChange={(e) => setFilterDoctor(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les médecins</option>
                       {doctorOptions.map((d) => (
@@ -710,11 +707,11 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -725,11 +722,11 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type de rendez-vous</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type de rendez-vous</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {APPOINTMENT_TYPES.map((t) => (
@@ -749,7 +746,7 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
               {selected && (
                 <Card className="p-0">
                   <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                    <h3 className="text-sm font-semibold text-gray-900">Rendez-vous sélectionné</h3>
+                    <h3 className="text-[15px] font-bold text-gray-900">Rendez-vous sélectionné</h3>
                     <StatusBadge label={selected.status} tone={appointmentStatusTone(selected.status)} />
                   </div>
                   <div className="p-5">
@@ -856,15 +853,15 @@ export function AppointmentsPage({ onOpenPatient, session }: AppointmentsPagePro
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                    <th className="px-6 py-2.5 font-medium">Heure</th>
-                    <th className="px-6 py-2.5 font-medium">Patient</th>
-                    <th className="px-6 py-2.5 font-medium">Âge</th>
-                    <th className="px-6 py-2.5 font-medium">Service</th>
-                    <th className="px-6 py-2.5 font-medium">Médecin</th>
-                    <th className="px-6 py-2.5 font-medium">Type</th>
-                    <th className="px-6 py-2.5 font-medium">Motif</th>
-                    <th className="px-6 py-2.5 font-medium">Statut</th>
+                  <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                    <th className="px-6 py-3 font-semibold">Heure</th>
+                    <th className="px-6 py-3 font-semibold">Patient</th>
+                    <th className="px-6 py-3 font-semibold">Âge</th>
+                    <th className="px-6 py-3 font-semibold">Service</th>
+                    <th className="px-6 py-3 font-semibold">Médecin</th>
+                    <th className="px-6 py-3 font-semibold">Type</th>
+                    <th className="px-6 py-3 font-semibold">Motif</th>
+                    <th className="px-6 py-3 font-semibold">Statut</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/Button'
 import { StatusBadge, type StatusTone } from '@renderer/components/StatusBadge'
 import { ConfirmDialog } from '@renderer/components/ConfirmDialog'
 import type { ApiContract, ApiEmployeeContractStatus, ApiHrEmployee } from '@shared/hr-types'
 import { ContractFormModal } from './ContractFormModal'
+import { PulseLoader, EmptyState } from '@renderer/components/ui/Feedback'
 
 const STATUS_LABEL: Record<ApiEmployeeContractStatus, string> = {
   ACTIF: 'Actif',
@@ -44,12 +45,7 @@ export function ContractsTab({ employees }: { employees: ApiHrEmployee[] }): JSX
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-gray-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Chargement…
-      </div>
-    )
+    return <PulseLoader label="Chargement…" />
   }
   if (error) return <p className="px-6 py-8 text-center text-sm text-red-500">{error}</p>
 
@@ -97,25 +93,25 @@ export function ContractsTab({ employees }: { employees: ApiHrEmployee[] }): JSX
       )}
 
       {contracts.length === 0 ? (
-        <p className="px-6 py-12 text-center text-sm text-gray-400">Aucun contrat enregistré.</p>
+        <EmptyState title="Aucun contrat enregistré." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead>
-              <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                <th className="px-6 py-2.5 font-medium">Employé</th>
-                <th className="px-6 py-2.5 font-medium">Type</th>
-                <th className="px-6 py-2.5 font-medium">N° contrat</th>
-                <th className="px-6 py-2.5 font-medium">Poste</th>
-                <th className="px-6 py-2.5 font-medium">Début</th>
-                <th className="px-6 py-2.5 font-medium">Fin</th>
-                <th className="px-6 py-2.5 font-medium">Statut</th>
-                <th className="px-6 py-2.5 font-medium" />
+              <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <th className="px-6 py-3 font-semibold">Employé</th>
+                <th className="px-6 py-3 font-semibold">Type</th>
+                <th className="px-6 py-3 font-semibold">N° contrat</th>
+                <th className="px-6 py-3 font-semibold">Poste</th>
+                <th className="px-6 py-3 font-semibold">Début</th>
+                <th className="px-6 py-3 font-semibold">Fin</th>
+                <th className="px-6 py-3 font-semibold">Statut</th>
+                <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
               {contracts.map((c) => (
-                <tr key={c.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={c.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                   <td className="px-6 py-3 font-medium text-gray-900">{c.employeeName}</td>
                   <td className="px-6 py-3 text-gray-600">{c.type}</td>
                   <td className="px-6 py-3 text-gray-600">{c.contractNumber}</td>

@@ -36,6 +36,7 @@ import type { PathologyRequest, PathologyStatus } from './types'
 import { dayIndexInWeek, isSameDay, mondayOf } from '@renderer/features/appointments/week'
 import { PathologyRequestFormModal } from './PathologyRequestFormModal'
 import { SortableGroup } from '@renderer/components/SortableGroup'
+import { PulseLoader } from '@renderer/components/ui/Feedback'
 
 interface PathologyPageProps {
   onOpenPatient: (patientId: string) => void
@@ -53,9 +54,9 @@ const STATUS_LABEL: Record<ApiPathologyStatus, PathologyStatus> = {
 const PRIORITY_LABEL: Record<ApiPathologyPriority, 'Normale' | 'Urgent'> = { NORMALE: 'Normale', URGENT: 'Urgent' }
 
 const STATUS_DONUT_COLOR: Record<PathologyStatus, string> = {
-  'Résultat validé': '#10b981',
+  'Résultat validé': '#14b8a6',
   'En cours': '#3b82f6',
-  'En attente de prélèvement': '#f59e0b',
+  'En attente de prélèvement': '#dea127',
   Annulée: '#9ca3af'
 }
 
@@ -218,19 +219,13 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
     return base.filter((r) => `${r.patientName} ${r.sampleType} ${r.location} ${r.service}`.toLowerCase().includes(term))
   }, [activeTab, search, periodRequests])
 
-  const serviceOptions = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.service).filter((s) => s && s !== '—'))).sort(),
-    [requests]
-  )
+  const serviceOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.service).filter((s) => s && s !== '—'))).sort(), [requests])
   const typeOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.sampleType).filter(Boolean))).sort(), [requests])
   const locationOptions = useMemo(
     () => Array.from(new Set(requests.map((r) => r.location).filter((l) => l && l !== '—'))).sort(),
     [requests]
   )
-  const doctorOptions = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.doctor).filter((d) => d && d !== '—'))).sort(),
-    [requests]
-  )
+  const doctorOptions = useMemo(() => Array.from(new Set(requests.map((r) => r.doctor).filter((d) => d && d !== '—'))).sort(), [requests])
 
   const filteredRows = useMemo(
     () =>
@@ -380,64 +375,63 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement de l&apos;anatomopathologie…
-        </div>
+        <PulseLoader label="Chargement de l'anatomopathologie…" />
       ) : error ? (
         <p className="py-12 text-center text-sm text-red-500">{error}</p>
       ) : (
         <>
           {/* KPI row */}
           <SortableGroup id="pathology.grid1" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <FlaskConical className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <FlaskConical className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Demandes d&apos;analyses</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{todayRequests.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{todayRequests.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-orange-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-orange-50">
                 <Clock className="h-5 w-5 text-orange-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En cours aujourd&apos;hui</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{inProgress.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{inProgress.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Thermometer className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">En attente de prélèvement</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{waiting.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{waiting.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-emerald-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-teal-50">
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Résultats validés</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{validated.length}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{validated.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-red-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-red-50">
                 <TriangleAlert className="h-5 w-5 text-red-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Demandes urgentes</p>
               <p className="mt-0.5 text-xl font-bold text-red-600">{urgent.length}</p>
             </Card>
-            <Card className="border-t-4 border-t-blue-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-blue-50">
                 <Hourglass className="h-5 w-5 text-blue-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Délai moyen de rendu</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{avgTurnaroundMin === null ? '—' : formatDuration(avgTurnaroundMin)}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">
+                {avgTurnaroundMin === null ? '—' : formatDuration(avgTurnaroundMin)}
+              </p>
             </Card>
-            <Card className="border-t-4 border-t-violet-400 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-                <Users className="h-5 w-5 text-violet-600" />
+            <Card className="p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl ring-1 ring-black/5 bg-accent-50">
+                <Users className="h-5 w-5 text-accent-600" />
               </div>
               <p className="mt-3 text-xs font-medium text-gray-500">Patients suivis</p>
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{patientsFollowed ?? '—'}</p>
+              <p className="mt-0.5 text-xl font-display font-extrabold tabular-nums text-gray-900">{patientsFollowed ?? '—'}</p>
             </Card>
           </SortableGroup>
 
@@ -451,9 +445,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     onClick={() => setActiveTab(tab.id)}
                     className={
                       'rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' +
-                      (activeTab === tab.id
-                        ? 'border-accent-500 text-accent-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-800')
+                      (activeTab === tab.id ? 'border-accent-500 text-accent-700' : 'border-transparent text-gray-500 hover:text-gray-800')
                     }
                   >
                     {tab.label} <span className="text-xs text-gray-400">({tab.count})</span>
@@ -468,7 +460,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Rechercher dans la liste..."
-                    className="w-64 rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none"
+                    className="w-64 rounded-[10px] border border-gray-300 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -493,24 +485,24 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="px-6 py-2.5 font-medium">Date / Heure</th>
-                        <th className="px-6 py-2.5 font-medium">Patient</th>
-                        <th className="px-6 py-2.5 font-medium">Âge / Sexe</th>
-                        <th className="px-6 py-2.5 font-medium">Prélèvement</th>
-                        <th className="px-6 py-2.5 font-medium">Localisation</th>
-                        <th className="px-6 py-2.5 font-medium">Service</th>
-                        <th className="px-6 py-2.5 font-medium">Statut</th>
-                        <th className="px-6 py-2.5 font-medium">Priorité</th>
-                        <th className="px-6 py-2.5 font-medium">Délai prévu</th>
-                        <th className="px-6 py-2.5 font-medium" />
+                      <tr className="border-b border-gray-200 bg-gray-50/70 text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                        <th className="px-6 py-3 font-semibold">Date / Heure</th>
+                        <th className="px-6 py-3 font-semibold">Patient</th>
+                        <th className="px-6 py-3 font-semibold">Âge / Sexe</th>
+                        <th className="px-6 py-3 font-semibold">Prélèvement</th>
+                        <th className="px-6 py-3 font-semibold">Localisation</th>
+                        <th className="px-6 py-3 font-semibold">Service</th>
+                        <th className="px-6 py-3 font-semibold">Statut</th>
+                        <th className="px-6 py-3 font-semibold">Priorité</th>
+                        <th className="px-6 py-3 font-semibold">Délai prévu</th>
+                        <th className="px-6 py-3 font-semibold" />
                       </tr>
                     </thead>
                     <tbody>
                       {filteredRows.map((r) => (
-                        <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <tr key={r.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-accent-50/40">
                           <td className="px-6 py-3 text-gray-600">
                             <p>{formatDate(r.requestedAt)}</p>
                             <p className="text-xs text-gray-400">{formatTime(r.requestedAt)}</p>
@@ -526,7 +518,9 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3 text-gray-600">{r.age ? `${r.age} ans · ${r.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}</td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {r.age ? `${r.age} ans · ${r.gender === 'M' ? 'Homme' : 'Femme'}` : '—'}
+                          </td>
                           <td className="px-6 py-3 text-gray-900">{r.sampleType}</td>
                           <td className="px-6 py-3 text-gray-600">{r.location}</td>
                           <td className="px-6 py-3 text-gray-600">{r.service}</td>
@@ -537,7 +531,9 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                           <td className="px-6 py-3">
                             <StatusBadge label={r.priority} tone={pathologyPriorityTone(r.priority)} />
                           </td>
-                          <td className="px-6 py-3 text-gray-600">{r.expectedDurationMin === null ? '—' : formatDuration(r.expectedDurationMin)}</td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {r.expectedDurationMin === null ? '—' : formatDuration(r.expectedDurationMin)}
+                          </td>
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-1">
                               <button
@@ -604,11 +600,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Période</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Période</label>
                     <select
                       value={filterPeriod}
                       onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value="today">Aujourd&apos;hui</option>
                       <option value="week">Cette semaine</option>
@@ -617,11 +613,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Service demandeur</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Service demandeur</label>
                     <select
                       value={filterService}
                       onChange={(e) => setFilterService(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les services</option>
                       {serviceOptions.map((s) => (
@@ -632,11 +628,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Type de prélèvement</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Type de prélèvement</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les types</option>
                       {typeOptions.map((t) => (
@@ -647,11 +643,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Localisation / Organe</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Localisation / Organe</label>
                     <select
                       value={filterLocation}
                       onChange={(e) => setFilterLocation(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les localisations</option>
                       {locationOptions.map((l) => (
@@ -662,11 +658,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Statut</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Statut</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les statuts</option>
                       {Object.values(STATUS_LABEL).map((s) => (
@@ -677,11 +673,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Priorité</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Priorité</label>
                     <select
                       value={filterPriority}
                       onChange={(e) => setFilterPriority(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Toutes les priorités</option>
                       {Object.values(PRIORITY_LABEL).map((p) => (
@@ -692,11 +688,11 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Médecin demandeur</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-700">Médecin demandeur</label>
                     <select
                       value={filterDoctor}
                       onChange={(e) => setFilterDoctor(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none"
+                      className="w-full rounded-[10px] border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15"
                     >
                       <option value={ALL_FILTER}>Tous les médecins</option>
                       {doctorOptions.map((d) => (
@@ -713,7 +709,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
               </Card>
 
               <Card>
-                <h3 className="mb-4 text-sm font-semibold text-gray-900">Répartition par type de prélèvement</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-gray-900">Répartition par type de prélèvement</h3>
                 {sampleBreakdown.length === 0 ? (
                   <p className="text-xs text-gray-400">Aucune demande aujourd&apos;hui.</p>
                 ) : (
@@ -746,7 +742,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
 
               <Card className="p-0">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Actions rapides</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900">Actions rapides</h3>
                 </div>
                 <div className="p-2">
                   <QuickAction icon={Plus} label="Créer une nouvelle demande" onClick={() => setShowCreateModal(true)} />
@@ -763,7 +759,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
           {/* Panneaux du bas */}
           <SortableGroup id="pathology.grid3" className="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Demandes par service</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Demandes par service</h3>
               {requestsByService.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune demande aujourd&apos;hui.</p>
               ) : (
@@ -775,7 +771,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                         <span className="font-medium text-gray-900">{s.count}</span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                        <div className="h-full rounded-full bg-violet-500" style={{ width: `${(s.count / maxByService) * 100}%` }} />
+                        <div className="h-full rounded-full bg-accent-500" style={{ width: `${(s.count / maxByService) * 100}%` }} />
                       </div>
                     </div>
                   ))}
@@ -784,7 +780,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Délai moyen de rendu par type</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Délai moyen de rendu par type</h3>
               {delayBySampleType.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucun résultat validé aujourd&apos;hui.</p>
               ) : (
@@ -800,7 +796,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
             </Card>
 
             <Card>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">Statut des demandes</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-gray-900">Statut des demandes</h3>
               {todayRequests.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune demande aujourd&apos;hui.</p>
               ) : (
@@ -830,7 +826,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
 
             <Card className="p-0">
               <div className="border-b border-gray-100 px-5 py-3.5">
-                <h3 className="text-sm font-semibold text-gray-900">Alertes anatomopathologie</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Alertes anatomopathologie</h3>
               </div>
               <div className="space-y-3 p-5">
                 {urgentPending.length === 0 && waiting.length === 0 ? (
@@ -838,7 +834,10 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
                 ) : (
                   <>
                     {urgentPending.length > 0 && (
-                      <Alert text={`${urgentPending.length} demande${urgentPending.length > 1 ? 's' : ''} urgente${urgentPending.length > 1 ? 's' : ''} en attente`} tone="text-red-500" />
+                      <Alert
+                        text={`${urgentPending.length} demande${urgentPending.length > 1 ? 's' : ''} urgente${urgentPending.length > 1 ? 's' : ''} en attente`}
+                        tone="text-red-500"
+                      />
                     )}
                     {waiting.length > 0 && (
                       <Alert text={`${waiting.length} prélèvement${waiting.length > 1 ? 's' : ''} en attente`} tone="text-amber-500" />
@@ -854,15 +853,7 @@ export function PathologyPage({ onOpenPatient }: PathologyPageProps): JSX.Elemen
   )
 }
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick
-}: {
-  icon: typeof Plus
-  label: string
-  onClick?: () => void
-}): JSX.Element {
+function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick?: () => void }): JSX.Element {
   return (
     <button
       onClick={onClick}

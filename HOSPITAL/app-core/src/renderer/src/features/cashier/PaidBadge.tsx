@@ -5,7 +5,7 @@ export function PaidBadge({ paid }: { paid?: boolean }): JSX.Element | null {
   if (paid === undefined) return null
   return (
     <span
-      className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${paid ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}
+      className={`ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${paid ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-500'}`}
     >
       {paid ? 'Payé' : 'Non payé'}
     </span>

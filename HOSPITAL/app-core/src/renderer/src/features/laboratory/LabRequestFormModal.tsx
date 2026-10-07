@@ -19,8 +19,8 @@ interface LabRequestFormModalProps {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none'
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500'
+  'w-full rounded-[10px] border border-gray-300 px-3 py-1.5 text-sm text-gray-800 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-700'
 
 const PRIORITY_OPTIONS: { value: ApiLabPriority; label: string }[] = [
   { value: 'NORMALE', label: 'Normale' },
@@ -55,9 +55,7 @@ export function LabRequestFormModal({ onClose, onCreated, editing, initialPatien
   const [technicianId, setTechnicianId] = useState(editing?.technicianId ?? '')
   const [requestingDoctorId, setRequestingDoctorId] = useState(editing?.requestingDoctorId ?? '')
   const [analysisType, setAnalysisType] = useState(editing?.analysisType ?? '')
-  const [priority, setPriority] = useState<ApiLabPriority>(
-    editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMALE') : 'NORMALE'
-  )
+  const [priority, setPriority] = useState<ApiLabPriority>(editing ? (LABEL_TO_API_PRIORITY[editing.priority] ?? 'NORMALE') : 'NORMALE')
   const [service, setService] = useState(editing && editing.service !== '—' ? editing.service : '')
   const [sample, setSample] = useState(editing && editing.sample !== '—' ? editing.sample : '')
   const [status, setStatus] = useState<ApiLabStatus>(
@@ -114,7 +112,11 @@ export function LabRequestFormModal({ onClose, onCreated, editing, initialPatien
   }
 
   return (
-    <Modal title={editing ? 'Modifier la demande de laboratoire' : 'Nouvelle demande de laboratoire'} onClose={onClose} widthClassName="max-w-2xl">
+    <Modal
+      title={editing ? 'Modifier la demande de laboratoire' : 'Nouvelle demande de laboratoire'}
+      onClose={onClose}
+      widthClassName="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
